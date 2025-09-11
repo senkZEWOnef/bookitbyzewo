@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Container, Row, Col, Card, Alert, Button, Badge, Table, Spinner } from 'react-bootstrap'
+import { useState, useEffect, useRef } from 'react'
+import { Container, Row, Col, Card, Alert, Button, Badge, Table, Spinner, Modal } from 'react-bootstrap'
 import Link from 'next/link'
 import { format, parseISO, isToday, isTomorrow } from 'date-fns'
 import { createSupabaseClientClient } from '@/lib/supabase'
 import { createWhatsAppLink } from '@/lib/whatsapp'
+import QRCode from 'qrcode'
 
 interface Business {
   id: string
@@ -36,31 +37,81 @@ export default function DashboardPage() {
   const [recentAppointments, setRecentAppointments] = useState<RecentAppointment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showQRModal, setShowQRModal] = useState(false)
+  const [qrCodeUrl, setQrCodeUrl] = useState('')
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('')
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const supabase = createSupabaseClientClient()
 
   useEffect(() => {
     fetchDashboardData()
   }, [])
 
+  useEffect(() => {
+    if (business) {
+      generateDashboardQRCode()
+    }
+  }, [business])
+
   const fetchDashboardData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        console.log('No user found, redirecting to login')
+        window.location.href = '/login'
+        return
+      }
+
+      console.log('Current user ID:', user.id)
+
+      // Ensure user profile exists first
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          full_name: user.user_metadata?.full_name || '',
+          phone: user.user_metadata?.phone || ''
+        }, {
+          onConflict: 'id'
+        })
+
+      if (profileError) {
+        console.error('Profile creation error in dashboard:', profileError)
+      }
 
       // Get user's business
+      console.log('Querying businesses table for user:', user.id)
       const { data: businessData, error: businessError } = await supabase
         .from('businesses')
-        .select('*')
+        .select('id, name, slug, timezone, location, messaging_mode')
         .eq('owner_id', user.id)
-        .single()
+        .maybeSingle()
+
+      console.log('Business query result:', { businessData, businessError })
 
       if (businessError) {
-        if (businessError.code === 'PGRST116') {
+        console.error('Business query error details:', {
+          message: businessError.message,
+          code: businessError.code,
+          details: businessError.details,
+          hint: businessError.hint
+        })
+        
+        if (businessError.code === 'PGRST116' || businessError.message?.includes('JSON object requested')) {
           // No business found, redirect to onboarding
+          console.log('No business found, redirecting to onboarding')
           window.location.href = '/dashboard/onboarding'
           return
         }
-        throw businessError
+        
+        throw new Error(`Business query failed: ${businessError.message}`)
+      }
+
+      // Handle case where no business is found
+      if (!businessData) {
+        console.log('No business data found, redirecting to onboarding')
+        window.location.href = '/dashboard/onboarding'
+        return
       }
 
       setBusiness(businessData)
@@ -131,7 +182,9 @@ export default function DashboardPage() {
       setRecentAppointments(formattedAppointments)
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load dashboard')
+      console.error('Dashboard loading error:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load dashboard'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -163,6 +216,57 @@ export default function DashboardPage() {
     const message = `Hola ${name}! 👋 Este es un mensaje desde ${business?.name}. ¿En qué te puedo ayudar?`
     const link = createWhatsAppLink({ phone, message })
     window.open(link, '_blank')
+  }
+
+  const generateDashboardQRCode = async () => {
+    if (!business) return
+    
+    const bookingUrl = `${window.location.origin}/book/${business.slug}`
+    setQrCodeUrl(bookingUrl)
+    
+    try {
+      // Generate high-res QR code data URL for download and display
+      const dataUrl = await QRCode.toDataURL(bookingUrl, {
+        width: 400,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      })
+      setQrCodeDataUrl(dataUrl)
+    } catch (error) {
+      console.error('Error generating QR code:', error)
+    }
+  }
+
+  const generateQRCode = async () => {
+    if (!business) return
+    
+    try {
+      if (canvasRef.current && qrCodeUrl) {
+        await QRCode.toCanvas(canvasRef.current, qrCodeUrl, {
+          width: 300,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        })
+      }
+      setShowQRModal(true)
+    } catch (error) {
+      console.error('Error generating QR code:', error)
+    }
+  }
+
+  const downloadQRCode = () => {
+    if (qrCodeDataUrl) {
+      const link = document.createElement('a')
+      link.download = `${business?.name}-booking-qr.png`
+      link.href = qrCodeDataUrl
+      link.click()
+    }
   }
 
   if (loading) {
@@ -257,10 +361,69 @@ export default function DashboardPage() {
         </Col>
       </Row>
 
-      {/* Quick Actions */}
+      {/* QR Code Card */}
       <Row className="mb-4">
-        <Col>
-          <Card>
+        <Col md={4}>
+          <Card className="h-100">
+            <Card.Header>
+              <h5 className="mb-0">
+                <i className="fas fa-qrcode me-2"></i>
+                Booking QR Code
+              </h5>
+            </Card.Header>
+            <Card.Body className="text-center">
+              <div className="mb-3">
+                {qrCodeDataUrl ? (
+                  <img 
+                    src={qrCodeDataUrl} 
+                    alt="Booking QR Code" 
+                    style={{ 
+                      maxWidth: '120px', 
+                      height: 'auto'
+                    }} 
+                  />
+                ) : (
+                  <div 
+                    style={{ 
+                      width: '120px', 
+                      height: '120px', 
+                      backgroundColor: '#f8f9fa',
+                      border: '2px dashed #dee2e6',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto'
+                    }}
+                  >
+                    <i className="fas fa-qrcode text-muted"></i>
+                  </div>
+                )}
+              </div>
+              <p className="text-muted small mb-3">
+                Clients scan this to book appointments
+              </p>
+              {qrCodeUrl && (
+                <small className="text-muted d-block mb-2">
+                  {qrCodeUrl}
+                </small>
+              )}
+              <div className="d-flex gap-2 flex-wrap justify-content-center">
+                <Button size="sm" variant="outline-primary" onClick={generateQRCode}>
+                  <i className="fas fa-expand-alt me-1"></i>
+                  View Large
+                </Button>
+                <Button size="sm" variant="outline-success" onClick={downloadQRCode}>
+                  <i className="fas fa-download me-1"></i>
+                  Download
+                </Button>
+              </div>
+            </Card.Body>
+          </Card>
+        </Col>
+        
+        {/* Quick Actions */}
+        <Col md={8}>
+          <Card className="h-100">
             <Card.Header>
               <h5 className="mb-0">Quick Actions</h5>
             </Card.Header>
@@ -366,6 +529,47 @@ export default function DashboardPage() {
           </Card>
         </Col>
       </Row>
+
+      {/* QR Code Modal */}
+      <Modal show={showQRModal} onHide={() => setShowQRModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <i className="fas fa-qrcode me-2"></i>
+            QR Code for Booking Page
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="text-center">
+          <div className="mb-3">
+            <canvas ref={canvasRef} style={{ maxWidth: '100%' }} />
+          </div>
+          <p className="text-muted mb-3">
+            Clients can scan this QR code to book appointments directly
+          </p>
+          <div className="mb-3">
+            <strong>Booking URL:</strong><br />
+            <small className="text-muted">{qrCodeUrl}</small>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="outline-secondary" 
+            onClick={() => {
+              navigator.clipboard.writeText(qrCodeUrl)
+              alert('Booking URL copied to clipboard!')
+            }}
+          >
+            <i className="fas fa-copy me-1"></i>
+            Copy URL
+          </Button>
+          <Button variant="primary" onClick={downloadQRCode}>
+            <i className="fas fa-download me-1"></i>
+            Download QR Code
+          </Button>
+          <Button variant="secondary" onClick={() => setShowQRModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Container>
   )
 }

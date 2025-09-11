@@ -70,29 +70,66 @@ export default function OnboardingPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
+      console.log('Creating business for user:', user.id)
+      console.log('User metadata:', user.user_metadata)
+      console.log('User email:', user.email)
+
+      // Ensure user profile exists (create or update)
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          full_name: user.user_metadata?.full_name || '',
+          phone: user.user_metadata?.phone || ''
+        }, {
+          onConflict: 'id'
+        })
+        .select()
+
+      if (profileError) {
+        console.error('Profile upsert error:', profileError)
+        throw new Error(`Failed to create profile: ${profileError.message}`)
+      }
+
+      console.log('Profile created/updated successfully:', profileData)
+
+      // Verify we can read our own profile (test RLS)
+      const { data: profileCheck, error: profileCheckError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+      console.log('Profile check result:', { profileCheck, profileCheckError })
+
       // Create business
+      const businessInsertData = {
+        owner_id: user.id,
+        name: businessData.name,
+        slug: businessData.slug,
+        timezone: businessData.timezone,
+        location: businessData.location,
+        messaging_mode: 'manual'
+      }
+      
+      console.log('Attempting to insert business with data:', businessInsertData)
+      
       const { data: business, error: businessError } = await supabase
         .from('businesses')
-        .insert({
-          owner_id: user.id,
-          name: businessData.name,
-          slug: businessData.slug,
-          timezone: businessData.timezone,
-          location: businessData.location,
-          messaging_mode: 'manual'
-        })
+        .insert(businessInsertData)
         .select()
         .single()
 
       if (businessError) {
+        console.error('Business creation error:', businessError)
         if (businessError.code === '23505') {
-          throw new Error('Business name is already taken. Please choose a different name.')
+          throw new Error('Business URL is already taken. Please choose a different business name.')
         }
-        throw businessError
+        throw new Error(`Failed to create business: ${businessError.message}`)
       }
 
       // Create default staff entry for owner
-      await supabase
+      const { error: staffError } = await supabase
         .from('staff')
         .insert({
           business_id: business.id,
@@ -102,10 +139,15 @@ export default function OnboardingPage() {
           role: 'admin'
         })
 
+      if (staffError) {
+        console.error('Staff creation error:', staffError)
+        throw new Error(`Failed to create staff entry: ${staffError.message}`)
+      }
+
       // Create starter services based on business type
       const starterServices = getStarterServices(businessData.businessType)
       if (starterServices.length > 0) {
-        await supabase
+        const { error: servicesError } = await supabase
           .from('services')
           .insert(
             starterServices.map(service => ({
@@ -113,6 +155,11 @@ export default function OnboardingPage() {
               business_id: business.id
             }))
           )
+
+        if (servicesError) {
+          console.error('Services creation error:', servicesError)
+          throw new Error(`Failed to create services: ${servicesError.message}`)
+        }
       }
 
       // Create default availability (Mon-Fri 9-5)
@@ -127,9 +174,14 @@ export default function OnboardingPage() {
         })
       }
 
-      await supabase
+      const { error: availabilityError } = await supabase
         .from('availability_rules')
         .insert(defaultAvailability)
+
+      if (availabilityError) {
+        console.error('Availability creation error:', availabilityError)
+        throw new Error(`Failed to create availability: ${availabilityError.message}`)
+      }
 
       router.push('/dashboard')
     } catch (err) {

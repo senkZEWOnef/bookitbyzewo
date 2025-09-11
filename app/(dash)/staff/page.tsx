@@ -128,17 +128,35 @@ export default function StaffPage() {
         }
       } else {
         // Create new staff
+        console.log('Creating staff with data:', {
+          ...formData,
+          business_id: businessId,
+          user_id: null
+        })
+        
         const { data: newStaff, error: insertError } = await supabase
           .from('staff')
           .insert({
-            ...formData,
+            display_name: formData.display_name,
+            phone: formData.phone,
+            role: formData.role,
             business_id: businessId,
             user_id: null // For now, staff are not linked to user accounts
           })
           .select()
           .single()
 
-        if (insertError) throw insertError
+        console.log('Staff creation result:', { newStaff, insertError })
+        
+        if (insertError) {
+          console.error('Staff insert error details:', {
+            message: insertError.message,
+            code: insertError.code,
+            details: insertError.details,
+            hint: insertError.hint
+          })
+          throw new Error(`Failed to create staff: ${insertError.message}`)
+        }
 
         // Add service assignments
         if (formData.serviceIds.length > 0) {

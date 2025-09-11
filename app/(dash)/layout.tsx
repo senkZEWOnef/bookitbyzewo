@@ -77,24 +77,24 @@ export default function DashboardLayout({
               </Nav.Link>
               <Nav.Link 
                 as={Link} 
-                href="/calendar" 
-                className={pathname === '/calendar' ? 'active fw-bold' : ''}
+                href="/dashboard/calendar" 
+                className={pathname === '/dashboard/calendar' ? 'active fw-bold' : ''}
               >
                 <i className="fas fa-calendar me-1"></i>
                 Calendar
               </Nav.Link>
               <Nav.Link 
                 as={Link} 
-                href="/services" 
-                className={pathname === '/services' ? 'active fw-bold' : ''}
+                href="/dashboard/services" 
+                className={pathname === '/dashboard/services' ? 'active fw-bold' : ''}
               >
                 <i className="fas fa-cogs me-1"></i>
                 Services
               </Nav.Link>
               <Nav.Link 
                 as={Link} 
-                href="/staff" 
-                className={pathname === '/staff' ? 'active fw-bold' : ''}
+                href="/dashboard/staff" 
+                className={pathname === '/dashboard/staff' ? 'active fw-bold' : ''}
               >
                 <i className="fas fa-users me-1"></i>
                 Staff
@@ -111,7 +111,7 @@ export default function DashboardLayout({
                 } 
                 id="user-dropdown"
               >
-                <NavDropdown.Item as={Link} href="/settings">
+                <NavDropdown.Item as={Link} href="/dashboard/settings">
                   <i className="fas fa-cog me-2"></i>
                   Settings
                 </NavDropdown.Item>

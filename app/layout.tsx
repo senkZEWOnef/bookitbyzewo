@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import './globals.css'
 import { LanguageProvider } from '@/lib/language-context'
+import Navigation from '@/components/Navigation'
 
 export const metadata: Metadata = {
   title: 'BookIt by Zewo - WhatsApp-First Booking',
@@ -23,6 +24,7 @@ export default function RootLayout({
       </head>
       <body>
         <LanguageProvider>
+          <Navigation />
           {children}
         </LanguageProvider>
       </body>
