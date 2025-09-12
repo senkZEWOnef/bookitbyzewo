@@ -296,20 +296,18 @@ export default function DashboardPage() {
           <p className="text-muted">Welcome back to {business?.name}</p>
         </div>
         <div>
-          <Button 
-            variant="success" 
-            as={Link} 
-            href={`/book/${business?.slug}`}
-            target="_blank"
-            className="me-2"
-          >
-            <i className="fas fa-external-link-alt me-1"></i>
-            View Booking Page
-          </Button>
-          <Button variant="outline-primary" as={Link} href="/calendar">
-            <i className="fas fa-calendar me-1"></i>
-            Calendar
-          </Button>
+          <Link href={`/book/${business?.slug}`} target="_blank" className="me-2">
+            <Button variant="success">
+              <i className="fas fa-external-link-alt me-1"></i>
+              View Booking Page
+            </Button>
+          </Link>
+          <Link href="/calendar">
+            <Button variant="outline-primary">
+              <i className="fas fa-calendar me-1"></i>
+              Calendar
+            </Button>
+          </Link>
         </div>
       </div>
 
