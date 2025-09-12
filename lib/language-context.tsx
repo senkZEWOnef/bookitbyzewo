@@ -98,16 +98,6 @@ const translations = {
     'auth.signup.terms': 'By signing up, you agree to our Terms of Service and Privacy Policy',
     'auth.signup.confirm': 'Confirm Password',
     'auth.signup.creating': 'Creating Account...',
-    
-    // Stats Section
-    'stats.noshows.number': '80%',
-    'stats.noshows.label': 'Reduction in No-Shows',
-    'stats.whatsapp.number': '2B+',
-    'stats.whatsapp.label': 'WhatsApp Users Worldwide',
-    'stats.setup.number': '5min',
-    'stats.setup.label': 'Average Setup Time',
-    'stats.automation.number': '24/7',
-    'stats.automation.label': 'Automated Booking',
 
     // Features for Service Providers
     'providers.title': 'Perfect for Local Service Providers',
@@ -260,16 +250,6 @@ const translations = {
     'auth.signup.terms': 'Al registrarte, aceptas nuestros Términos de Servicio y Política de Privacidad',
     'auth.signup.confirm': 'Confirmar Contraseña',
     'auth.signup.creating': 'Creando Cuenta...',
-    
-    // Stats Section
-    'stats.noshows.number': '80%',
-    'stats.noshows.label': 'Reducción en Ausencias',
-    'stats.whatsapp.number': '2B+',
-    'stats.whatsapp.label': 'Usuarios de WhatsApp Mundialmente',
-    'stats.setup.number': '5min',
-    'stats.setup.label': 'Tiempo Promedio de Configuración',
-    'stats.automation.number': '24/7',
-    'stats.automation.label': 'Reservas Automatizadas',
 
     // Features for Service Providers
     'providers.title': 'Perfecto para Proveedores de Servicios Locales',
