@@ -7,6 +7,8 @@ import ServiceCard from '@/components/ServiceCard'
 import TimeSlotPicker from '@/components/TimeSlotPicker'
 import { Service, Business } from '@/types/database'
 
+export const dynamic = 'force-dynamic'
+
 interface BookingData {
   serviceId: string
   staffId?: string

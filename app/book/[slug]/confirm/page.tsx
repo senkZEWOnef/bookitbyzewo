@@ -7,6 +7,8 @@ import { format, parseISO } from 'date-fns'
 import { es, enUS } from 'date-fns/locale'
 import { createWhatsAppLink, getTemplate } from '@/lib/whatsapp'
 
+export const dynamic = 'force-dynamic'
+
 interface AppointmentData {
   id: string
   service_name: string

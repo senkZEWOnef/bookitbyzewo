@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { Container, Row, Col, Button, Card, Badge } from 'react-bootstrap'
 import { useLanguage } from '@/lib/language-context'
 
+export const dynamic = 'force-dynamic'
+
 export default function HomePage() {
   const { t } = useLanguage()
   return (

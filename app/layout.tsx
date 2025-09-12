@@ -4,6 +4,8 @@ import './globals.css'
 import { LanguageProvider } from '@/lib/language-context'
 import Navigation from '@/components/Navigation'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'BookIt by Zewo - WhatsApp-First Booking',
   description: 'A Calendly built for WhatsApp. Service pros get a shareable booking link that confirms appointments, collects deposits, and sends updates via WhatsApp.',
