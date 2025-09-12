@@ -15,6 +15,7 @@ export interface Business {
   owner_id: string
   name: string
   slug: string
+  location?: string
   timezone: string
   messaging_mode: MessagingMode
 }
