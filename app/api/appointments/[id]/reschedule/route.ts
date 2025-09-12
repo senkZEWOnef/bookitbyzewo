@@ -51,15 +51,23 @@ export async function PATCH(
     const newEndsAt = addMinutes(newStartsAt, appointment.services.duration_min)
 
     // Check if new slot is available
-    const { data: conflictingAppointments } = await supabase
+    let query = supabase
       .from('appointments')
       .select('id')
       .eq('business_id', appointment.business_id)
-      .is(appointment.staff_id ? 'staff_id' : null, appointment.staff_id || null)
       .gte('starts_at', newStartsAt.toISOString())
       .lte('starts_at', newEndsAt.toISOString())
       .in('status', ['confirmed', 'pending'])
       .neq('id', params.id) // Exclude current appointment
+    
+    // Add staff filter if staff_id exists
+    if (appointment.staff_id) {
+      query = query.eq('staff_id', appointment.staff_id)
+    } else {
+      query = query.is('staff_id', null)
+    }
+    
+    const { data: conflictingAppointments } = await query
 
     if (conflictingAppointments && conflictingAppointments.length > 0) {
       return NextResponse.json(
