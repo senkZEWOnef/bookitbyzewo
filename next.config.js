@@ -1,6 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // App Router is enabled by default in Next.js 14
+  output: 'standalone',
+  trailingSlash: false,
+  generateBuildId: () => 'build',
+  experimental: {
+    serverComponentsExternalPackages: ['@supabase/supabase-js']
+  },
+  env: {
+    DISABLE_STATIC_GENERATION: 'true'
+  }
 }
 
 module.exports = nextConfig

@@ -1,6 +1,8 @@
 import { Container, Row, Col } from 'react-bootstrap'
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic'
+
 export default function AuthLayout({
   children,
 }: {
