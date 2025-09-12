@@ -58,24 +58,38 @@ export async function GET(
     const targetDate = parseISO(date)
     const weekday = targetDate.getDay() // 0 = Sunday
     
-    const { data: availabilityRules } = await supabase
+    let availabilityQuery = supabase
       .from('availability_rules')
       .select('*')
       .eq('business_id', business.id)
       .eq('weekday', weekday)
-      .is(staffId ? 'staff_id' : null, staffId || null)
+    
+    if (staffId) {
+      availabilityQuery = availabilityQuery.eq('staff_id', staffId)
+    } else {
+      availabilityQuery = availabilityQuery.is('staff_id', null)
+    }
+    
+    const { data: availabilityRules } = await availabilityQuery
 
     if (!availabilityRules || availabilityRules.length === 0) {
       return NextResponse.json({ slots: [] })
     }
 
     // Get availability exceptions for this date
-    const { data: exceptions } = await supabase
+    let exceptionsQuery = supabase
       .from('availability_exceptions')
       .select('*')
       .eq('business_id', business.id)
       .eq('date', date)
-      .is(staffId ? 'staff_id' : null, staffId || null)
+    
+    if (staffId) {
+      exceptionsQuery = exceptionsQuery.eq('staff_id', staffId)
+    } else {
+      exceptionsQuery = exceptionsQuery.is('staff_id', null)
+    }
+    
+    const { data: exceptions } = await exceptionsQuery
 
     // Check if the day is marked as closed
     const isClosed = exceptions?.some(exc => exc.is_closed)
@@ -87,14 +101,21 @@ export async function GET(
     const dayStart = zonedTimeToUtc(startOfDay(targetDate), business.timezone)
     const dayEnd = zonedTimeToUtc(endOfDay(targetDate), business.timezone)
 
-    const { data: existingAppointments } = await supabase
+    let appointmentsQuery = supabase
       .from('appointments')
       .select('starts_at, ends_at')
       .eq('business_id', business.id)
       .gte('starts_at', dayStart.toISOString())
       .lte('starts_at', dayEnd.toISOString())
       .in('status', ['confirmed', 'pending'])
-      .is(staffId ? 'staff_id' : null, staffId || null)
+    
+    if (staffId) {
+      appointmentsQuery = appointmentsQuery.eq('staff_id', staffId)
+    } else {
+      appointmentsQuery = appointmentsQuery.is('staff_id', null)
+    }
+    
+    const { data: existingAppointments } = await appointmentsQuery
 
     // Generate time slots
     const slots: { datetime: string; available: boolean }[] = []

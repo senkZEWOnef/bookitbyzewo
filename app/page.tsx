@@ -34,20 +34,22 @@ export default function HomePage() {
                   {t('hero.subtitle')}
                 </p>
                 <div className="d-flex gap-4 justify-content-center flex-wrap mb-5">
-                  <Button as={Link} href="/signup" size="lg" variant="light" className="px-5 py-3 fw-semibold">
-                    <i className="fas fa-rocket me-2"></i>
-                    {t('hero.cta.trial')}
-                  </Button>
-                  <Button 
-                    as={Link} 
-                    href="/book/demo" 
-                    size="lg" 
-                    variant="outline-light" 
-                    className="px-5 py-3 fw-semibold"
-                  >
-                    <i className="fas fa-play me-2"></i>
-                    {t('hero.cta.demo')}
-                  </Button>
+                  <Link href="/signup">
+                    <Button size="lg" variant="light" className="px-5 py-3 fw-semibold">
+                      <i className="fas fa-rocket me-2"></i>
+                      {t('hero.cta.trial')}
+                    </Button>
+                  </Link>
+                  <Link href="/book/demo">
+                    <Button 
+                      size="lg" 
+                      variant="outline-light" 
+                      className="px-5 py-3 fw-semibold"
+                    >
+                      <i className="fas fa-play me-2"></i>
+                      {t('hero.cta.demo')}
+                    </Button>
+                  </Link>
                 </div>
                 
                 {/* Trust indicators */}
@@ -460,14 +462,18 @@ export default function HomePage() {
               </p>
               
               <div className="d-flex gap-4 justify-content-center flex-wrap mb-5">
-                <Button as={Link} href="/signup" size="lg" variant="light" className="px-5 py-3 fw-semibold">
-                  <i className="fas fa-rocket me-2"></i>
-                  {t('cta.trial')}
-                </Button>
-                <Button as={Link} href="/pricing" size="lg" variant="outline-light" className="px-5 py-3 fw-semibold">
-                  <i className="fas fa-dollar-sign me-2"></i>
-                  {t('cta.pricing')}
-                </Button>
+                <Link href="/signup">
+                  <Button size="lg" variant="light" className="px-5 py-3 fw-semibold">
+                    <i className="fas fa-rocket me-2"></i>
+                    {t('cta.trial')}
+                  </Button>
+                </Link>
+                <Link href="/pricing">
+                  <Button size="lg" variant="outline-light" className="px-5 py-3 fw-semibold">
+                    <i className="fas fa-dollar-sign me-2"></i>
+                    {t('cta.pricing')}
+                  </Button>
+                </Link>
               </div>
               
               <div className="d-flex justify-content-center align-items-center gap-4 flex-wrap text-white-50">

@@ -45,9 +45,11 @@ export default function Navigation() {
             {t('nav.login')}
           </Nav.Link>
           
-          <Button as={Link} href="/signup" variant="light" size="sm" className="px-3 fw-semibold">
-            {t('nav.signup')}
-          </Button>
+          <Link href="/signup">
+            <Button variant="light" size="sm" className="px-3 fw-semibold">
+              {t('nav.signup')}
+            </Button>
+          </Link>
         </Nav>
       </Container>
     </Navbar>

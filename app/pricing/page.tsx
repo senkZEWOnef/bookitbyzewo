@@ -155,20 +155,20 @@ export default function PricingPage() {
                       ))}
                     </ul>
                     
-                    <Button 
-                      size="lg" 
-                      className="w-100 fw-semibold py-3"
-                      style={{ 
-                        background: plan.gradient, 
-                        border: 'none',
-                        color: 'white'
-                      }}
-                      as={Link}
-                      href="/signup"
-                    >
-                      <i className="fas fa-rocket me-2"></i>
-                      {plan.cta}
-                    </Button>
+                    <Link href="/signup">
+                      <Button 
+                        size="lg" 
+                        className="w-100 fw-semibold py-3"
+                        style={{ 
+                          background: plan.gradient, 
+                          border: 'none',
+                          color: 'white'
+                        }}
+                      >
+                        <i className="fas fa-rocket me-2"></i>
+                        {plan.cta}
+                      </Button>
+                    </Link>
                   </Card.Body>
                 </Card>
               </Col>
@@ -426,14 +426,18 @@ export default function PricingPage() {
                 their booking process with WhatsApp. Start your journey today.
               </p>
               <div className="d-flex justify-content-center gap-4 flex-wrap mb-5">
-                <Button as={Link} href="/signup" variant="light" size="lg" className="px-5 py-3 fw-semibold">
-                  <i className="fas fa-rocket me-2"></i>
-                  Start Your Free Trial
-                </Button>
-                <Button as={Link} href="/book/demo" variant="outline-light" size="lg" className="px-5 py-3 fw-semibold">
-                  <i className="fas fa-calendar me-2"></i>
-                  Book a Demo
-                </Button>
+                <Link href="/signup">
+                  <Button variant="light" size="lg" className="px-5 py-3 fw-semibold">
+                    <i className="fas fa-rocket me-2"></i>
+                    Start Your Free Trial
+                  </Button>
+                </Link>
+                <Link href="/book/demo">
+                  <Button variant="outline-light" size="lg" className="px-5 py-3 fw-semibold">
+                    <i className="fas fa-calendar me-2"></i>
+                    Book a Demo
+                  </Button>
+                </Link>
               </div>
               <p className="small opacity-75">
                 <i className="fas fa-lock me-2"></i>

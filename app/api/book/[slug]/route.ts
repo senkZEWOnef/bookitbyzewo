@@ -60,14 +60,22 @@ export async function POST(
     const endsAt = addMinutes(startsAt, service.duration_min)
 
     // Check if slot is still available
-    const { data: conflictingAppointments } = await supabase
+    let query = supabase
       .from('appointments')
       .select('id')
       .eq('business_id', business.id)
-      .is(staffId ? 'staff_id' : null, staffId || null)
       .gte('starts_at', startsAt.toISOString())
       .lte('starts_at', endsAt.toISOString())
       .in('status', ['confirmed', 'pending'])
+    
+    // Add staff filter if staffId exists
+    if (staffId) {
+      query = query.eq('staff_id', staffId)
+    } else {
+      query = query.is('staff_id', null)
+    }
+    
+    const { data: conflictingAppointments } = await query
 
     if (conflictingAppointments && conflictingAppointments.length > 0) {
       return NextResponse.json(
