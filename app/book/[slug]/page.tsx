@@ -56,7 +56,7 @@ export default function BookingPage() {
       setServices(data.services || [])
       
       // Auto-select service if only one
-      if (data.services?.length === 1) {
+      if ((data.services?.length ?? 0) === 1) {
         setSelectedService(data.services[0])
         setStep('time')
       }
@@ -116,7 +116,7 @@ export default function BookingPage() {
       }
 
       // If deposit required, redirect to payment
-      if (selectedService.deposit_cents > 0) {
+      if ((selectedService?.deposit_cents ?? 0) > 0) {
         if (result.stripeUrl) {
           window.location.href = result.stripeUrl
         } else {
@@ -245,8 +245,8 @@ export default function BookingPage() {
                     <strong>{selectedService.name}</strong>
                     <div className="small text-muted mt-1">
                       {selectedService.duration_min} min • {formatPrice(selectedService.price_cents)}
-                      {selectedService.deposit_cents > 0 && (
-                        <> • {locale === 'es' ? 'Depósito' : 'Deposit'} {formatPrice(selectedService.deposit_cents)}</>
+                      {(selectedService?.deposit_cents ?? 0) > 0 && (
+                        <> • {locale === 'es' ? 'Depósito' : 'Deposit'} {formatPrice(selectedService?.deposit_cents ?? 0)}</>
                       )}
                     </div>
                   </div>
@@ -343,7 +343,7 @@ export default function BookingPage() {
                             <Spinner animation="border" size="sm" className="me-2" />
                             {locale === 'es' ? 'Reservando...' : 'Booking...'}
                           </>
-                        ) : selectedService?.deposit_cents > 0 ? (
+                        ) : (selectedService?.deposit_cents ?? 0) > 0 ? (
                           locale === 'es' ? 'Continuar al pago' : 'Continue to payment'
                         ) : (
                           locale === 'es' ? 'Confirmar reserva' : 'Confirm booking'
