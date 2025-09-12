@@ -468,17 +468,21 @@ export default function DashboardPage() {
           <Card>
             <Card.Header className="d-flex justify-content-between align-items-center">
               <h5 className="mb-0">Recent Appointments</h5>
-              <Button variant="link" as={Link} href="/calendar" size="sm">
-                View All
-              </Button>
+              <Link href="/calendar">
+                <Button variant="link" size="sm">
+                  View All
+                </Button>
+              </Link>
             </Card.Header>
             <Card.Body className="p-0">
               {recentAppointments.length === 0 ? (
                 <div className="text-center py-4">
                   <p className="text-muted">No appointments yet</p>
-                  <Button variant="success" as={Link} href="/services">
-                    Create Your First Service
-                  </Button>
+                  <Link href="/services">
+                    <Button variant="success">
+                      Create Your First Service
+                    </Button>
+                  </Link>
                 </div>
               ) : (
                 <Table responsive className="mb-0">
@@ -515,14 +519,14 @@ export default function DashboardPage() {
                           >
                             <i className="fab fa-whatsapp"></i>
                           </Button>
-                          <Button 
-                            variant="outline-primary" 
-                            size="sm"
-                            as={Link}
-                            href={`/calendar?appointment=${appointment.id}`}
-                          >
-                            <i className="fas fa-eye"></i>
-                          </Button>
+                          <Link href={`/calendar?appointment=${appointment.id}`}>
+                            <Button 
+                              variant="outline-primary" 
+                              size="sm"
+                            >
+                              <i className="fas fa-eye"></i>
+                            </Button>
+                          </Link>
                         </td>
                       </tr>
                     ))}
