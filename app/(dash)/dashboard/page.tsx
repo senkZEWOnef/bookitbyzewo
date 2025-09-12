@@ -175,8 +175,8 @@ export default function DashboardPage() {
         customer_phone: apt.customer_phone,
         starts_at: apt.starts_at,
         status: apt.status,
-        service_name: apt.services.name,
-        deposit_amount: apt.services.deposit_cents
+        service_name: apt.services[0]?.name,
+        deposit_amount: apt.services[0]?.deposit_cents
       })) || []
 
       setRecentAppointments(formattedAppointments)
