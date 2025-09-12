@@ -22,7 +22,7 @@ const translations = {
     
     // Homepage Hero
     'hero.badge': 'WhatsApp-First Booking System',
-    'hero.title': 'A Calendly built for WhatsApp',
+    'hero.title': 'A Calendly built for',
     'hero.subtitle': 'Service professionals get a shareable booking link that confirms appointments, collects deposits, and sends updates via WhatsApp. Bilingual (EN/ES), PR-friendly (Stripe + ATH Móvil).',
     'hero.cta.trial': 'Start Free Trial',
     'hero.cta.demo': 'See Live Demo',
@@ -184,7 +184,7 @@ const translations = {
     
     // Homepage Hero
     'hero.badge': 'Sistema de Reservas por WhatsApp',
-    'hero.title': 'Un Calendly diseñado para WhatsApp',
+    'hero.title': 'Un Calendly diseñado para',
     'hero.subtitle': 'Los profesionales de servicios obtienen un enlace compartible que confirma citas, cobra depósitos y envía actualizaciones por WhatsApp. Bilingüe (EN/ES), amigable para PR (Stripe + ATH Móvil).',
     'hero.cta.trial': 'Comenzar Prueba Gratis',
     'hero.cta.demo': 'Ver Demo en Vivo',
