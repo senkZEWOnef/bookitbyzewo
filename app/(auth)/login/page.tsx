@@ -4,8 +4,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Form, Button, Card, Alert } from 'react-bootstrap'
-import { createSupabaseClientClient } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -13,7 +16,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
-  const supabase = createSupabaseClientClient()
+  const supabase = createSupabaseClient()
   const { t } = useLanguage()
 
   const handleLogin = async (e: React.FormEvent) => {

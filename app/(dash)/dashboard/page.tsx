@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Container, Row, Col, Card, Alert, Button, Badge, Table, Spinner, Modal } from 'react-bootstrap'
 import Link from 'next/link'
 import { format, parseISO, isToday, isTomorrow } from 'date-fns'
-import { createSupabaseClientClient } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabase'
 import { createWhatsAppLink } from '@/lib/whatsapp'
 import QRCode from 'qrcode'
 
@@ -31,6 +31,9 @@ interface RecentAppointment {
   deposit_amount?: number
 }
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export default function DashboardPage() {
   const [business, setBusiness] = useState<Business | null>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -41,7 +44,7 @@ export default function DashboardPage() {
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('')
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const supabase = createSupabaseClientClient()
+  const supabase = createSupabaseClient()
 
   useEffect(() => {
     fetchDashboardData()

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Form, Button, Alert, Table, Modal, Badge } from 'react-bootstrap'
-import { createSupabaseClientClient } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabase'
 import { AvailabilityRule, AvailabilityException, Business } from '@/types/database'
 
 interface AvailabilityFormData {
@@ -28,6 +28,9 @@ const weekdays = [
   { value: 6, label: 'Saturday' }
 ]
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export default function SettingsPage() {
   const [business, setBusiness] = useState<Business | null>(null)
   const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([])
@@ -48,7 +51,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const supabase = createSupabaseClientClient()
+  const supabase = createSupabaseClient()
 
   useEffect(() => {
     fetchData()

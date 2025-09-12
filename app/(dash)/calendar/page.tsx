@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Button, Badge, Modal, Table, Form, Alert } from 'react-bootstrap'
 import { format, startOfWeek, endOfWeek, addDays, parseISO, isSameDay, startOfDay, endOfDay } from 'date-fns'
-import { createSupabaseClientClient } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabase'
 import { Appointment, Service, Staff } from '@/types/database'
 import WhatsAppBadge from '@/components/WhatsAppBadge'
 
@@ -11,6 +11,9 @@ interface CalendarAppointment extends Appointment {
   service_name: string
   staff_name?: string
 }
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export default function CalendarPage() {
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([])
@@ -24,7 +27,7 @@ export default function CalendarPage() {
   const [businessName, setBusiness] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const supabase = createSupabaseClientClient()
+  const supabase = createSupabaseClient()
 
   useEffect(() => {
     fetchData()

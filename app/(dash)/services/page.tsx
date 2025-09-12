@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Table, Button, Modal, Form, Alert, Badge } from 'react-bootstrap'
-import { createSupabaseClientClient } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabase'
 import { Service } from '@/types/database'
 
 interface ServiceFormData {
@@ -27,6 +27,9 @@ const initialFormData: ServiceFormData = {
   max_per_slot: 1
 }
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([])
   const [businessId, setBusinessId] = useState<string>('')
@@ -36,7 +39,7 @@ export default function ServicesPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const supabase = createSupabaseClientClient()
+  const supabase = createSupabaseClient()
 
   useEffect(() => {
     fetchServices()

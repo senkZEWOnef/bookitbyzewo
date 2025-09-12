@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Container, Row, Col, Card, Form, Button, Alert, ProgressBar } from 'react-bootstrap'
-import { createSupabaseClientClient } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabase'
 
 interface BusinessData {
   name: string
@@ -31,6 +31,9 @@ const timezones = [
   { value: 'America/Los_Angeles', label: 'Pacific Time (PST/PDT)' }
 ]
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export default function OnboardingPage() {
   const [step, setStep] = useState(1)
   const [businessData, setBusinessData] = useState<BusinessData>({
@@ -43,7 +46,7 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
-  const supabase = createSupabaseClientClient()
+  const supabase = createSupabaseClient()
 
   const generateSlug = (name: string) => {
     return name

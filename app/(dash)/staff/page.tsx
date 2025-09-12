@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Table, Button, Modal, Form, Alert, Badge } from 'react-bootstrap'
-import { createSupabaseClientClient } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabase'
 import { Staff, Service } from '@/types/database'
 
 interface StaffFormData {
@@ -19,6 +19,9 @@ const initialFormData: StaffFormData = {
   serviceIds: []
 }
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export default function StaffPage() {
   const [staff, setStaff] = useState<Staff[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -29,7 +32,7 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const supabase = createSupabaseClientClient()
+  const supabase = createSupabaseClient()
 
   useEffect(() => {
     fetchData()
@@ -451,7 +454,7 @@ export default function StaffPage() {
 // Component to display staff services
 function StaffServices({ staffId, services }: { staffId: string, services: Service[] }) {
   const [staffServices, setStaffServices] = useState<string[]>([])
-  const supabase = createSupabaseClientClient()
+  const supabase = createSupabaseClient()
 
   useEffect(() => {
     fetchStaffServices()
