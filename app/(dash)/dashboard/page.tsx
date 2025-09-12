@@ -427,18 +427,24 @@ export default function DashboardPage() {
             </Card.Header>
             <Card.Body>
               <div className="d-flex gap-3 flex-wrap">
-                <Button variant="outline-primary" as={Link} href="/services">
-                  <i className="fas fa-plus me-1"></i>
-                  Add Service
-                </Button>
-                <Button variant="outline-success" as={Link} href="/staff">
-                  <i className="fas fa-user-plus me-1"></i>
-                  Add Staff
-                </Button>
-                <Button variant="outline-info" as={Link} href="/settings">
-                  <i className="fas fa-cog me-1"></i>
-                  Settings
-                </Button>
+                <Link href="/services">
+                  <Button variant="outline-primary">
+                    <i className="fas fa-plus me-1"></i>
+                    Add Service
+                  </Button>
+                </Link>
+                <Link href="/staff">
+                  <Button variant="outline-success">
+                    <i className="fas fa-user-plus me-1"></i>
+                    Add Staff
+                  </Button>
+                </Link>
+                <Link href="/settings">
+                  <Button variant="outline-info">
+                    <i className="fas fa-cog me-1"></i>
+                    Settings
+                  </Button>
+                </Link>
                 <Button 
                   variant="outline-warning"
                   onClick={() => {
