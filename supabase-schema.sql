@@ -146,6 +146,16 @@ returns boolean language sql stable as $
   );
 $;
 
+-- Helper: get user's business (bypassing RLS for debugging)
+create or replace function get_user_business(user_id uuid)
+returns table(id uuid, name text, slug text, timezone text, location text, messaging_mode text)
+language sql security definer as $
+  select b.id, b.name, b.slug, b.timezone, b.location, b.messaging_mode
+  from businesses b
+  where b.owner_id = user_id
+  limit 1;
+$;
+
 -- RLS
 alter table profiles enable row level security;
 alter table businesses enable row level security;

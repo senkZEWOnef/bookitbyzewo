@@ -179,6 +179,29 @@ export default function BookingPage() {
             </p>
           </div>
 
+          {/* Demo Banner */}
+          {businessSlug === 'demo' && (
+            <Alert variant="info" className="mb-4 border-0 shadow-sm">
+              <div className="d-flex align-items-center">
+                <div className="me-3">
+                  <i className="fas fa-play-circle fa-2x text-primary"></i>
+                </div>
+                <div>
+                  <h6 className="mb-1">
+                    <i className="fas fa-magic me-2"></i>
+                    {locale === 'es' ? '¡Esta es una demostración!' : 'This is a live demo!'}
+                  </h6>
+                  <p className="mb-0 small">
+                    {locale === 'es' 
+                      ? 'Explora cómo funciona nuestro sistema de reservas por WhatsApp. Todos los servicios y horarios son reales.' 
+                      : 'Explore how our WhatsApp booking system works. All services and time slots are real examples.'
+                    }
+                  </p>
+                </div>
+              </div>
+            </Alert>
+          )}
+
           {/* Progress Steps */}
           <div className="d-flex justify-content-center mb-4">
             {[

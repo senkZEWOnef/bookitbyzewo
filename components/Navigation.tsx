@@ -1,11 +1,42 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Navbar, Nav, Container, Button } from 'react-bootstrap'
+import { useRouter } from 'next/navigation'
+import { Navbar, Nav, Container, Button, NavDropdown } from 'react-bootstrap'
 import { useLanguage } from '@/lib/language-context'
+import { createSupabaseClient } from '@/lib/supabase'
 
 export default function Navigation() {
   const { language, setLanguage, t } = useLanguage()
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const supabase = createSupabaseClient()
+
+  useEffect(() => {
+    // Get initial user state
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+      setLoading(false)
+    }
+    
+    getUser()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null)
+      setLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+  }
 
   return (
     <Navbar expand="lg" className="position-absolute w-100 top-0 start-0" style={{ 
@@ -41,15 +72,61 @@ export default function Navigation() {
           <Nav.Link as={Link} href="/pricing" className="text-white-75 me-3" style={{ textDecoration: 'none' }}>
             {t('nav.pricing')}
           </Nav.Link>
-          <Nav.Link as={Link} href="/login" className="text-white-75 me-3" style={{ textDecoration: 'none' }}>
-            {t('nav.login')}
-          </Nav.Link>
           
-          <Link href="/signup">
-            <Button variant="light" size="sm" className="px-3 fw-semibold">
-              {t('nav.signup')}
-            </Button>
-          </Link>
+          {loading ? (
+            // Loading state
+            <div className="text-white-75 me-3">
+              <i className="fas fa-spinner fa-spin"></i>
+            </div>
+          ) : user ? (
+            // Logged in state
+            <>
+              <Link href="/dashboard" className="me-3">
+                <Button variant="success" size="sm" className="px-3 fw-semibold">
+                  <i className="fas fa-tachometer-alt me-1"></i>
+                  Dashboard
+                </Button>
+              </Link>
+              
+              <NavDropdown 
+                title={
+                  <span className="text-dark bg-light px-2 py-1 rounded">
+                    <i className="fas fa-user-circle me-1 text-success"></i>
+                    {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+                  </span>
+                } 
+                id="user-nav-dropdown"
+                align="end"
+              >
+                <NavDropdown.Item as={Link} href="/dashboard">
+                  <i className="fas fa-tachometer-alt me-2"></i>
+                  Dashboard
+                </NavDropdown.Item>
+                <NavDropdown.Item as={Link} href="/dashboard/settings">
+                  <i className="fas fa-cog me-2"></i>
+                  Settings
+                </NavDropdown.Item>
+                <NavDropdown.Divider />
+                <NavDropdown.Item onClick={handleSignOut}>
+                  <i className="fas fa-sign-out-alt me-2"></i>
+                  Sign Out
+                </NavDropdown.Item>
+              </NavDropdown>
+            </>
+          ) : (
+            // Logged out state
+            <>
+              <Nav.Link as={Link} href="/login" className="text-white-75 me-3" style={{ textDecoration: 'none' }}>
+                {t('nav.login')}
+              </Nav.Link>
+              
+              <Link href="/signup">
+                <Button variant="light" size="sm" className="px-3 fw-semibold">
+                  {t('nav.signup')}
+                </Button>
+              </Link>
+            </>
+          )}
         </Nav>
       </Container>
     </Navbar>

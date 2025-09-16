@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Container, Row, Col, Card, Form, Button, Alert, ProgressBar } from 'react-bootstrap'
 import { createSupabaseClient } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
 interface BusinessData {
   name: string
@@ -35,6 +36,8 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export default function OnboardingPage() {
+  console.log('🟡 ONBOARDING: OnboardingPage component rendering')
+  
   const [step, setStep] = useState(1)
   const [businessData, setBusinessData] = useState<BusinessData>({
     name: '',
@@ -45,8 +48,62 @@ export default function OnboardingPage() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [hasExistingBusiness, setHasExistingBusiness] = useState(false)
+  const [isPro, setIsPro] = useState(false)
   const router = useRouter()
   const supabase = createSupabaseClient()
+
+  // Check if user already has a business on component mount
+  useEffect(() => {
+    console.log('🟡 ONBOARDING: Checking if user already has a business...')
+    
+    const checkExistingBusiness = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        // Check user's plan (for now, assume everyone is on free plan unless they have pro metadata)
+        const userIsPro = user.user_metadata?.plan === 'pro' || user.user_metadata?.subscription === 'pro'
+        setIsPro(userIsPro)
+        console.log('🟡 ONBOARDING: User plan check - isPro:', userIsPro)
+        
+        // Check for existing business
+        const { data: businessList, error } = await supabase
+          .from('businesses')
+          .select('id, name, slug')
+          .eq('owner_id', user.id)
+        
+        const business = businessList && businessList.length > 0 ? businessList[0] : null
+        setHasExistingBusiness(!!business)
+        
+        console.log('🟡 ONBOARDING: Existing business check result:')
+        console.log('🟡 ONBOARDING: - businessList:', businessList)
+        console.log('🟡 ONBOARDING: - businessList length:', businessList?.length)
+        console.log('🟡 ONBOARDING: - business:', business)
+        console.log('🟡 ONBOARDING: - error:', error)
+        console.log('🟡 ONBOARDING: - business type:', typeof business)
+        console.log('🟡 ONBOARDING: - business truthy?', !!business)
+        console.log('🟡 ONBOARDING: - error truthy?', !!error)
+        
+        if (business && !error) {
+          if (userIsPro) {
+            console.log('🟡 ONBOARDING: ✅ Pro user with existing business, allowing multiple businesses')
+            // Pro users can have multiple businesses, so continue with onboarding
+          } else {
+            console.log('🟡 ONBOARDING: ✅ Free user with existing business, allowing replacement via Create New Business button')
+            // Free users can replace their business by clicking "Create New Business"
+            // Don't redirect them, let them proceed with onboarding
+          }
+        } else {
+          console.log('🟡 ONBOARDING: ❌ No business found, staying on onboarding')
+        }
+      } catch (err) {
+        console.error('🟡 ONBOARDING: Error checking existing business:', err)
+      }
+    }
+    
+    checkExistingBusiness()
+  }, [])
 
   const generateSlug = (name: string) => {
     return name
@@ -105,6 +162,38 @@ export default function OnboardingPage() {
 
       console.log('Profile check result:', { profileCheck, profileCheckError })
 
+      // Check user plan to determine if we should delete existing businesses
+      const isPro = user.user_metadata?.plan === 'pro' || user.user_metadata?.subscription === 'pro'
+      console.log('Creating business - User isPro:', isPro)
+
+      if (!isPro) {
+        // For free users, delete any existing businesses first
+        console.log('🟡 ONBOARDING: Free user - deleting existing businesses...')
+        
+        const { data: existingBusinesses, error: existingError } = await supabase
+          .from('businesses')
+          .select('id')
+          .eq('owner_id', user.id)
+        
+        if (existingBusinesses && existingBusinesses.length > 0) {
+          console.log('🟡 ONBOARDING: Found', existingBusinesses.length, 'existing businesses to delete')
+          
+          for (const existingBusiness of existingBusinesses) {
+            const { error: deleteError } = await supabase
+              .from('businesses')
+              .delete()
+              .eq('id', existingBusiness.id)
+              .eq('owner_id', user.id) // Safety check
+            
+            if (deleteError) {
+              console.error('🟡 ONBOARDING: Error deleting business:', deleteError)
+            } else {
+              console.log('🟡 ONBOARDING: ✅ Deleted existing business:', existingBusiness.id)
+            }
+          }
+        }
+      }
+
       // Create business
       const businessInsertData = {
         owner_id: user.id,
@@ -116,12 +205,15 @@ export default function OnboardingPage() {
       }
       
       console.log('Attempting to insert business with data:', businessInsertData)
+      console.log('Current auth.uid():', user.id)
       
       const { data: business, error: businessError } = await supabase
         .from('businesses')
         .insert(businessInsertData)
         .select()
         .single()
+        
+      console.log('Business insert result:', { business, businessError })
 
       if (businessError) {
         console.error('Business creation error:', businessError)
@@ -130,6 +222,8 @@ export default function OnboardingPage() {
         }
         throw new Error(`Failed to create business: ${businessError.message}`)
       }
+
+      console.log('Business created successfully:', business)
 
       // Create default staff entry for owner
       const { error: staffError } = await supabase
@@ -186,6 +280,11 @@ export default function OnboardingPage() {
         throw new Error(`Failed to create availability: ${availabilityError.message}`)
       }
 
+      console.log('Business setup completed successfully! Redirecting to dashboard...')
+      
+      // Small delay to ensure database consistency before redirect
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
       router.push('/dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Setup failed')
@@ -352,6 +451,24 @@ export default function OnboardingPage() {
               {step === 3 && (
                 <div>
                   <h5 className="mb-4">Review & Create</h5>
+                  
+                  {/* Warning for free users with existing business */}
+                  {hasExistingBusiness && !isPro && (
+                    <Alert variant="warning" className="mb-4">
+                      <h6>
+                        <i className="fas fa-exclamation-triangle me-2"></i>
+                        Replace Existing Business
+                      </h6>
+                      <p className="mb-2">
+                        You already have a business set up. Creating a new business will <strong>replace</strong> your current one.
+                      </p>
+                      <p className="mb-0">
+                        <small>
+                          💰 <strong>Want multiple businesses?</strong> Upgrade to Pro ($79/month) to manage unlimited businesses.
+                        </small>
+                      </p>
+                    </Alert>
+                  )}
                   
                   <div className="bg-light p-3 rounded mb-4">
                     <Row className="mb-2">

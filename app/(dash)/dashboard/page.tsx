@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Container, Row, Col, Card, Alert, Button, Badge, Table, Spinner, Modal } from 'react-bootstrap'
+import { Row, Col, Alert, Button, Badge, Spinner, Modal } from 'react-bootstrap'
 import Link from 'next/link'
 import { format, parseISO, isToday, isTomorrow } from 'date-fns'
 import { createSupabaseClient } from '@/lib/supabase'
@@ -35,6 +35,9 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export default function DashboardPage() {
+  console.log('🚀 DASHBOARD COMPONENT: Rendering DashboardPage component')
+  console.log('🚀 DASHBOARD COMPONENT: Current URL:', typeof window !== 'undefined' ? window.location.href : 'SSR')
+  
   const [business, setBusiness] = useState<Business | null>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [recentAppointments, setRecentAppointments] = useState<RecentAppointment[]>([])
@@ -44,9 +47,44 @@ export default function DashboardPage() {
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('')
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const fetchingRef = useRef(false)
   const supabase = createSupabaseClient()
+  
+  console.log('🚀 DASHBOARD COMPONENT: Supabase client created')
+
+  // Debug helper function
+  const debugBusinessAccess = async (user: any) => {
+    console.log('=== DEBUGGING BUSINESS ACCESS ===')
+    console.log('User ID:', user.id)
+    console.log('User metadata:', user.user_metadata)
+    
+    // Check if profile exists
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+    console.log('Profile check:', { profile, profileError })
+    
+    // Check businesses with different approaches
+    const { data: businessesByOwner, error: ownerError } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('owner_id', user.id)
+    console.log('Businesses by owner_id:', { businessesByOwner, ownerError })
+    
+    // Check staff memberships
+    const { data: staffMemberships, error: staffError } = await supabase
+      .from('staff')
+      .select('*, businesses(*)')
+      .eq('user_id', user.id)
+    console.log('Staff memberships:', { staffMemberships, staffError })
+    
+    console.log('=== END DEBUG ===')
+  }
 
   useEffect(() => {
+    console.log('🚀 DASHBOARD COMPONENT: useEffect triggered, calling fetchDashboardData')
     fetchDashboardData()
   }, [])
 
@@ -57,18 +95,28 @@ export default function DashboardPage() {
   }, [business])
 
   const fetchDashboardData = async () => {
+    if (fetchingRef.current) {
+      console.log('🔍 DASHBOARD: fetchDashboardData already running, skipping...')
+      return
+    }
+    
+    fetchingRef.current = true
+    console.log('🔍 DASHBOARD: Starting fetchDashboardData...')
+    
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        console.log('No user found, redirecting to login')
+        console.log('❌ DASHBOARD: No user found, redirecting to login')
         window.location.href = '/login'
         return
       }
 
-      console.log('Current user ID:', user.id)
+      console.log('✅ DASHBOARD: User found:', user.id)
+      console.log('📊 DASHBOARD: User metadata:', user.user_metadata)
 
-      // Ensure user profile exists first
-      const { error: profileError } = await supabase
+      // Ensure user profile exists first and wait for it
+      console.log('👤 DASHBOARD: Creating/updating user profile...')
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .upsert({
           id: user.id,
@@ -77,45 +125,78 @@ export default function DashboardPage() {
         }, {
           onConflict: 'id'
         })
+        .select()
+        .single()
 
       if (profileError) {
-        console.error('Profile creation error in dashboard:', profileError)
+        console.error('❌ DASHBOARD: Profile creation error:', profileError)
+        throw new Error(`Failed to create/update profile: ${profileError.message}`)
       }
 
+      console.log('✅ DASHBOARD: Profile ready:', profileData)
+
+      // Small delay to ensure everything is ready
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Get user's business with better error handling
+      console.log('🏢 DASHBOARD: Querying businesses table for user:', user.id)
+      
       // Get user's business
-      console.log('Querying businesses table for user:', user.id)
-      const { data: businessData, error: businessError } = await supabase
+      console.log('🏢 DASHBOARD: Querying business for user...')
+      
+      const { data: businessList, error: businessError } = await supabase
         .from('businesses')
         .select('id, name, slug, timezone, location, messaging_mode')
         .eq('owner_id', user.id)
-        .maybeSingle()
+      
+      const businessData = businessList && businessList.length > 0 ? businessList[0] : null
 
-      console.log('Business query result:', { businessData, businessError })
+      console.log('🏢 DASHBOARD: Business query result:', { businessData, businessError })
 
       if (businessError) {
-        console.error('Business query error details:', {
+        console.error('❌ DASHBOARD: Business query error details:', {
           message: businessError.message,
           code: businessError.code,
           details: businessError.details,
           hint: businessError.hint
         })
         
-        if (businessError.code === 'PGRST116' || businessError.message?.includes('JSON object requested')) {
-          // No business found, redirect to onboarding
-          console.log('No business found, redirecting to onboarding')
+        // Only redirect to onboarding if it's specifically a "no rows" error
+        if (businessError.code === 'PGRST116') {
+          console.log('🚫 DASHBOARD: No business found (PGRST116), redirecting to onboarding')
           window.location.href = '/dashboard/onboarding'
           return
         }
         
-        throw new Error(`Business query failed: ${businessError.message}`)
-      }
-
-      // Handle case where no business is found
-      if (!businessData) {
-        console.log('No business data found, redirecting to onboarding')
-        window.location.href = '/dashboard/onboarding'
+        // For other errors, run debug and try to handle them gracefully
+        console.error('⚠️ DASHBOARD: Unexpected business query error, running debug...')
+        await debugBusinessAccess(user)
+        
+        setTimeout(() => {
+          console.log('🔄 DASHBOARD: Reloading page after error...')
+          window.location.reload()
+        }, 3000)
         return
       }
+
+      // Handle case where no business is found - show empty dashboard instead of redirecting
+      if (!businessData) {
+        console.log('🚫 DASHBOARD: No business data found, showing empty dashboard')
+        console.log('🚫 DASHBOARD: businessData value:', businessData)
+        
+        // Don't redirect, just continue with empty business state
+        setBusiness(null)
+        setStats({
+          todayAppointments: 0,
+          tomorrowAppointments: 0,
+          pendingPayments: 0,
+          totalRevenue: 0
+        })
+        setRecentAppointments([])
+        return
+      }
+
+      console.log('🎉 DASHBOARD: Business found successfully:', businessData)
 
       setBusiness(businessData)
 
@@ -190,6 +271,7 @@ export default function DashboardPage() {
       setError(errorMessage)
     } finally {
       setLoading(false)
+      fetchingRef.current = false
     }
   }
 
@@ -274,270 +356,651 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <Container>
-        <div className="text-center py-5">
-          <Spinner animation="border" variant="success" />
-          <p className="mt-2">Loading dashboard...</p>
+      <div className="text-center py-5">
+        <div className="d-flex justify-content-center align-items-center min-vh-50">
+          <div>
+            <Spinner animation="border" variant="success" />
+            <p className="mt-3 text-muted">Loading dashboard...</p>
+          </div>
         </div>
-      </Container>
+      </div>
     )
   }
 
   if (error) {
     return (
-      <Container>
-        <Alert variant="danger">{error}</Alert>
-      </Container>
+      <div className="py-4">
+        <Alert variant="danger" className="mb-0">
+          <i className="fas fa-exclamation-triangle me-2"></i>
+          {error}
+        </Alert>
+      </div>
+    )
+  }
+
+  if (!business) {
+    return (
+      <div className="position-relative">
+        {/* Floating Background Elements */}
+        <div 
+          className="position-absolute"
+          style={{ 
+            top: '10%', 
+            left: '10%', 
+            width: '100px',
+            height: '100px',
+            background: 'linear-gradient(135deg, #10b981, #059669)',
+            borderRadius: '50%',
+            opacity: '0.05'
+          }}
+        ></div>
+        <div 
+          className="position-absolute"
+          style={{ 
+            top: '60%', 
+            right: '15%', 
+            width: '150px',
+            height: '150px',
+            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+            borderRadius: '50%',
+            opacity: '0.05'
+          }}
+        ></div>
+        
+        <div className="text-center py-5">
+          <div className="mb-5">
+            <div 
+              className="rounded-circle mx-auto mb-4 d-flex align-items-center justify-content-center"
+              style={{ 
+                width: '120px', 
+                height: '120px',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: 'white'
+              }}
+            >
+              <i className="fas fa-store fs-1"></i>
+            </div>
+            <h1 className="display-6 fw-bold mb-3">Welcome to BookIt by Zewo!</h1>
+            <p className="lead text-muted mb-5 mx-auto" style={{ maxWidth: '600px' }}>
+              Transform your business with our WhatsApp booking system. Set up your profile and start accepting appointments in minutes.
+            </p>
+          </div>
+          
+          <Row className="justify-content-center">
+            <Col lg={8}>
+              <div 
+                className="glass-card p-5 rounded-4"
+                style={{ 
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)'
+                }}
+              >
+                <Row className="align-items-center">
+                  <Col md={7} className="text-start">
+                    <h3 className="fw-bold mb-3">
+                      <i className="fas fa-rocket text-success me-2"></i>
+                      Set Up Your Business
+                    </h3>
+                    <p className="text-muted mb-4">
+                      Create your business profile and configure services, staff, and availability. Your customers will be able to book appointments directly through WhatsApp.
+                    </p>
+                    <div className="d-flex flex-wrap gap-3 mb-4">
+                      <div className="d-flex align-items-center text-success">
+                        <i className="fas fa-check-circle me-2"></i>
+                        <small className="fw-medium">WhatsApp Integration</small>
+                      </div>
+                      <div className="d-flex align-items-center text-success">
+                        <i className="fas fa-check-circle me-2"></i>
+                        <small className="fw-medium">Automated Reminders</small>
+                      </div>
+                      <div className="d-flex align-items-center text-success">
+                        <i className="fas fa-check-circle me-2"></i>
+                        <small className="fw-medium">Payment Processing</small>
+                      </div>
+                    </div>
+                    <Link href="/dashboard/onboarding">
+                      <Button 
+                        variant="success" 
+                        size="lg" 
+                        className="px-5 py-3"
+                        style={{
+                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          border: 'none',
+                          boxShadow: '0 8px 20px rgba(16, 185, 129, 0.3)'
+                        }}
+                      >
+                        <i className="fas fa-plus me-2"></i>
+                        Create Your Business
+                      </Button>
+                    </Link>
+                  </Col>
+                  <Col md={5} className="text-center">
+                    <div 
+                      className="position-relative d-inline-block"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%)',
+                        borderRadius: '24px',
+                        padding: '2rem'
+                      }}
+                    >
+                      <i className="fab fa-whatsapp" style={{ fontSize: '5rem', color: '#25D366' }}></i>
+                      <div 
+                        className="position-absolute top-0 end-0 bg-success rounded-circle d-flex align-items-center justify-content-center"
+                        style={{ width: '30px', height: '30px' }}
+                      >
+                        <i className="fas fa-plus text-white small"></i>
+                      </div>
+                    </div>
+                  </Col>
+                </Row>
+              </div>
+            </Col>
+          </Row>
+        </div>
+      </div>
     )
   }
 
   return (
-    <Container>
+    <div>
+      {/* Action Bar */}
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h1 className="h3 mb-1">Dashboard</h1>
-          <p className="text-muted">Welcome back to {business?.name}</p>
+        <div className="d-flex align-items-center gap-3">
+          {business && (
+            <div 
+              className="rounded-3 bg-gradient p-3 text-white d-flex align-items-center"
+              style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+            >
+              <i className="fas fa-store fs-4"></i>
+            </div>
+          )}
+          <div>
+            <h2 className="mb-0 fw-bold text-gray-900">
+              {business ? business.name : 'Your Business Dashboard'}
+            </h2>
+            <p className="text-muted mb-0">
+              {business ? 'Manage your WhatsApp bookings' : 'Set up your first business to get started'}
+            </p>
+          </div>
         </div>
-        <div>
-          <Link href={`/book/${business?.slug}`} target="_blank" className="me-2">
-            <Button variant="success">
-              <i className="fas fa-external-link-alt me-1"></i>
-              View Booking Page
-            </Button>
-          </Link>
-          <Link href="/calendar">
-            <Button variant="outline-primary">
-              <i className="fas fa-calendar me-1"></i>
-              Calendar
-            </Button>
-          </Link>
-        </div>
+        {business && (
+          <div className="d-flex gap-2">
+            <Link href={`/book/${business?.slug}`} target="_blank">
+              <Button variant="success" className="px-3">
+                <i className="fas fa-external-link-alt me-1"></i>
+                View Booking Page
+              </Button>
+            </Link>
+            <Link href="/dashboard/onboarding">
+              <Button variant="outline-primary" className="px-3">
+                <i className="fas fa-plus me-1"></i>
+                New Business
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
 
-      {/* Stats Cards */}
-      <Row className="mb-4">
-        <Col md={3}>
-          <Card className="text-center h-100">
-            <Card.Body>
-              <div className="text-success mb-2">
-                <i className="fas fa-calendar-day fa-2x"></i>
+      {/* Modern Stats Grid */}
+      <Row className="mb-5 g-4">
+        <Col lg={3} md={6}>
+          <div 
+            className="glass-card p-4 rounded-4 h-100 text-center position-relative overflow-hidden"
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%)',
+              border: '1px solid rgba(16, 185, 129, 0.1)'
+            }}
+          >
+            <div 
+              className="position-absolute"
+              style={{ 
+                top: '-20px', 
+                right: '-20px',
+                width: '80px',
+                height: '80px',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                borderRadius: '50%',
+                opacity: '0.1'
+              }}
+            ></div>
+            <div className="position-relative">
+              <div 
+                className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                style={{ 
+                  width: '60px', 
+                  height: '60px',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: 'white'
+                }}
+              >
+                <i className="fas fa-calendar-day fs-4"></i>
               </div>
-              <h4 className="mb-1">{stats?.todayAppointments || 0}</h4>
-              <small className="text-muted">Today's Appointments</small>
-            </Card.Body>
-          </Card>
+              <h3 className="fw-bold mb-1" style={{ color: '#059669' }}>
+                {stats?.todayAppointments || 0}
+              </h3>
+              <p className="text-muted mb-0 fw-medium">Today's Appointments</p>
+            </div>
+          </div>
         </Col>
-        <Col md={3}>
-          <Card className="text-center h-100">
-            <Card.Body>
-              <div className="text-primary mb-2">
-                <i className="fas fa-calendar-plus fa-2x"></i>
+        
+        <Col lg={3} md={6}>
+          <div 
+            className="glass-card p-4 rounded-4 h-100 text-center position-relative overflow-hidden"
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.05) 100%)',
+              border: '1px solid rgba(99, 102, 241, 0.1)'
+            }}
+          >
+            <div 
+              className="position-absolute"
+              style={{ 
+                top: '-20px', 
+                right: '-20px',
+                width: '80px',
+                height: '80px',
+                background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                borderRadius: '50%',
+                opacity: '0.1'
+              }}
+            ></div>
+            <div className="position-relative">
+              <div 
+                className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                style={{ 
+                  width: '60px', 
+                  height: '60px',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                  color: 'white'
+                }}
+              >
+                <i className="fas fa-calendar-plus fs-4"></i>
               </div>
-              <h4 className="mb-1">{stats?.tomorrowAppointments || 0}</h4>
-              <small className="text-muted">Tomorrow's Appointments</small>
-            </Card.Body>
-          </Card>
+              <h3 className="fw-bold mb-1" style={{ color: '#4f46e5' }}>
+                {stats?.tomorrowAppointments || 0}
+              </h3>
+              <p className="text-muted mb-0 fw-medium">Tomorrow's Appointments</p>
+            </div>
+          </div>
         </Col>
-        <Col md={3}>
-          <Card className="text-center h-100">
-            <Card.Body>
-              <div className="text-warning mb-2">
-                <i className="fas fa-clock fa-2x"></i>
+        
+        <Col lg={3} md={6}>
+          <div 
+            className="glass-card p-4 rounded-4 h-100 text-center position-relative overflow-hidden"
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.1)'
+            }}
+          >
+            <div 
+              className="position-absolute"
+              style={{ 
+                top: '-20px', 
+                right: '-20px',
+                width: '80px',
+                height: '80px',
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                borderRadius: '50%',
+                opacity: '0.1'
+              }}
+            ></div>
+            <div className="position-relative">
+              <div 
+                className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                style={{ 
+                  width: '60px', 
+                  height: '60px',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  color: 'white'
+                }}
+              >
+                <i className="fas fa-clock fs-4"></i>
               </div>
-              <h4 className="mb-1">{stats?.pendingPayments || 0}</h4>
-              <small className="text-muted">Pending Payments</small>
-            </Card.Body>
-          </Card>
+              <h3 className="fw-bold mb-1" style={{ color: '#d97706' }}>
+                {stats?.pendingPayments || 0}
+              </h3>
+              <p className="text-muted mb-0 fw-medium">Pending Payments</p>
+            </div>
+          </div>
         </Col>
-        <Col md={3}>
-          <Card className="text-center h-100">
-            <Card.Body>
-              <div className="text-info mb-2">
-                <i className="fas fa-dollar-sign fa-2x"></i>
+        
+        <Col lg={3} md={6}>
+          <div 
+            className="glass-card p-4 rounded-4 h-100 text-center position-relative overflow-hidden"
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(190, 24, 93, 0.05) 100%)',
+              border: '1px solid rgba(236, 72, 153, 0.1)'
+            }}
+          >
+            <div 
+              className="position-absolute"
+              style={{ 
+                top: '-20px', 
+                right: '-20px',
+                width: '80px',
+                height: '80px',
+                background: 'linear-gradient(135deg, #ec4899, #be185d)',
+                borderRadius: '50%',
+                opacity: '0.1'
+              }}
+            ></div>
+            <div className="position-relative">
+              <div 
+                className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                style={{ 
+                  width: '60px', 
+                  height: '60px',
+                  background: 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)',
+                  color: 'white'
+                }}
+              >
+                <i className="fas fa-dollar-sign fs-4"></i>
               </div>
-              <h4 className="mb-1">${stats?.totalRevenue || 0}</h4>
-              <small className="text-muted">This Month</small>
-            </Card.Body>
-          </Card>
+              <h3 className="fw-bold mb-1" style={{ color: '#be185d' }}>
+                ${stats?.totalRevenue || 0}
+              </h3>
+              <p className="text-muted mb-0 fw-medium">Monthly Revenue</p>
+            </div>
+          </div>
         </Col>
       </Row>
 
-      {/* QR Code Card */}
-      <Row className="mb-4">
-        <Col md={4}>
-          <Card className="h-100">
-            <Card.Header>
-              <h5 className="mb-0">
-                <i className="fas fa-qrcode me-2"></i>
-                Booking QR Code
-              </h5>
-            </Card.Header>
-            <Card.Body className="text-center">
-              <div className="mb-3">
-                {qrCodeDataUrl ? (
+      {/* QR Code & Quick Actions Row */}
+      <Row className="mb-5 g-4">
+        <Col lg={4}>
+          <div className="glass-card p-4 rounded-4 h-100">
+            <div className="d-flex align-items-center mb-4">
+              <div 
+                className="rounded-circle me-3 d-flex align-items-center justify-content-center"
+                style={{ 
+                  width: '50px', 
+                  height: '50px',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: 'white'
+                }}
+              >
+                <i className="fas fa-qrcode fs-5"></i>
+              </div>
+              <div>
+                <h5 className="mb-0 fw-bold">Booking QR Code</h5>
+                <small className="text-muted">Share with clients</small>
+              </div>
+            </div>
+            
+            <div className="text-center mb-4">
+              {qrCodeDataUrl ? (
+                <div 
+                  className="d-inline-block p-3 bg-white rounded-3 shadow-sm"
+                  style={{ border: '2px dashed #e2e8f0' }}
+                >
                   <img 
                     src={qrCodeDataUrl} 
                     alt="Booking QR Code" 
-                    style={{ 
-                      maxWidth: '120px', 
-                      height: 'auto'
-                    }} 
+                    style={{ width: '120px', height: '120px' }} 
                   />
-                ) : (
-                  <div 
-                    style={{ 
-                      width: '120px', 
-                      height: '120px', 
-                      backgroundColor: '#f8f9fa',
-                      border: '2px dashed #dee2e6',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto'
-                    }}
-                  >
-                    <i className="fas fa-qrcode text-muted"></i>
-                  </div>
-                )}
-              </div>
-              <p className="text-muted small mb-3">
-                Clients scan this to book appointments
-              </p>
-              {qrCodeUrl && (
-                <small className="text-muted d-block mb-2">
-                  {qrCodeUrl}
-                </small>
+                </div>
+              ) : (
+                <div 
+                  className="d-inline-flex align-items-center justify-content-center bg-gray-100 rounded-3"
+                  style={{ width: '140px', height: '140px', border: '2px dashed #cbd5e0' }}
+                >
+                  <i className="fas fa-qrcode fs-2 text-muted"></i>
+                </div>
               )}
-              <div className="d-flex gap-2 flex-wrap justify-content-center">
-                <Button size="sm" variant="outline-primary" onClick={generateQRCode}>
-                  <i className="fas fa-expand-alt me-1"></i>
-                  View Large
-                </Button>
-                <Button size="sm" variant="outline-success" onClick={downloadQRCode}>
-                  <i className="fas fa-download me-1"></i>
-                  Download
-                </Button>
-              </div>
-            </Card.Body>
-          </Card>
+            </div>
+            
+            <div className="d-grid gap-2">
+              <Button variant="outline-primary" size="sm" onClick={generateQRCode}>
+                <i className="fas fa-expand-alt me-1"></i>
+                View Large
+              </Button>
+              <Button variant="outline-success" size="sm" onClick={downloadQRCode}>
+                <i className="fas fa-download me-1"></i>
+                Download
+              </Button>
+            </div>
+          </div>
         </Col>
         
-        {/* Quick Actions */}
-        <Col md={8}>
-          <Card className="h-100">
-            <Card.Header>
-              <h5 className="mb-0">Quick Actions</h5>
-            </Card.Header>
-            <Card.Body>
-              <div className="d-flex gap-3 flex-wrap">
-                <Link href="/services">
-                  <Button variant="outline-primary">
-                    <i className="fas fa-plus me-1"></i>
-                    Add Service
-                  </Button>
+        <Col lg={8}>
+          <div className="glass-card p-4 rounded-4 h-100">
+            <div className="d-flex align-items-center mb-4">
+              <div 
+                className="rounded-circle me-3 d-flex align-items-center justify-content-center"
+                style={{ 
+                  width: '50px', 
+                  height: '50px',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                  color: 'white'
+                }}
+              >
+                <i className="fas fa-bolt fs-5"></i>
+              </div>
+              <div>
+                <h5 className="mb-0 fw-bold">Quick Actions</h5>
+                <small className="text-muted">Manage your business</small>
+              </div>
+            </div>
+            
+            <Row className="g-3">
+              <Col md={6}>
+                <Link href="/dashboard/services" className="text-decoration-none">
+                  <div 
+                    className="p-3 rounded-3 border-0 w-100 text-start hover-lift"
+                    style={{ 
+                      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(5, 150, 105, 0.1) 100%)',
+                      border: '1px solid rgba(16, 185, 129, 0.1)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div className="d-flex align-items-center">
+                      <i className="fas fa-plus fs-4 text-success me-3"></i>
+                      <div>
+                        <div className="fw-semibold text-dark">Add Service</div>
+                        <small className="text-muted">Create new offerings</small>
+                      </div>
+                    </div>
+                  </div>
                 </Link>
-                <Link href="/staff">
-                  <Button variant="outline-success">
-                    <i className="fas fa-user-plus me-1"></i>
-                    Add Staff
-                  </Button>
+              </Col>
+              
+              <Col md={6}>
+                <Link href="/dashboard/staff" className="text-decoration-none">
+                  <div 
+                    className="p-3 rounded-3 border-0 w-100 text-start hover-lift"
+                    style={{ 
+                      background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(79, 70, 229, 0.1) 100%)',
+                      border: '1px solid rgba(99, 102, 241, 0.1)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div className="d-flex align-items-center">
+                      <i className="fas fa-user-plus fs-4 text-primary me-3"></i>
+                      <div>
+                        <div className="fw-semibold text-dark">Add Staff</div>
+                        <small className="text-muted">Manage your team</small>
+                      </div>
+                    </div>
+                  </div>
                 </Link>
-                <Link href="/settings">
-                  <Button variant="outline-info">
-                    <i className="fas fa-cog me-1"></i>
-                    Settings
-                  </Button>
+              </Col>
+              
+              <Col md={6}>
+                <Link href="/dashboard/settings" className="text-decoration-none">
+                  <div 
+                    className="p-3 rounded-3 border-0 w-100 text-start hover-lift"
+                    style={{ 
+                      background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(217, 119, 6, 0.1) 100%)',
+                      border: '1px solid rgba(245, 158, 11, 0.1)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div className="d-flex align-items-center">
+                      <i className="fas fa-cog fs-4 text-warning me-3"></i>
+                      <div>
+                        <div className="fw-semibold text-dark">Settings</div>
+                        <small className="text-muted">Configure options</small>
+                      </div>
+                    </div>
+                  </div>
                 </Link>
-                <Button 
-                  variant="outline-warning"
+              </Col>
+              
+              <Col md={6}>
+                <div 
+                  className="p-3 rounded-3 border-0 w-100 text-start hover-lift cursor-pointer"
+                  style={{ 
+                    background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.05) 0%, rgba(190, 24, 93, 0.1) 100%)',
+                    border: '1px solid rgba(236, 72, 153, 0.1)',
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer'
+                  }}
                   onClick={() => {
                     const text = `Check out my booking page: ${window.location.origin}/book/${business?.slug}`
                     navigator.clipboard.writeText(text)
                     alert('Booking link copied to clipboard!')
                   }}
                 >
-                  <i className="fas fa-share me-1"></i>
-                  Share Booking Link
-                </Button>
-              </div>
-            </Card.Body>
-          </Card>
+                  <div className="d-flex align-items-center">
+                    <i className="fas fa-share fs-4 me-3" style={{ color: '#be185d' }}></i>
+                    <div>
+                      <div className="fw-semibold text-dark">Share Link</div>
+                      <small className="text-muted">Copy booking URL</small>
+                    </div>
+                  </div>
+                </div>
+              </Col>
+            </Row>
+          </div>
         </Col>
       </Row>
 
       {/* Recent Appointments */}
       <Row>
         <Col>
-          <Card>
-            <Card.Header className="d-flex justify-content-between align-items-center">
-              <h5 className="mb-0">Recent Appointments</h5>
-              <Link href="/calendar">
-                <Button variant="link" size="sm">
+          <div className="glass-card p-0 rounded-4 overflow-hidden">
+            <div className="p-4 border-bottom d-flex justify-content-between align-items-center">
+              <div className="d-flex align-items-center">
+                <div 
+                  className="rounded-circle me-3 d-flex align-items-center justify-content-center"
+                  style={{ 
+                    width: '50px', 
+                    height: '50px',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: 'white'
+                  }}
+                >
+                  <i className="fas fa-calendar-alt fs-5"></i>
+                </div>
+                <div>
+                  <h5 className="mb-0 fw-bold">Recent Appointments</h5>
+                  <small className="text-muted">Latest booking activity</small>
+                </div>
+              </div>
+              <Link href="/dashboard/calendar">
+                <Button variant="outline-primary" size="sm">
+                  <i className="fas fa-external-link-alt me-1"></i>
                   View All
                 </Button>
               </Link>
-            </Card.Header>
-            <Card.Body className="p-0">
-              {recentAppointments.length === 0 ? (
-                <div className="text-center py-4">
-                  <p className="text-muted">No appointments yet</p>
-                  <Link href="/services">
-                    <Button variant="success">
-                      Create Your First Service
-                    </Button>
-                  </Link>
+            </div>
+            
+            {recentAppointments.length === 0 ? (
+              <div className="text-center py-5">
+                <div 
+                  className="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center"
+                  style={{ 
+                    width: '80px', 
+                    height: '80px',
+                    background: 'linear-gradient(135deg, rgba(156, 163, 175, 0.1) 0%, rgba(107, 114, 128, 0.05) 100%)',
+                    border: '2px dashed #d1d5db'
+                  }}
+                >
+                  <i className="fas fa-calendar-plus fs-2 text-muted"></i>
                 </div>
-              ) : (
-                <Table responsive className="mb-0">
-                  <thead className="bg-light">
+                <h6 className="fw-bold mb-2">No appointments yet</h6>
+                <p className="text-muted mb-3">Create your first service to start accepting bookings</p>
+                <Link href="/dashboard/services">
+                  <Button variant="success" className="px-4">
+                    <i className="fas fa-plus me-1"></i>
+                    Create Your First Service
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-hover mb-0">
+                  <thead style={{ backgroundColor: '#f8fafc' }}>
                     <tr>
-                      <th>Customer</th>
-                      <th>Service</th>
-                      <th>Date & Time</th>
-                      <th>Status</th>
-                      <th>Actions</th>
+                      <th className="border-0 fw-semibold text-gray-700 py-3">Customer</th>
+                      <th className="border-0 fw-semibold text-gray-700 py-3">Service</th>
+                      <th className="border-0 fw-semibold text-gray-700 py-3">Date & Time</th>
+                      <th className="border-0 fw-semibold text-gray-700 py-3">Status</th>
+                      <th className="border-0 fw-semibold text-gray-700 py-3">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recentAppointments.map(appointment => (
-                      <tr key={appointment.id}>
-                        <td>
-                          <div className="fw-bold">{appointment.customer_name}</div>
-                          <small className="text-muted">{appointment.customer_phone}</small>
+                      <tr key={appointment.id} className="border-0">
+                        <td className="py-3 border-0">
+                          <div className="d-flex align-items-center">
+                            <div 
+                              className="rounded-circle me-3 d-flex align-items-center justify-content-center"
+                              style={{ 
+                                width: '40px', 
+                                height: '40px',
+                                background: 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
+                                color: '#64748b'
+                              }}
+                            >
+                              <i className="fas fa-user"></i>
+                            </div>
+                            <div>
+                              <div className="fw-semibold">{appointment.customer_name}</div>
+                              <small className="text-muted">{appointment.customer_phone}</small>
+                            </div>
+                          </div>
                         </td>
-                        <td>{appointment.service_name}</td>
-                        <td>
-                          <div>{getDateLabel(appointment.starts_at)}</div>
+                        <td className="py-3 border-0">
+                          <span className="fw-medium">{appointment.service_name}</span>
+                        </td>
+                        <td className="py-3 border-0">
+                          <div className="fw-medium">{getDateLabel(appointment.starts_at)}</div>
                           <small className="text-muted">
                             {format(parseISO(appointment.starts_at), 'h:mm a')}
                           </small>
                         </td>
-                        <td>{getStatusBadge(appointment.status)}</td>
-                        <td>
-                          <Button 
-                            variant="outline-success" 
-                            size="sm"
-                            onClick={() => sendWhatsAppMessage(appointment.customer_phone, appointment.customer_name)}
-                            className="me-1"
-                          >
-                            <i className="fab fa-whatsapp"></i>
-                          </Button>
-                          <Link href={`/calendar?appointment=${appointment.id}`}>
+                        <td className="py-3 border-0">{getStatusBadge(appointment.status)}</td>
+                        <td className="py-3 border-0">
+                          <div className="d-flex gap-2">
                             <Button 
-                              variant="outline-primary" 
+                              variant="outline-success" 
                               size="sm"
+                              onClick={() => sendWhatsAppMessage(appointment.customer_phone, appointment.customer_name)}
+                              className="rounded-circle"
+                              style={{ width: '32px', height: '32px', padding: '0' }}
                             >
-                              <i className="fas fa-eye"></i>
+                              <i className="fab fa-whatsapp"></i>
                             </Button>
-                          </Link>
+                            <Link href={`/dashboard/calendar?appointment=${appointment.id}`}>
+                              <Button 
+                                variant="outline-primary" 
+                                size="sm"
+                                className="rounded-circle"
+                                style={{ width: '32px', height: '32px', padding: '0' }}
+                              >
+                                <i className="fas fa-eye"></i>
+                              </Button>
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
-                </Table>
-              )}
-            </Card.Body>
-          </Card>
+                </table>
+              </div>
+            )}
+          </div>
         </Col>
       </Row>
 
@@ -581,6 +1044,6 @@ export default function DashboardPage() {
           </Button>
         </Modal.Footer>
       </Modal>
-    </Container>
+    </div>
   )
 }
