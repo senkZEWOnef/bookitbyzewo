@@ -69,7 +69,7 @@ export default function CalendarPage() {
 
       if (appointmentsError) throw appointmentsError
 
-      const formattedAppointments = appointmentsData?.map(apt => ({
+      const formattedAppointments = appointmentsData?.map((apt: any) => ({
         ...apt,
         service_name: apt.services.name,
         staff_name: apt.staff?.display_name

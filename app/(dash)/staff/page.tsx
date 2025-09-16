@@ -87,7 +87,7 @@ export default function StaffPage() {
       .select('service_id')
       .eq('staff_id', staffId)
 
-    return data?.map(item => item.service_id) || []
+    return data?.map((item: any) => item.service_id) || []
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -467,7 +467,7 @@ function StaffServices({ staffId, services }: { staffId: string, services: Servi
       .eq('staff_id', staffId)
 
     if (data) {
-      setStaffServices(data.map(item => item.service_id))
+      setStaffServices(data.map((item: any) => item.service_id))
     }
   }
 

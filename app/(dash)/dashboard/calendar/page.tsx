@@ -70,7 +70,7 @@ export default function CalendarPage() {
           .lte('starts_at', monthEnd.toISOString())
           .order('starts_at', { ascending: true })
 
-        const formattedAppointments = appointmentData?.map(apt => ({
+        const formattedAppointments = appointmentData?.map((apt: any) => ({
           id: apt.id,
           customer_name: apt.customer_name,
           customer_phone: apt.customer_phone,

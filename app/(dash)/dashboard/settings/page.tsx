@@ -98,7 +98,7 @@ export default function SettingsPage() {
         type: 'success', 
         content: locale === 'es' ? '¡Configuración del negocio actualizada exitosamente!' : 'Business settings updated successfully!' 
       })
-      setBusiness(prev => ({ ...prev, ...businessForm }))
+      setBusiness((prev: any) => ({ ...prev, ...businessForm }))
     } catch (error) {
       console.error('Error updating business:', error)
       setMessage({ 

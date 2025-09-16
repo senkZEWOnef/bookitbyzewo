@@ -253,7 +253,7 @@ export default function DashboardPage() {
         totalRevenue: 0 // TODO: Calculate from payments
       })
 
-      const formattedAppointments = recentAppts.data?.map(apt => ({
+      const formattedAppointments = recentAppts.data?.map((apt: any) => ({
         id: apt.id,
         customer_name: apt.customer_name,
         customer_phone: apt.customer_phone,

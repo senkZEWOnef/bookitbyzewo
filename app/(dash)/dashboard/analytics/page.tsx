@@ -123,7 +123,7 @@ export default function AnalyticsPage() {
     }
 
     // Top services
-    const serviceStats = {}
+    const serviceStats: { [key: string]: { count: number; revenue: number } } = {}
     completedAppointments.forEach(apt => {
       const serviceName = apt.services?.name || 'Unknown Service'
       const price = apt.services?.price_cents || 0
