@@ -201,8 +201,8 @@ export default function DashboardLayout({
               <li key={index} className="mb-2">
                 <Link href={item.href} className="text-decoration-none">
                   <div 
-                    className={`d-flex align-items-center p-3 rounded-3 text-white transition-all position-relative ${
-                      item.active ? 'bg-white bg-opacity-20' : 'hover-bg-white-10'
+                    className={`d-flex align-items-center p-3 rounded-3 transition-all position-relative ${
+                      item.active ? 'bg-white bg-opacity-20 text-success' : 'text-white hover-bg-white-10'
                     }`}
                     style={{
                       transition: 'all 0.2s ease',
