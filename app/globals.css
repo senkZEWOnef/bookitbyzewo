@@ -590,3 +590,117 @@ h1, h2, h3, h4, h5, h6 {
 .bg-gray-50 {
   background-color: var(--gray-50) !important;
 }
+
+/* Calendar specific styles */
+.calendar-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background-color: var(--gray-200);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.calendar-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0;
+  margin-bottom: 1px;
+}
+
+.calendar-header-day {
+  text-align: center;
+  font-weight: 600;
+  color: var(--gray-600);
+  padding: 0.75rem 0.5rem;
+  background-color: var(--gray-50);
+  border-right: 1px solid var(--gray-200);
+}
+
+.calendar-header-day:last-child {
+  border-right: none;
+}
+
+.calendar-day {
+  background-color: white;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0.5rem;
+  position: relative;
+  border: none;
+}
+
+.calendar-day:hover {
+  background-color: var(--gray-50);
+}
+
+.calendar-day.today {
+  background-color: var(--primary);
+  color: white;
+}
+
+.calendar-day.selected {
+  background-color: var(--secondary);
+  color: white;
+}
+
+.calendar-day-number {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.calendar-appointments-indicator {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.appointment-dot {
+  width: 20px;
+  height: 6px;
+  border-radius: 3px;
+  background-color: var(--primary);
+}
+
+.appointment-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.calendar-day.unavailable {
+  background-color: var(--gray-100);
+  color: var(--gray-500);
+}
+
+.calendar-day.unavailable:hover {
+  background-color: var(--gray-200);
+}
+
+/* Availability indicator styles */
+.availability-closed {
+  color: #dc3545;
+}
+
+.availability-vacation {
+  color: #fd7e14;
+}
+
+.availability-open {
+  color: #198754;
+}
+
+.availability-available {
+  color: #20c997;
+}

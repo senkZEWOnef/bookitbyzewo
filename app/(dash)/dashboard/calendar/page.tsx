@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import { Row, Col, Button, Badge, Alert } from 'react-bootstrap'
 import Link from 'next/link'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parseISO } from 'date-fns'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parseISO, getDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { createSupabaseClient } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
+import AvailabilityManager from '@/components/AvailabilityManager'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +20,22 @@ interface Appointment {
   service_name: string
 }
 
+interface AvailabilityRule {
+  id: string
+  weekday: number
+  start_time: string
+  end_time: string
+}
+
+interface AvailabilityException {
+  id: string
+  date: string
+  is_closed: boolean
+  start_time?: string
+  end_time?: string
+  reason?: string
+}
+
 export default function CalendarPage() {
   const { language } = useLanguage()
   const locale = language === 'es' ? 'es' : 'en'
@@ -29,6 +46,9 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [business, setBusiness] = useState<any>(null)
+  const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([])
+  const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([])
+  const [showAvailabilityManager, setShowAvailabilityManager] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -80,6 +100,27 @@ export default function CalendarPage() {
         })) || []
 
         setAppointments(formattedAppointments)
+
+        // Get availability rules
+        const { data: rulesData } = await supabase
+          .from('availability_rules')
+          .select('*')
+          .eq('business_id', businessData.id)
+          .is('staff_id', null)
+          .order('weekday')
+
+        setAvailabilityRules(rulesData || [])
+
+        // Get availability exceptions for current month
+        const { data: exceptionsData } = await supabase
+          .from('availability_exceptions')
+          .select('*')
+          .eq('business_id', businessData.id)
+          .is('staff_id', null)
+          .gte('date', monthStart.toISOString().split('T')[0])
+          .lte('date', monthEnd.toISOString().split('T')[0])
+
+        setAvailabilityExceptions(exceptionsData || [])
       }
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -95,6 +136,89 @@ export default function CalendarPage() {
 
   const getAppointmentsForDay = (day: Date) => {
     return appointments.filter(apt => isSameDay(parseISO(apt.starts_at), day))
+  }
+
+  const getDayAvailability = (day: Date) => {
+    const dayString = format(day, 'yyyy-MM-dd')
+    
+    // Check for exceptions first
+    const exception = availabilityExceptions.find(ex => ex.date === dayString)
+    if (exception) {
+      return {
+        isOpen: !exception.is_closed,
+        hours: exception.is_closed ? null : {
+          start: exception.start_time,
+          end: exception.end_time
+        },
+        reason: exception.reason
+      }
+    }
+
+    // Check regular weekly hours
+    const dayOfWeek = getDay(day)
+    const rule = availabilityRules.find(rule => rule.weekday === dayOfWeek)
+    
+    return {
+      isOpen: !!rule,
+      hours: rule ? {
+        start: rule.start_time,
+        end: rule.end_time
+      } : null,
+      reason: null
+    }
+  }
+
+  const getAvailabilityIndicator = (day: Date) => {
+    const availability = getDayAvailability(day)
+    const dayAppointments = getAppointmentsForDay(day)
+    
+    if (!availability.isOpen) {
+      return {
+        color: '#dc3545', // red
+        icon: 'fas fa-times-circle',
+        text: locale === 'es' ? 'Cerrado' : 'Closed'
+      }
+    }
+
+    if (availability.reason === 'vacation') {
+      return {
+        color: '#fd7e14', // orange
+        icon: 'fas fa-umbrella-beach',
+        text: locale === 'es' ? 'Vacaciones' : 'Vacation'
+      }
+    }
+
+    if (availability.reason === 'sick') {
+      return {
+        color: '#dc3545', // red
+        icon: 'fas fa-user-md',
+        text: locale === 'es' ? 'Enfermedad' : 'Sick'
+      }
+    }
+
+    if (availability.reason === 'holiday') {
+      return {
+        color: '#6f42c1', // purple
+        icon: 'fas fa-star',
+        text: locale === 'es' ? 'Feriado' : 'Holiday'
+      }
+    }
+
+    // Open with appointments
+    if (dayAppointments.length > 0) {
+      return {
+        color: '#198754', // green
+        icon: 'fas fa-calendar-check',
+        text: `${dayAppointments.length} ${locale === 'es' ? 'citas' : 'appointments'}`
+      }
+    }
+
+    // Open, no appointments
+    return {
+      color: '#20c997', // teal
+      icon: 'fas fa-calendar-plus',
+      text: locale === 'es' ? 'Disponible' : 'Available'
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -169,6 +293,13 @@ export default function CalendarPage() {
           </div>
         </div>
         <div className="d-flex gap-2">
+          <Button 
+            variant="outline-secondary"
+            onClick={() => setShowAvailabilityManager(true)}
+          >
+            <i className="fas fa-clock me-1"></i>
+            {locale === 'es' ? 'Horarios' : 'Hours'}
+          </Button>
           <Button variant="outline-primary">
             <i className="fas fa-plus me-1"></i>
             {locale === 'es' ? 'Nueva Cita' : 'New Appointment'}
@@ -210,72 +341,68 @@ export default function CalendarPage() {
               </div>
             </div>
 
+            {/* Calendar Header */}
+            <div className="calendar-header mb-2">
+              {(locale === 'es' ? ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).map(day => (
+                <div key={day} className="calendar-header-day">
+                  {day}
+                </div>
+              ))}
+            </div>
+
             {/* Calendar Grid */}
             <div className="calendar-grid">
-              {/* Days of Week */}
-              <div className="row mb-2">
-                {(locale === 'es' ? ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).map(day => (
-                  <div key={day} className="col text-center fw-semibold text-muted small">
-                    {day}
-                  </div>
-                ))}
-              </div>
-
-              {/* Calendar Days */}
-              <div className="row g-1">
-                {monthDays.map(day => {
-                  const dayAppointments = getAppointmentsForDay(day)
-                  const isSelected = isSameDay(day, selectedDate)
-                  const isCurrentDay = isToday(day)
-                  
-                  return (
-                    <div key={day.toString()} className="col p-1">
-                      <div
-                        className={`p-2 rounded-3 text-center position-relative cursor-pointer transition-all ${
-                          isSelected ? 'bg-primary text-white' : 
-                          isCurrentDay ? 'bg-success text-white' : 
-                          'hover-bg-gray-50'
-                        }`}
-                        style={{
-                          minHeight: '80px',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease'
-                        }}
-                        onClick={() => setSelectedDate(day)}
-                        onMouseEnter={(e) => {
-                          if (!isSelected && !isCurrentDay) {
-                            e.currentTarget.style.backgroundColor = '#f8fafc'
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isSelected && !isCurrentDay) {
-                            e.currentTarget.style.backgroundColor = 'transparent'
-                          }
+              {monthDays.map(day => {
+                const dayAppointments = getAppointmentsForDay(day)
+                const availability = getDayAvailability(day)
+                const indicator = getAvailabilityIndicator(day)
+                const isSelected = isSameDay(day, selectedDate)
+                const isCurrentDay = isToday(day)
+                
+                return (
+                  <div
+                    key={day.toString()}
+                    className={`calendar-day ${
+                      isSelected ? 'selected' : 
+                      isCurrentDay ? 'today' : 
+                      !availability.isOpen ? 'unavailable' : ''
+                    }`}
+                    onClick={() => setSelectedDate(day)}
+                    style={{
+                      opacity: !availability.isOpen ? 0.6 : 1
+                    }}
+                  >
+                    <div className="calendar-day-number">
+                      {format(day, 'd')}
+                    </div>
+                    
+                    {/* Availability/Appointment Indicator */}
+                    <div className="calendar-appointments-indicator">
+                      <div 
+                        className="d-flex align-items-center justify-content-center"
+                        style={{ 
+                          color: isSelected || isCurrentDay ? 'rgba(255,255,255,0.9)' : indicator.color,
+                          fontSize: '0.7rem'
                         }}
                       >
-                        <div className="fw-semibold mb-1">
-                          {format(day, 'd')}
-                        </div>
-                        {dayAppointments.length > 0 && (
-                          <div>
-                            <div 
-                              className="rounded-pill mx-auto"
-                              style={{
-                                width: '20px',
-                                height: '6px',
-                                background: isSelected || isCurrentDay ? 'rgba(255,255,255,0.7)' : '#10b981'
-                              }}
-                            ></div>
-                            <small className={`${isSelected || isCurrentDay ? 'text-white-75' : 'text-muted'}`}>
-                              {dayAppointments.length}
-                            </small>
-                          </div>
-                        )}
+                        <i className={`${indicator.icon} me-1`}></i>
+                        {dayAppointments.length > 0 ? dayAppointments.length : ''}
                       </div>
+                      {availability.hours && (
+                        <small 
+                          className="text-muted"
+                          style={{ 
+                            fontSize: '0.6rem',
+                            color: isSelected || isCurrentDay ? 'rgba(255,255,255,0.7)' : undefined
+                          }}
+                        >
+                          {availability.hours.start}-{availability.hours.end}
+                        </small>
+                      )}
                     </div>
-                  )
-                })}
-              </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </Col>
@@ -291,6 +418,30 @@ export default function CalendarPage() {
                 </Badge>
               )}
             </h5>
+
+            {/* Day Availability Info */}
+            {(() => {
+              const dayAvailability = getDayAvailability(selectedDate)
+              const indicator = getAvailabilityIndicator(selectedDate)
+              
+              return (
+                <div className="mb-3 p-3 rounded-3" style={{ backgroundColor: `${indicator.color}15`, border: `1px solid ${indicator.color}30` }}>
+                  <div className="d-flex align-items-center mb-2">
+                    <i className={`${indicator.icon} me-2`} style={{ color: indicator.color }}></i>
+                    <span className="fw-semibold" style={{ color: indicator.color }}>
+                      {indicator.text}
+                    </span>
+                  </div>
+                  {dayAvailability.hours && (
+                    <small className="text-muted">
+                      <i className="fas fa-clock me-1"></i>
+                      {locale === 'es' ? 'Horario: ' : 'Hours: '}
+                      {dayAvailability.hours.start} - {dayAvailability.hours.end}
+                    </small>
+                  )}
+                </div>
+              )
+            })()}
 
             {getAppointmentsForDay(selectedDate).length === 0 ? (
               <div className="text-center py-4">
@@ -336,6 +487,16 @@ export default function CalendarPage() {
           </div>
         </Col>
       </Row>
+
+      {/* Availability Manager Modal */}
+      {business && (
+        <AvailabilityManager
+          show={showAvailabilityManager}
+          onHide={() => setShowAvailabilityManager(false)}
+          businessId={business.id}
+          onUpdate={fetchData}
+        />
+      )}
     </div>
   )
 }

@@ -10,6 +10,7 @@ import { createSupabaseClient } from '@/lib/supabase'
 export default function Navigation() {
   const { language, setLanguage, t } = useLanguage()
   const [user, setUser] = useState<any>(null)
+  const [userProfile, setUserProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const supabase = createSupabaseClient()
@@ -19,14 +20,40 @@ export default function Navigation() {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
+      
+      if (user) {
+        // Fetch user profile data
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+        
+        setUserProfile(profileData)
+      }
+      
       setLoading(false)
     }
     
     getUser()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       setUser(session?.user || null)
+      
+      if (session?.user) {
+        // Fetch user profile data
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+        
+        setUserProfile(profileData)
+      } else {
+        setUserProfile(null)
+      }
+      
       setLoading(false)
     })
 
@@ -90,9 +117,34 @@ export default function Navigation() {
               
               <NavDropdown 
                 title={
-                  <span className="text-dark bg-light px-2 py-1 rounded">
-                    <i className="fas fa-user-circle me-1 text-success"></i>
-                    {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+                  <span className="d-flex align-items-center text-dark bg-light px-2 py-1 rounded">
+                    {userProfile?.avatar_url ? (
+                      <img
+                        src={userProfile.avatar_url}
+                        alt="Profile"
+                        className="rounded-circle me-2"
+                        style={{ 
+                          width: '24px', 
+                          height: '24px', 
+                          objectFit: 'cover',
+                          border: '2px solid #10b981'
+                        }}
+                      />
+                    ) : (
+                      <div
+                        className="rounded-circle me-2 d-flex align-items-center justify-content-center"
+                        style={{
+                          width: '24px',
+                          height: '24px',
+                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          color: 'white',
+                          fontSize: '10px'
+                        }}
+                      >
+                        <i className="fas fa-user"></i>
+                      </div>
+                    )}
+                    {userProfile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
                   </span>
                 } 
                 id="user-nav-dropdown"

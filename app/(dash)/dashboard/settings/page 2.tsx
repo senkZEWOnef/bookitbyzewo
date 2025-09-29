@@ -5,7 +5,6 @@ import { Row, Col, Button, Alert, Form, Card } from 'react-bootstrap'
 import Link from 'next/link'
 import { createSupabaseClient } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
-import ProfilePictureUpload from '@/components/ProfilePictureUpload'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,8 +28,7 @@ export default function SettingsPage() {
 
   const [profileForm, setProfileForm] = useState({
     full_name: '',
-    phone: '',
-    avatar_url: ''
+    phone: ''
   })
 
   useEffect(() => {
@@ -46,18 +44,10 @@ export default function SettingsPage() {
 
       setUser(user)
 
-      // Get profile data from database
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
       // Set profile form with current user data
       setProfileForm({
-        full_name: profileData?.full_name || user.user_metadata?.full_name || '',
-        phone: profileData?.phone || user.user_metadata?.phone || '',
-        avatar_url: profileData?.avatar_url || user.user_metadata?.avatar_url || ''
+        full_name: user.user_metadata?.full_name || '',
+        phone: user.user_metadata?.phone || ''
       })
 
       // Get business
@@ -137,7 +127,6 @@ export default function SettingsPage() {
           id: user.id,
           full_name: profileForm.full_name,
           phone: profileForm.phone,
-          avatar_url: profileForm.avatar_url,
           updated_at: new Date().toISOString()
         })
 
@@ -147,8 +136,7 @@ export default function SettingsPage() {
       const { error: authError } = await supabase.auth.updateUser({
         data: {
           full_name: profileForm.full_name,
-          phone: profileForm.phone,
-          avatar_url: profileForm.avatar_url
+          phone: profileForm.phone
         }
       })
 
@@ -232,21 +220,23 @@ export default function SettingsPage() {
         <Col lg={6}>
           <div className="glass-card p-4 rounded-4">
             <div className="d-flex align-items-center mb-4">
-              <div className="me-3">
-                {user && (
-                  <ProfilePictureUpload
-                    currentPictureUrl={profileForm.avatar_url}
-                    onPictureUpdate={(url) => setProfileForm(prev => ({ ...prev, avatar_url: url }))}
-                    userId={user.id}
-                  />
-                )}
+              <div 
+                className="rounded-circle me-3 d-flex align-items-center justify-content-center"
+                style={{ 
+                  width: '50px', 
+                  height: '50px',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: 'white'
+                }}
+              >
+                <i className="fas fa-user fs-5"></i>
               </div>
               <div>
                 <h5 className="mb-0 fw-bold">
                   {locale === 'es' ? 'Configuración del Perfil' : 'Profile Settings'}
                 </h5>
                 <small className="text-muted">
-                  {locale === 'es' ? 'Actualiza tu información personal y foto' : 'Update your personal information and photo'}
+                  {locale === 'es' ? 'Actualiza tu información personal' : 'Update your personal information'}
                 </small>
               </div>
             </div>
