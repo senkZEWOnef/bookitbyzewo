@@ -1,58 +1,62 @@
-"use client";
+'use client'
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 
 export default function SimpleTest() {
-  const [status, setStatus] = useState("Loading...");
-  const [user, setUser] = useState<any>(null);
+  const [status, setStatus] = useState('Starting test...')
+  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
     const test = async () => {
       try {
-        console.log("Testing session...");
-
-        // Clear any existing session first
-        await supabase.auth.signOut();
-
-        // Wait a moment
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        // Try to sign in directly
+        setStatus('🔍 Step 1: Clearing session...')
+        console.log('Step 1: Clearing session...')
+        
+        await supabase.auth.signOut()
+        
+        setStatus('⏳ Step 2: Waiting...')
+        console.log('Step 2: Waiting...')
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        setStatus('🔐 Step 3: Attempting login...')
+        console.log('Step 3: Attempting login...')
+        
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: "ralph.ulysse509@gmail.com", // Replace with your actual email
-          password: "Poesie509$", // Replace with your actual password
-        });
+          email: 'ralph.ulysse509@gmail.com',
+          password: 'Poesie509$',
+        })
+
+        console.log('Login result:', { data: !!data, error })
 
         if (error) {
-          setStatus(`❌ Login failed: ${error.message}`);
-          return;
+          setStatus(`❌ Login failed: ${error.message}`)
+          return
         }
 
-        setStatus("✅ Login successful! Checking session...");
-        setUser(data.user);
+        setStatus('✅ Step 4: Login successful! Checking session...')
+        console.log('Step 4: Login successful')
+        setUser(data.user)
 
-        // Now test session retrieval
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        console.log('Session result:', { session: !!session, error: sessionError })
+        
         if (sessionError) {
-          setStatus(`❌ Session error: ${sessionError.message}`);
+          setStatus(`❌ Session error: ${sessionError.message}`)
         } else if (session) {
-          setStatus(`✅ Session works! User: ${session.user?.email}`);
+          setStatus(`✅ ALL GOOD! User: ${session.user?.email}`)
         } else {
-          setStatus("❌ No session found");
+          setStatus('❌ No session found after login')
         }
-      } catch (err) {
-        setStatus(`💥 Error: ${err}`);
-        console.error("Test error:", err);
-      }
-    };
 
-    test();
-  }, []);
+      } catch (err) {
+        console.error('Test error:', err)
+        setStatus(`💥 Error: ${err}`)
+      }
+    }
+
+    test()
+  }, [])
 
   return (
     <div className="container mt-5">
@@ -60,16 +64,16 @@ export default function SimpleTest() {
       <div className="card">
         <div className="card-body">
           <h5>Status:</h5>
-          <p>{status}</p>
-
+          <p style={{ fontSize: '18px', fontWeight: 'bold' }}>{status}</p>
+          
           {user && (
             <div>
               <h5>User Data:</h5>
               <pre>{JSON.stringify(user, null, 2)}</pre>
             </div>
           )}
-
-          <button
+          
+          <button 
             className="btn btn-primary"
             onClick={() => window.location.reload()}
           >
@@ -78,5 +82,5 @@ export default function SimpleTest() {
         </div>
       </div>
     </div>
-  );
+  )
 }
