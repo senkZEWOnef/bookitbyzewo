@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Navbar, Nav, Container, Button, NavDropdown } from 'react-bootstrap'
 import { useLanguage } from '@/lib/language-context'
-import { createSupabaseClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 export default function Navigation() {
   const { language, setLanguage, t } = useLanguage()
@@ -13,7 +13,6 @@ export default function Navigation() {
   const [userProfile, setUserProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createSupabaseClient()
 
   useEffect(() => {
     // Get initial user state

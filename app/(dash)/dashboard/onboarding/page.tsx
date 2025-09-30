@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Container, Row, Col, Card, Form, Button, Alert, ProgressBar } from 'react-bootstrap'
-import { createSupabaseClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { createClient } from '@supabase/supabase-js'
 
 interface BusinessData {
@@ -51,7 +51,7 @@ export default function OnboardingPage() {
   const [hasExistingBusiness, setHasExistingBusiness] = useState(false)
   const [isPro, setIsPro] = useState(false)
   const router = useRouter()
-  const supabase = createSupabaseClient()
+  const supabase = supabase
 
   // Check if user already has a business on component mount
   useEffect(() => {

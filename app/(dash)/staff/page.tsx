@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Table, Button, Modal, Form, Alert, Badge } from 'react-bootstrap'
-import { createSupabaseClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { Staff, Service } from '@/types/database'
 
 interface StaffFormData {
@@ -32,7 +32,7 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const supabase = createSupabaseClient()
+  const supabase = supabase
 
   useEffect(() => {
     fetchData()
@@ -454,7 +454,7 @@ export default function StaffPage() {
 // Component to display staff services
 function StaffServices({ staffId, services }: { staffId: string, services: Service[] }) {
   const [staffServices, setStaffServices] = useState<string[]>([])
-  const supabase = createSupabaseClient()
+  const supabase = supabase
 
   useEffect(() => {
     fetchStaffServices()

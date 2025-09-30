@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Row, Col, Alert, Button, Badge, Spinner, Modal } from 'react-bootstrap'
 import Link from 'next/link'
 import { format, parseISO, isToday, isTomorrow } from 'date-fns'
-import { createSupabaseClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { createWhatsAppLink } from '@/lib/whatsapp'
 import QRCode from 'qrcode'
 
@@ -48,7 +48,6 @@ export default function DashboardPage() {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('')
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fetchingRef = useRef(false)
-  const supabase = createSupabaseClient()
   
   console.log('🚀 DASHBOARD COMPONENT: Supabase client created')
 

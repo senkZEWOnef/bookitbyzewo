@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Row, Col, Button, Badge, Alert, Modal, Form } from 'react-bootstrap'
 import Link from 'next/link'
-import { createSupabaseClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 export const dynamic = 'force-dynamic'
@@ -44,7 +44,7 @@ export default function StaffPage() {
 
   const fetchData = async () => {
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) return
@@ -82,7 +82,7 @@ export default function StaffPage() {
     setSubmitting(true)
 
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       
       if (editingStaff) {
         // Update staff
@@ -140,7 +140,7 @@ export default function StaffPage() {
 
   const toggleStaffStatus = async (staffMember: Staff) => {
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       await supabase
         .from('staff')
         .update({ is_active: !staffMember.is_active })

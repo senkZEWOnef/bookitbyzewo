@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from 'react-bootstrap'
-import { createSupabaseClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 export default function DashboardLayout({
@@ -30,7 +30,6 @@ export default function DashboardLayout({
 
   useEffect(() => {
     console.log('🔴 LAYOUT: useEffect triggered')
-    const supabase = createSupabaseClient()
     
     const getUser = async () => {
       console.log('🔴 LAYOUT: Getting user...')
@@ -103,7 +102,6 @@ export default function DashboardLayout({
   }, [router])
 
   const handleSignOut = async () => {
-    const supabase = createSupabaseClient()
     await supabase.auth.signOut()
     router.push('/')
   }

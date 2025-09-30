@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Row, Col, Button, Alert, Form, Card } from 'react-bootstrap'
 import Link from 'next/link'
-import { createSupabaseClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 export const dynamic = 'force-dynamic'
@@ -37,7 +37,7 @@ export default function SettingsPage() {
 
   const fetchData = async () => {
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) return
@@ -82,7 +82,7 @@ export default function SettingsPage() {
     setMessage({ type: '', content: '' })
 
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       
       const { error } = await supabase
         .from('businesses')
@@ -118,7 +118,7 @@ export default function SettingsPage() {
     setMessage({ type: '', content: '' })
 
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       
       // Update profile table
       const { error: profileError } = await supabase
@@ -163,7 +163,7 @@ export default function SettingsPage() {
     }
 
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       
       // Note: In a real app, you'd want to handle this server-side
       // This is just for demo purposes

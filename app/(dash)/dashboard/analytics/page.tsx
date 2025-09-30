@@ -5,7 +5,7 @@ import { Row, Col, Alert, Button } from 'react-bootstrap'
 import Link from 'next/link'
 import { format, startOfMonth, endOfMonth, subMonths, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { createSupabaseClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 export const dynamic = 'force-dynamic'
@@ -38,7 +38,7 @@ export default function AnalyticsPage() {
 
   const fetchData = async () => {
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) return

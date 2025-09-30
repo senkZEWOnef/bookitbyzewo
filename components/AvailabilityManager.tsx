@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Modal, Button, Form, Row, Col, Badge, Alert, Tabs, Tab } from 'react-bootstrap'
 import { format, parseISO, startOfWeek, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { createSupabaseClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 interface AvailabilityRule {
@@ -79,7 +79,7 @@ export default function AvailabilityManager({ show, onHide, businessId, onUpdate
   const fetchAvailability = async () => {
     setLoading(true)
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       
       // Fetch weekly hours
       const { data: hoursData } = await supabase
@@ -121,7 +121,7 @@ export default function AvailabilityManager({ show, onHide, businessId, onUpdate
   const saveWeeklyHours = async () => {
     setSaving(true)
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       
       // Delete existing rules
       await supabase
@@ -160,7 +160,7 @@ export default function AvailabilityManager({ show, onHide, businessId, onUpdate
 
     setSaving(true)
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       
       const exceptionToInsert = {
         business_id: businessId,
@@ -193,7 +193,7 @@ export default function AvailabilityManager({ show, onHide, businessId, onUpdate
   const removeException = async (id: string) => {
     setSaving(true)
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       
       await supabase
         .from('availability_exceptions')

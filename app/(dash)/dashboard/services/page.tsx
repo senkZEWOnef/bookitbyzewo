@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Row, Col, Button, Card, Badge, Alert, Modal, Form } from 'react-bootstrap'
 import Link from 'next/link'
-import { createSupabaseClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 export const dynamic = 'force-dynamic'
@@ -50,7 +50,7 @@ export default function ServicesPage() {
 
   const fetchData = async () => {
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) return
@@ -88,7 +88,7 @@ export default function ServicesPage() {
     setSubmitting(true)
 
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       
       if (editingService) {
         // Update service
@@ -154,7 +154,7 @@ export default function ServicesPage() {
 
   const toggleServiceStatus = async (service: Service) => {
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       await supabase
         .from('services')
         .update({ is_active: !service.is_active })

@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Button, Modal, Alert, Spinner } from 'react-bootstrap'
-import { createSupabaseClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 interface ProfilePictureUploadProps {
@@ -56,7 +56,7 @@ export default function ProfilePictureUpload({ currentPictureUrl, onPictureUpdat
     setError('')
 
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       
       // Convert image to base64 for simple storage
       const reader = new FileReader()
@@ -112,7 +112,7 @@ export default function ProfilePictureUpload({ currentPictureUrl, onPictureUpdat
     setError('')
 
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
 
       // Remove from database
       const { error: dbError } = await supabase

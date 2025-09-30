@@ -5,7 +5,7 @@ import { Row, Col, Button, Badge, Alert } from 'react-bootstrap'
 import Link from 'next/link'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parseISO, getDay } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { createSupabaseClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 import AvailabilityManager from '@/components/AvailabilityManager'
 
@@ -56,7 +56,7 @@ export default function CalendarPage() {
 
   const fetchData = async () => {
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) return

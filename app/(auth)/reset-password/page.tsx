@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Form, Button, Alert } from 'react-bootstrap'
-import { createSupabaseClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useLanguage } from '@/lib/language-context'
@@ -63,7 +63,7 @@ export default function ResetPasswordPage() {
     }
 
     try {
-      const supabase = createSupabaseClient()
+      const supabase = supabase
       
       // Set the session with the tokens
       await supabase.auth.setSession({
