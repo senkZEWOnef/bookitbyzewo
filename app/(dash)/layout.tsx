@@ -139,6 +139,13 @@ export default function DashboardLayout({
       available: true
     },
     {
+      icon: 'fas fa-globe',
+      label: locale === 'es' ? 'Página Web' : 'Landing Page',
+      href: '/dashboard/landing-page',
+      active: pathname === '/dashboard/landing-page',
+      available: true
+    },
+    {
       icon: 'fas fa-users',
       label: locale === 'es' ? 'Personal' : 'Staff',
       href: '/dashboard/staff',

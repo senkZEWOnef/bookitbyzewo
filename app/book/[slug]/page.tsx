@@ -45,6 +45,18 @@ export default function BookingPage() {
     fetchBusinessData()
   }, [businessSlug])
 
+  useEffect(() => {
+    // Check if a service was pre-selected from the landing page
+    const serviceId = searchParams.get('service')
+    if (serviceId && services.length > 0) {
+      const service = services.find(s => s.id === serviceId)
+      if (service) {
+        setSelectedService(service)
+        setStep('time')
+      }
+    }
+  }, [services, searchParams])
+
   const fetchBusinessData = async () => {
     try {
       const response = await fetch(`/api/business/${businessSlug}`)

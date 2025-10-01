@@ -51,7 +51,6 @@ export default function OnboardingPage() {
   const [hasExistingBusiness, setHasExistingBusiness] = useState(false)
   const [isPro, setIsPro] = useState(false)
   const router = useRouter()
-  const supabase = supabase
 
   // Check if user already has a business on component mount
   useEffect(() => {
@@ -280,12 +279,12 @@ export default function OnboardingPage() {
         throw new Error(`Failed to create availability: ${availabilityError.message}`)
       }
 
-      console.log('Business setup completed successfully! Redirecting to dashboard...')
+      console.log('Business setup completed successfully! Redirecting to branding setup...')
       
       // Small delay to ensure database consistency before redirect
       await new Promise(resolve => setTimeout(resolve, 200))
       
-      router.push('/dashboard')
+      router.push('/dashboard/branding-setup')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Setup failed')
     } finally {
