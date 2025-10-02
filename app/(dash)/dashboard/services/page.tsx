@@ -50,7 +50,6 @@ export default function ServicesPage() {
 
   const fetchData = async () => {
     try {
-      const supabase = supabase
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) return
@@ -88,8 +87,6 @@ export default function ServicesPage() {
     setSubmitting(true)
 
     try {
-      const supabase = supabase
-      
       if (editingService) {
         // Update service
         await supabase
@@ -154,7 +151,6 @@ export default function ServicesPage() {
 
   const toggleServiceStatus = async (service: Service) => {
     try {
-      const supabase = supabase
       await supabase
         .from('services')
         .update({ is_active: !service.is_active })

@@ -35,9 +35,6 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export default function DashboardPage() {
-  console.log('🚀 DASHBOARD COMPONENT: Rendering DashboardPage component')
-  console.log('🚀 DASHBOARD COMPONENT: Current URL:', typeof window !== 'undefined' ? window.location.href : 'SSR')
-  
   const [business, setBusiness] = useState<Business | null>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [recentAppointments, setRecentAppointments] = useState<RecentAppointment[]>([])
@@ -48,8 +45,6 @@ export default function DashboardPage() {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('')
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fetchingRef = useRef(false)
-  
-  console.log('🚀 DASHBOARD COMPONENT: Supabase client created')
 
   // Debug helper function
   const debugBusinessAccess = async (user: any) => {

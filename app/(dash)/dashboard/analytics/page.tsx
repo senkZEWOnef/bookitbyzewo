@@ -38,7 +38,6 @@ export default function AnalyticsPage() {
 
   const fetchData = async () => {
     try {
-      const supabase = supabase
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) return

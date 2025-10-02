@@ -44,7 +44,6 @@ export default function StaffPage() {
 
   const fetchData = async () => {
     try {
-      const supabase = supabase
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) return
@@ -82,8 +81,6 @@ export default function StaffPage() {
     setSubmitting(true)
 
     try {
-      const supabase = supabase
-      
       if (editingStaff) {
         // Update staff
         await supabase
@@ -140,7 +137,6 @@ export default function StaffPage() {
 
   const toggleStaffStatus = async (staffMember: Staff) => {
     try {
-      const supabase = supabase
       await supabase
         .from('staff')
         .update({ is_active: !staffMember.is_active })

@@ -56,17 +56,23 @@ export default function CalendarPage() {
 
   const fetchData = async () => {
     try {
-      const supabase = supabase
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) return
 
       // Get business
-      const { data: businessData } = await supabase
+      console.log('📅 CALENDAR: Fetching business for user:', user.id)
+      const { data: businessData, error: businessError } = await supabase
         .from('businesses')
         .select('*')
         .eq('owner_id', user.id)
         .single()
+
+      console.log('📅 CALENDAR: Business query result:', { businessData, businessError })
+      
+      if (businessError) {
+        console.error('📅 CALENDAR: Business fetch error:', businessError)
+      }
 
       setBusiness(businessData)
 
