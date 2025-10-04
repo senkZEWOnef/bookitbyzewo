@@ -1,12 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { supabase } from '@/lib/supabase'
 
 export default function TestLogin() {
   const [email, setEmail] = useState('')
@@ -23,7 +18,7 @@ export default function TestLogin() {
       })
 
       if (error) {
-        setResult(`❌ Error: ${error.message}`)
+        setResult(`❌ Error: ${(error as any)?.message || 'Login failed'}`)
       } else {
         setResult(`✅ Success! User: ${data.user?.email}`)
         // Simple redirect

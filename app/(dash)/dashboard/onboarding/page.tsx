@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Container, Row, Col, Card, Form, Button, Alert, ProgressBar } from 'react-bootstrap'
 import { supabase } from '@/lib/supabase'
-import { createClient } from '@supabase/supabase-js'
 
 interface BusinessData {
   name: string
@@ -147,7 +146,7 @@ export default function OnboardingPage() {
 
       if (profileError) {
         console.error('Profile upsert error:', profileError)
-        throw new Error(`Failed to create profile: ${profileError.message}`)
+        throw new Error(`Failed to create profile: ${(profileError as any)?.message || 'Profile creation failed'}`)
       }
 
       console.log('Profile created/updated successfully:', profileData)
@@ -219,7 +218,7 @@ export default function OnboardingPage() {
         if (businessError.code === '23505') {
           throw new Error('Business URL is already taken. Please choose a different business name.')
         }
-        throw new Error(`Failed to create business: ${businessError.message}`)
+        throw new Error(`Failed to create business: ${(businessError as any)?.message || 'Business creation failed'}`)
       }
 
       console.log('Business created successfully:', business)
@@ -237,7 +236,7 @@ export default function OnboardingPage() {
 
       if (staffError) {
         console.error('Staff creation error:', staffError)
-        throw new Error(`Failed to create staff entry: ${staffError.message}`)
+        throw new Error(`Failed to create staff entry: ${(staffError as any)?.message || 'Staff creation failed'}`)
       }
 
       // Create starter services based on business type
@@ -254,7 +253,7 @@ export default function OnboardingPage() {
 
         if (servicesError) {
           console.error('Services creation error:', servicesError)
-          throw new Error(`Failed to create services: ${servicesError.message}`)
+          throw new Error(`Failed to create services: ${(servicesError as any)?.message || 'Services creation failed'}`)
         }
       }
 
@@ -276,7 +275,7 @@ export default function OnboardingPage() {
 
       if (availabilityError) {
         console.error('Availability creation error:', availabilityError)
-        throw new Error(`Failed to create availability: ${availabilityError.message}`)
+        throw new Error(`Failed to create availability: ${(availabilityError as any)?.message || 'Availability setup failed'}`)
       }
 
       console.log('Business setup completed successfully! Redirecting to branding setup...')

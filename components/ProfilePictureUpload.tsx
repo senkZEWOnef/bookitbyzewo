@@ -56,8 +56,6 @@ export default function ProfilePictureUpload({ currentPictureUrl, onPictureUpdat
     setError('')
 
     try {
-      const supabase = supabase
-      
       // Convert image to base64 for simple storage
       const reader = new FileReader()
       
@@ -112,8 +110,6 @@ export default function ProfilePictureUpload({ currentPictureUrl, onPictureUpdat
     setError('')
 
     try {
-      const supabase = supabase
-
       // Remove from database
       const { error: dbError } = await supabase
         .from('profiles')

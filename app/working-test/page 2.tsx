@@ -16,7 +16,7 @@ export default function WorkingTest() {
       const { data, error } = await workingAuth.signIn('ralph.ulysse509@gmail.com', 'Poesie509$')
       
       if (error) {
-        setStatus(`❌ Login failed: ${(error as any)?.message || 'Authentication failed'}`)
+        setStatus(`❌ Login failed: ${error.message}`)
       } else {
         setStatus('✅ Login successful! Checking user...')
         setUser(data?.user)

@@ -79,8 +79,6 @@ export default function AvailabilityManager({ show, onHide, businessId, onUpdate
   const fetchAvailability = async () => {
     setLoading(true)
     try {
-      const supabase = supabase
-      
       // Fetch weekly hours
       const { data: hoursData } = await supabase
         .from('availability_rules')
@@ -121,8 +119,6 @@ export default function AvailabilityManager({ show, onHide, businessId, onUpdate
   const saveWeeklyHours = async () => {
     setSaving(true)
     try {
-      const supabase = supabase
-      
       // Delete existing rules
       await supabase
         .from('availability_rules')
@@ -160,8 +156,6 @@ export default function AvailabilityManager({ show, onHide, businessId, onUpdate
 
     setSaving(true)
     try {
-      const supabase = supabase
-      
       const exceptionToInsert = {
         business_id: businessId,
         staff_id: null,
@@ -180,7 +174,7 @@ export default function AvailabilityManager({ show, onHide, businessId, onUpdate
 
       if (error) throw error
 
-      setExceptions([...exceptions, data])
+      setExceptions([...exceptions, data as any])
       setNewException({ date: '', is_closed: true, reason: '' })
       onUpdate()
     } catch (error) {
@@ -193,8 +187,6 @@ export default function AvailabilityManager({ show, onHide, businessId, onUpdate
   const removeException = async (id: string) => {
     setSaving(true)
     try {
-      const supabase = supabase
-      
       await supabase
         .from('availability_exceptions')
         .delete()

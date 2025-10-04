@@ -124,7 +124,7 @@ export default function DashboardPage() {
 
       if (profileError) {
         console.error('❌ DASHBOARD: Profile creation error:', profileError)
-        throw new Error(`Failed to create/update profile: ${profileError.message}`)
+        throw new Error(`Failed to create/update profile: ${(profileError as any)?.message || 'Profile operation failed'}`)
       }
 
       console.log('✅ DASHBOARD: Profile ready:', profileData)
@@ -149,7 +149,7 @@ export default function DashboardPage() {
 
       if (businessError) {
         console.error('❌ DASHBOARD: Business query error details:', {
-          message: businessError.message,
+          message: (businessError as any)?.message || 'Business operation failed',
           code: businessError.code,
           details: businessError.details,
           hint: businessError.hint

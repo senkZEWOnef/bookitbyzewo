@@ -21,7 +21,6 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
-  const supabase = supabase
   const { t } = useLanguage()
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -53,8 +52,8 @@ export default function SignupPage() {
     })
 
     if (error) {
-      setError(error.message)
-    } else if (data.user) {
+      setError((error as any)?.message || 'Signup failed')
+    } else if (data && data.user) {
       // Create profile
       const { error: profileError } = await supabase
         .from('profiles')

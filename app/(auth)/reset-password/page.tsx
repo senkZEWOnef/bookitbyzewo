@@ -63,7 +63,6 @@ export default function ResetPasswordPage() {
     }
 
     try {
-      const supabase = supabase
       
       // Set the session with the tokens
       await supabase.auth.setSession({
@@ -81,7 +80,7 @@ export default function ResetPasswordPage() {
       // Redirect to login with success message
       router.push('/login?message=password-updated')
     } catch (error: any) {
-      setError(error.message)
+      setError((error as any)?.message || 'Password reset failed')
     } finally {
       setLoading(false)
     }

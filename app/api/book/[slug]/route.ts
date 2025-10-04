@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { query } from "@/lib/database"
 import { parseISO, addMinutes } from 'date-fns'
 import Stripe from 'stripe'
 
@@ -15,10 +15,6 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
   
   try {
     const body = await request.json()
@@ -31,57 +27,61 @@ export async function POST(
       )
     }
 
-    // Get business and service details
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('*')
-      .eq('slug', params.slug)
-      .single()
+    // Get business details
+    const businessResult = await query(
+      'SELECT * FROM businesses WHERE slug = $1',
+      [params.slug]
+    )
 
-    if (!business) {
+    if (businessResult.rows.length === 0) {
       return NextResponse.json(
         { error: 'Business not found' },
         { status: 404 }
       )
     }
 
-    const { data: service } = await supabase
-      .from('services')
-      .select('*')
-      .eq('id', serviceId)
-      .eq('business_id', business.id)
-      .single()
+    const business = businessResult.rows[0]
 
-    if (!service) {
+    // Get service details
+    const serviceResult = await query(
+      'SELECT * FROM services WHERE id = $1 AND business_id = $2',
+      [serviceId, business.id]
+    )
+
+    if (serviceResult.rows.length === 0) {
       return NextResponse.json(
         { error: 'Service not found' },
         { status: 404 }
       )
     }
 
+    const service = serviceResult.rows[0]
+
     // Calculate appointment end time
     const startsAt = parseISO(datetime)
     const endsAt = addMinutes(startsAt, service.duration_min)
 
     // Check if slot is still available
-    let query = supabase
-      .from('appointments')
-      .select('id')
-      .eq('business_id', business.id)
-      .gte('starts_at', startsAt.toISOString())
-      .lte('starts_at', endsAt.toISOString())
-      .in('status', ['confirmed', 'pending'])
+    let conflictQuery = `
+      SELECT id FROM appointments 
+      WHERE business_id = $1 
+      AND starts_at >= $2 
+      AND starts_at <= $3 
+      AND status IN ('confirmed', 'pending')
+    `
+    let conflictParams = [business.id, startsAt.toISOString(), endsAt.toISOString()]
     
     // Add staff filter if staffId exists
     if (staffId) {
-      query = query.eq('staff_id', staffId)
+      conflictQuery += ' AND staff_id = $4'
+      conflictParams.push(staffId)
     } else {
-      query = query.is('staff_id', null)
+      conflictQuery += ' AND staff_id IS NULL'
     }
     
-    const { data: conflictingAppointments } = await query
+    const conflictResult = await query(conflictQuery, conflictParams)
 
-    if (conflictingAppointments && conflictingAppointments.length > 0) {
+    if (conflictResult.rows.length > 0) {
       return NextResponse.json(
         { error: 'Time slot is no longer available' },
         { status: 409 }
@@ -89,30 +89,34 @@ export async function POST(
     }
 
     // Create appointment
-    const { data: appointment, error: appointmentError } = await supabase
-      .from('appointments')
-      .insert({
-        business_id: business.id,
-        service_id: serviceId,
-        staff_id: staffId || null,
-        starts_at: startsAt.toISOString(),
-        ends_at: endsAt.toISOString(),
-        customer_name: customerName,
-        customer_phone: customerPhone,
-        customer_locale: customerLocale || 'es-PR',
-        status: service.deposit_cents > 0 ? 'pending' : 'confirmed',
-        source: 'public'
-      })
-      .select()
-      .single()
+    const appointmentResult = await query(`
+      INSERT INTO appointments (
+        business_id, service_id, staff_id, starts_at, ends_at,
+        customer_name, customer_phone, customer_locale, status, source, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+      RETURNING *
+    `, [
+      business.id,
+      serviceId,
+      staffId || null,
+      startsAt.toISOString(),
+      endsAt.toISOString(),
+      customerName,
+      customerPhone,
+      customerLocale || 'es-PR',
+      service.deposit_cents > 0 ? 'pending' : 'confirmed',
+      'public'
+    ])
 
-    if (appointmentError) {
-      console.error('Appointment creation error:', appointmentError)
+    if (appointmentResult.rows.length === 0) {
+      console.error('Failed to create appointment')
       return NextResponse.json(
         { error: 'Failed to create appointment' },
         { status: 500 }
       )
     }
+
+    const appointment = appointmentResult.rows[0]
 
     // If deposit required, create Stripe checkout session
     if (service.deposit_cents > 0) {
@@ -143,18 +147,21 @@ export async function POST(
         })
 
         // Store payment reference
-        await supabase
-          .from('payments')
-          .insert({
-            business_id: business.id,
-            provider: 'stripe',
-            external_id: session.id,
-            amount_cents: service.deposit_cents,
-            currency: 'USD',
-            status: 'pending',
-            kind: 'deposit',
-            meta: { appointment_id: appointment.id }
-          })
+        await query(`
+          INSERT INTO payments (
+            business_id, provider, external_id, amount_cents, currency, 
+            status, kind, meta, created_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        `, [
+          business.id,
+          'stripe',
+          session.id,
+          service.deposit_cents,
+          'USD',
+          'pending',
+          'deposit',
+          JSON.stringify({ appointment_id: appointment.id })
+        ])
 
         return NextResponse.json({
           appointmentId: appointment.id,

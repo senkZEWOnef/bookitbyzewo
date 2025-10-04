@@ -3,39 +3,30 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function SimpleTest() {
+export default function QuickTest() {
   const [status, setStatus] = useState('Starting test...')
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
     const test = async () => {
-      try {
-        setStatus('🔍 Step 1: Clearing session...')
-        console.log('Step 1: Clearing session...')
-        
-        await supabase.auth.signOut()
-        
-        setStatus('⏳ Step 2: Waiting...')
-        console.log('Step 2: Waiting...')
-        await new Promise(resolve => setTimeout(resolve, 500))
-        
-        setStatus('🔐 Step 3: Attempting login...')
-        console.log('Step 3: Attempting login...')
+      try {        
+        setStatus('🔐 Step 1: Attempting direct login...')
+        console.log('Step 1: Attempting direct login...')
         
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: 'test@example.com',
-          password: 'password123',
+          email: 'ralph.ulysse509@gmail.com',
+          password: 'Poesie509$',
         })
 
         console.log('Login result:', { data: !!data, error })
 
         if (error) {
-          setStatus(`❌ Login failed: ${(error as any)?.message || 'Unknown error'}`)
+          setStatus(`❌ Login failed: ${error.message}`)
           return
         }
 
-        setStatus('✅ Step 4: Login successful! Checking session...')
-        console.log('Step 4: Login successful')
+        setStatus('✅ Step 2: Login successful! Checking session...')
+        console.log('Step 2: Login successful')
         setUser(data.user)
 
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
@@ -44,7 +35,7 @@ export default function SimpleTest() {
         if (sessionError) {
           setStatus(`❌ Session error: ${(sessionError as any)?.message || 'Unknown error'}`)
         } else if (session) {
-          setStatus(`✅ ALL GOOD! User: ${session.user?.email}`)
+          setStatus(`✅ SUCCESS! User: ${session.user?.email}`)
         } else {
           setStatus('❌ No session found after login')
         }
@@ -60,7 +51,7 @@ export default function SimpleTest() {
 
   return (
     <div className="container mt-5">
-      <h1>🧪 Auth Test</h1>
+      <h1>⚡ Quick Test (No SignOut)</h1>
       <div className="card">
         <div className="card-body">
           <h5>Status:</h5>
@@ -72,13 +63,6 @@ export default function SimpleTest() {
               <pre>{JSON.stringify(user, null, 2)}</pre>
             </div>
           )}
-          
-          <button 
-            className="btn btn-primary"
-            onClick={() => window.location.reload()}
-          >
-            Run Test Again
-          </button>
         </div>
       </div>
     </div>

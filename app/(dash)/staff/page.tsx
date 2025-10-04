@@ -32,7 +32,6 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const supabase = supabase
 
   useEffect(() => {
     fetchData()
@@ -153,12 +152,12 @@ export default function StaffPage() {
         
         if (insertError) {
           console.error('Staff insert error details:', {
-            message: insertError.message,
+            message: (insertError as any)?.message || 'Unknown error',
             code: insertError.code,
             details: insertError.details,
             hint: insertError.hint
           })
-          throw new Error(`Failed to create staff: ${insertError.message}`)
+          throw new Error(`Failed to create staff: ${(insertError as any)?.message || 'Unknown error'}`)
         }
 
         // Add service assignments
@@ -454,7 +453,6 @@ export default function StaffPage() {
 // Component to display staff services
 function StaffServices({ staffId, services }: { staffId: string, services: Service[] }) {
   const [staffServices, setStaffServices] = useState<string[]>([])
-  const supabase = supabase
 
   useEffect(() => {
     fetchStaffServices()

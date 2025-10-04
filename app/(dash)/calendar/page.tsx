@@ -27,7 +27,6 @@ export default function CalendarPage() {
   const [businessName, setBusiness] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const supabase = supabase()
 
   useEffect(() => {
     fetchData()

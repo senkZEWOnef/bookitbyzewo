@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
+import { query } from "@/lib/database"
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
@@ -8,52 +7,39 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
   
   try {
     // Get business details
-    const { data: business, error: businessError } = await supabase
-      .from('businesses')
-      .select('*')
-      .eq('slug', params.slug)
-      .single()
+    const businessResult = await query(
+      'SELECT * FROM businesses WHERE slug = $1',
+      [params.slug]
+    )
 
-    if (businessError || !business) {
+    if (businessResult.rows.length === 0) {
       return NextResponse.json(
         { error: 'Business not found' },
         { status: 404 }
       )
     }
 
-    // Get services for this business
-    const { data: services, error: servicesError } = await supabase
-      .from('services')
-      .select('*')
-      .eq('business_id', business.id)
-      .order('name')
+    const business = businessResult.rows[0]
 
-    if (servicesError) {
-      console.error('Services fetch error:', servicesError)
-      return NextResponse.json(
-        { error: 'Failed to fetch services' },
-        { status: 500 }
-      )
-    }
+    // Get services for this business
+    const servicesResult = await query(
+      'SELECT * FROM services WHERE business_id = $1 ORDER BY name',
+      [business.id]
+    )
 
     // Get staff for this business (optional, for multi-staff businesses)
-    const { data: staff } = await supabase
-      .from('staff')
-      .select('*')
-      .eq('business_id', business.id)
-      .order('display_name')
+    const staffResult = await query(
+      'SELECT * FROM staff WHERE business_id = $1 ORDER BY display_name',
+      [business.id]
+    )
 
     return NextResponse.json({
       business,
-      services: services || [],
-      staff: staff || []
+      services: servicesResult.rows || [],
+      staff: staffResult.rows || []
     })
   } catch (error) {
     console.error('Business API error:', error)

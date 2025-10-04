@@ -14,14 +14,14 @@ export default function QuickTest() {
         console.log('Step 1: Attempting direct login...')
         
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: 'ralph.ulysse509@gmail.com',
-          password: 'Poesie509$',
+          email: 'test@example.com',
+          password: 'password123',
         })
 
         console.log('Login result:', { data: !!data, error })
 
         if (error) {
-          setStatus(`❌ Login failed: ${error.message}`)
+          setStatus(`❌ Login failed: ${(error as any)?.message || 'Unknown error'}`)
           return
         }
 
@@ -33,7 +33,7 @@ export default function QuickTest() {
         console.log('Session result:', { session: !!session, error: sessionError })
         
         if (sessionError) {
-          setStatus(`❌ Session error: ${sessionError.message}`)
+          setStatus(`❌ Session error: ${(sessionError as any)?.message || 'Unknown error'}`)
         } else if (session) {
           setStatus(`✅ SUCCESS! User: ${session.user?.email}`)
         } else {

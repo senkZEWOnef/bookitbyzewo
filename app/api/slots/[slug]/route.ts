@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { query } from "@/lib/database"
+import { supabase } from "@/lib/supabase"
 import { format, parseISO, addMinutes, startOfDay, endOfDay } from 'date-fns'
 import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz'
 import { generateTimeSlots, isSlotAvailable } from '@/lib/time'
@@ -11,10 +12,6 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
   
   try {
     const { searchParams } = new URL(request.url)
@@ -95,7 +92,7 @@ export async function GET(
     const { data: exceptions } = await exceptionsQuery
 
     // Check if the day is marked as closed
-    const isClosed = exceptions?.some(exc => exc.is_closed)
+    const isClosed = exceptions?.some((exc: any) => exc.is_closed)
     if (isClosed) {
       return NextResponse.json({ slots: [] })
     }

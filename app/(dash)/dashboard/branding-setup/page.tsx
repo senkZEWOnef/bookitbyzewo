@@ -170,14 +170,14 @@ export default function BrandingSetupPage() {
       )
       
       const { data: buckets, error: bucketsError } = await Promise.race([bucketCheckPromise, timeoutPromise]) as any
-      console.log(`🎨 BRANDING: Available buckets:`, buckets?.map(b => b.name))
+      console.log(`🎨 BRANDING: Available buckets:`, buckets?.map((b: any) => b.name))
       
       if (bucketsError) {
         console.error(`🎨 BRANDING: Error listing buckets:`, bucketsError)
-        throw new Error(`Storage access error: ${bucketsError.message}`)
+        throw new Error(`Storage access error: ${(bucketsError as any)?.message || 'Storage access failed'}`)
       }
 
-      const bucketExists = buckets?.some(bucket => bucket.name === 'business-assets')
+      const bucketExists = buckets?.some((bucket: any) => bucket.name === 'business-assets')
       if (!bucketExists) {
         console.error(`🎨 BRANDING: business-assets bucket does not exist`)
         throw new Error('Storage bucket not configured. Please contact support.')
@@ -208,7 +208,7 @@ export default function BrandingSetupPage() {
 
       if (error) {
         console.error(`🎨 BRANDING: Upload error:`, error)
-        throw new Error(`Upload failed: ${error.message}`)
+        throw new Error(`Upload failed: ${(error as any)?.message || 'Upload failed'}`)
       }
 
       console.log(`🎨 BRANDING: Getting public URL for:`, filePath)
@@ -242,7 +242,7 @@ export default function BrandingSetupPage() {
       if (brandingData.logoFile) {
         console.log('🎨 BRANDING: Uploading logo...')
         try {
-          logoUrl = await handleFileUpload(brandingData.logoFile, 'logo')
+          logoUrl = await handleFileUpload(brandingData.logoFile, 'logo') || ''
           console.log('🎨 BRANDING: Logo uploaded successfully:', logoUrl)
         } catch (logoError) {
           console.error('🎨 BRANDING: Logo upload failed:', logoError)
@@ -256,7 +256,7 @@ export default function BrandingSetupPage() {
       if (brandingData.heroImageFile) {
         console.log('🎨 BRANDING: Uploading hero image...')
         try {
-          heroImageUrl = await handleFileUpload(brandingData.heroImageFile, 'hero')
+          heroImageUrl = await handleFileUpload(brandingData.heroImageFile, 'hero') || ''
           console.log('🎨 BRANDING: Hero image uploaded successfully:', heroImageUrl)
         } catch (heroError) {
           console.error('🎨 BRANDING: Hero image upload failed:', heroError)

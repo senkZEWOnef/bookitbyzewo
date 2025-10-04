@@ -23,14 +23,14 @@ export default function SimpleTest() {
         console.log('Step 3: Attempting login...')
         
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: 'test@example.com',
-          password: 'password123',
+          email: 'ralph.ulysse509@gmail.com',
+          password: 'Poesie509$',
         })
 
         console.log('Login result:', { data: !!data, error })
 
         if (error) {
-          setStatus(`❌ Login failed: ${(error as any)?.message || 'Unknown error'}`)
+          setStatus(`❌ Login failed: ${error.message}`)
           return
         }
 

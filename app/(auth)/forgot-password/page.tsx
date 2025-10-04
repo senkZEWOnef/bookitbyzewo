@@ -21,7 +21,6 @@ export default function ForgotPasswordPage() {
     setError('')
 
     try {
-      const supabase = supabase
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`
       })
@@ -34,7 +33,7 @@ export default function ForgotPasswordPage() {
           : 'A reset link has been sent to your email address.'
       )
     } catch (error: any) {
-      setError(error.message)
+      setError((error as any)?.message || 'Password reset request failed')
     } finally {
       setLoading(false)
     }

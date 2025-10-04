@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Container, Row, Col, Card, Button, Badge, Modal } from 'react-bootstrap'
-import { supabase } from '@/lib/supabase'
+import { apiClient } from '@/lib/api-client'
 
 interface Business {
   id: string
@@ -61,37 +61,25 @@ export default function BusinessLandingPage() {
 
   const loadBusinessData = async () => {
     try {
-      // Load business data
-      const { data: businessData, error: businessError } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('slug', slug)
-        .single()
-
-      if (businessError || !businessData) {
+      // Load business data and services via API
+      const data = await apiClient.get(`/business/${slug}`)
+      
+      if (!data.business) {
         setError('Business not found')
         setLoading(false)
         return
       }
 
-      setBusiness(businessData)
+      setBusiness(data.business)
 
       // If branding not completed, redirect to basic booking
-      if (!businessData.branding_completed) {
-        router.push(`/book/${businessData.slug}`)
+      if (!data.business.branding_completed) {
+        router.push(`/book/${data.business.slug}`)
         return
       }
 
-      // Load services
-      const { data: servicesData, error: servicesError } = await supabase
-        .from('services')
-        .select('*')
-        .eq('business_id', businessData.id)
-        .order('price_cents', { ascending: true })
-
-      if (!servicesError && servicesData) {
-        setServices(servicesData)
-      }
+      // Set services from the API response
+      setServices(data.services || [])
 
       setLoading(false)
     } catch (err) {

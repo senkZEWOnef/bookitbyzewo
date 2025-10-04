@@ -22,7 +22,7 @@ export default function LoginPage() {
 
       if (signInError) {
         console.error('Login error:', signInError)
-        setError(signInError.message)
+        setError((signInError as any)?.message || 'Login failed')
         setLoading(false)
       } else {
         console.log('Login successful, redirecting...')

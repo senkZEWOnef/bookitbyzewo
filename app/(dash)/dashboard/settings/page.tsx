@@ -39,7 +39,6 @@ export default function SettingsPage() {
 
   const fetchData = async () => {
     try {
-      const supabase = supabase
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) return
@@ -92,8 +91,6 @@ export default function SettingsPage() {
     setMessage({ type: '', content: '' })
 
     try {
-      const supabase = supabase
-      
       const { error } = await supabase
         .from('businesses')
         .update({
@@ -128,8 +125,6 @@ export default function SettingsPage() {
     setMessage({ type: '', content: '' })
 
     try {
-      const supabase = supabase
-      
       // Update profile table
       const { error: profileError } = await supabase
         .from('profiles')
@@ -175,8 +170,6 @@ export default function SettingsPage() {
     }
 
     try {
-      const supabase = supabase
-      
       // Note: In a real app, you'd want to handle this server-side
       // This is just for demo purposes
       setMessage({ 

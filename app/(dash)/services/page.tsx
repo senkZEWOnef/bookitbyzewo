@@ -39,7 +39,6 @@ export default function ServicesPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const supabase = supabase
 
   useEffect(() => {
     fetchServices()
