@@ -84,8 +84,39 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    console.log('🚀 DASHBOARD COMPONENT: useEffect triggered, calling fetchDashboardData')
-    fetchDashboardData()
+    console.log('🚀 DASHBOARD COMPONENT: useEffect triggered, using mock data for dev')
+    // TEMP: Use mock data for development
+    setBusiness({
+      id: 'dev-business-id',
+      name: 'Dev Hair Salon',
+      slug: 'dev-salon'
+    })
+    setStats({
+      todayAppointments: 5,
+      tomorrowAppointments: 8,
+      pendingPayments: 2,
+      totalRevenue: 1250
+    })
+    setRecentAppointments([
+      {
+        id: '1',
+        customer_name: 'Maria Rodriguez',
+        customer_phone: '+1787555001',
+        starts_at: new Date().toISOString(),
+        status: 'confirmed',
+        service_name: 'Haircut',
+        deposit_amount: 1000
+      },
+      {
+        id: '2', 
+        customer_name: 'Carlos Vega',
+        customer_phone: '+1787555002',
+        starts_at: new Date(Date.now() + 86400000).toISOString(),
+        status: 'pending',
+        service_name: 'Beard Trim'
+      }
+    ])
+    setLoading(false)
   }, [])
 
   useEffect(() => {

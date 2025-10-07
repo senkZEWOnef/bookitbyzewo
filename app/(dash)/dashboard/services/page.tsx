@@ -45,7 +45,43 @@ export default function ServicesPage() {
   })
 
   useEffect(() => {
-    fetchData()
+    // TEMP: Use mock data for development
+    setBusiness({
+      id: 'dev-business-id',
+      name: 'Dev Hair Salon',
+      slug: 'dev-salon'
+    })
+    setServices([
+      {
+        id: '1',
+        name: 'Haircut',
+        description: 'Professional haircut service',
+        duration_min: 45,
+        price_cents: 3500,
+        deposit_cents: 1000,
+        buffer_before_min: 15,
+        buffer_after_min: 15,
+        max_per_slot: 1,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        business_id: 'dev-business-id'
+      },
+      {
+        id: '2',
+        name: 'Beard Trim',
+        description: 'Beard trimming and styling',
+        duration_min: 20,
+        price_cents: 1500,
+        deposit_cents: 500,
+        buffer_before_min: 10,
+        buffer_after_min: 10,
+        max_per_slot: 1,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        business_id: 'dev-business-id'
+      }
+    ])
+    setLoading(false)
   }, [])
 
   const fetchData = async () => {

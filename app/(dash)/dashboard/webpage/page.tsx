@@ -2,15 +2,43 @@
 
 import { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Form, Button, Nav, Tab, Alert } from 'react-bootstrap'
-import { createSupabaseClient } from '@/lib/supabase'
 
 interface WebpageSettings {
+  headerSection: {
+    backgroundColor: string
+    textColor: string
+    showSocialIcons: boolean
+    showNavigationButtons: boolean
+  }
   heroBackgroundColor: string
   heroBackgroundImage: string
   heroTitle: string
   heroSubtitle: string
   businessName: string
   businessDescription: string
+  rulesSection: {
+    backgroundColor: string
+    backgroundImage: string
+    title: string
+    depositRule: string
+    latenessRule: string
+    noshowRule: string
+    cancellationRule: string
+    additionalRules: string
+  }
+  footerSection: {
+    backgroundColor: string
+    backgroundImage: string
+    textColor: string
+    showPoweredBy: boolean
+    customFooterText: string
+    contactInfo: {
+      address: string
+      phone: string
+      email: string
+      hours: string
+    }
+  }
   socialMedia: {
     facebook: string
     instagram: string
@@ -20,12 +48,41 @@ interface WebpageSettings {
 }
 
 const defaultSettings: WebpageSettings = {
+  headerSection: {
+    backgroundColor: '#ffffff',
+    textColor: '#000000',
+    showSocialIcons: true,
+    showNavigationButtons: true
+  },
   heroBackgroundColor: '#10b981',
   heroBackgroundImage: '',
   heroTitle: 'Book Your Appointment',
   heroSubtitle: 'Professional services at your convenience',
-  businessName: '',
-  businessDescription: '',
+  businessName: 'Dev Hair Salon',
+  businessDescription: 'Professional hair and beauty services',
+  rulesSection: {
+    backgroundColor: '#f8f9fa',
+    backgroundImage: '',
+    title: 'Booking Policies',
+    depositRule: 'A $10 deposit is required to confirm your appointment',
+    latenessRule: 'Please arrive on time. Late arrivals may result in shortened service',
+    noshowRule: 'No-show appointments will forfeit their deposit',
+    cancellationRule: 'Cancellations must be made 24 hours in advance for full refund',
+    additionalRules: ''
+  },
+  footerSection: {
+    backgroundColor: '#212529',
+    backgroundImage: '',
+    textColor: '#ffffff',
+    showPoweredBy: true,
+    customFooterText: 'Professional booking made easy',
+    contactInfo: {
+      address: '123 Main St, San Juan, PR',
+      phone: '+1 (787) 555-0123',
+      email: 'info@devhairsalon.com',
+      hours: 'Mon-Fri: 9AM-5PM, Sat: 9AM-3PM'
+    }
+  },
   socialMedia: {
     facebook: '',
     instagram: '',
@@ -36,74 +93,49 @@ const defaultSettings: WebpageSettings = {
 
 export default function WebpagePage() {
   const [settings, setSettings] = useState<WebpageSettings>(defaultSettings)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [business, setBusiness] = useState<any>(null)
   const [services, setServices] = useState<any[]>([])
-  const supabase = createSupabaseClient()
 
   useEffect(() => {
-    loadBusinessData()
+    // TEMP: Use mock data for development
+    setBusiness({
+      id: 'dev-business-id',
+      name: 'Dev Hair Salon',
+      slug: 'dev-salon'
+    })
+    setServices([
+      {
+        id: '1',
+        name: 'Haircut',
+        duration_min: 45,
+        price_cents: 3500
+      },
+      {
+        id: '2',
+        name: 'Beard Trim',
+        duration_min: 20,
+        price_cents: 1500
+      },
+      {
+        id: '3',
+        name: 'Haircut & Beard',
+        duration_min: 60,
+        price_cents: 4500
+      }
+    ])
+    setLoading(false)
   }, [])
 
-  const loadBusinessData = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Get business data
-      const { data: businessData } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('owner_id', user.id)
-        .single()
-
-      if (businessData) {
-        setBusiness(businessData)
-        
-        // Load existing webpage settings or use defaults
-        const savedSettings = businessData.webpage_settings || {}
-        setSettings({
-          ...defaultSettings,
-          businessName: businessData.name,
-          businessDescription: businessData.description || '',
-          ...savedSettings
-        })
-
-        // Get services
-        const { data: servicesData } = await supabase
-          .from('services')
-          .select('*')
-          .eq('business_id', businessData.id)
-          .order('name')
-
-        setServices(servicesData || [])
-      }
-    } catch (error) {
-      console.error('Error loading business data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleSave = async () => {
-    if (!business) return
-    
     setSaving(true)
     setMessage('')
 
     try {
-      const { error } = await supabase
-        .from('businesses')
-        .update({
-          webpage_settings: settings,
-          description: settings.businessDescription
-        })
-        .eq('id', business.id)
-
-      if (error) throw error
-
+      // TEMP: Simulate saving
+      await new Promise(resolve => setTimeout(resolve, 1000))
       setMessage('Webpage settings saved successfully!')
       setTimeout(() => setMessage(''), 3000)
     } catch (error) {
@@ -126,6 +158,79 @@ export default function WebpagePage() {
         [platform]: value
       }
     }))
+  }
+
+  const updateRulesSection = (updates: Partial<WebpageSettings['rulesSection']>) => {
+    setSettings(prev => ({
+      ...prev,
+      rulesSection: {
+        ...prev.rulesSection,
+        ...updates
+      }
+    }))
+  }
+
+  const updateFooterSection = (updates: Partial<WebpageSettings['footerSection']>) => {
+    setSettings(prev => ({
+      ...prev,
+      footerSection: {
+        ...prev.footerSection,
+        ...updates
+      }
+    }))
+  }
+
+  const updateContactInfo = (updates: Partial<WebpageSettings['footerSection']['contactInfo']>) => {
+    setSettings(prev => ({
+      ...prev,
+      footerSection: {
+        ...prev.footerSection,
+        contactInfo: {
+          ...prev.footerSection.contactInfo,
+          ...updates
+        }
+      }
+    }))
+  }
+
+  const updateHeaderSection = (updates: Partial<WebpageSettings['headerSection']>) => {
+    setSettings(prev => ({
+      ...prev,
+      headerSection: {
+        ...prev.headerSection,
+        ...updates
+      }
+    }))
+  }
+
+  const handleImageUpload = async (file: File, section: 'hero' | 'rules' | 'footer') => {
+    // TEMP: Simulate image upload - in production, upload to storage service
+    return new Promise<string>((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        resolve(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, section: 'hero' | 'rules' | 'footer') => {
+    const file = e.target.files?.[0]
+    if (file) {
+      try {
+        const imageUrl = await handleImageUpload(file, section)
+        if (section === 'hero') {
+          updateSettings({ heroBackgroundImage: imageUrl })
+        } else if (section === 'rules') {
+          updateRulesSection({ backgroundImage: imageUrl })
+        } else if (section === 'footer') {
+          updateFooterSection({ backgroundImage: imageUrl })
+        }
+      } catch (error) {
+        console.error('Error uploading image:', error)
+        setMessage('Error uploading image. Please try again.')
+      }
+    }
   }
 
   if (loading) {
@@ -158,8 +263,14 @@ export default function WebpagePage() {
                 </Alert>
               )}
 
-              <Tab.Container defaultActiveKey="hero">
+              <Tab.Container defaultActiveKey="header">
                 <Nav variant="tabs" className="mb-4">
+                  <Nav.Item>
+                    <Nav.Link eventKey="header">
+                      <i className="fas fa-window-maximize me-1"></i>
+                      Header
+                    </Nav.Link>
+                  </Nav.Item>
                   <Nav.Item>
                     <Nav.Link eventKey="hero">
                       <i className="fas fa-star me-1"></i>
@@ -173,14 +284,72 @@ export default function WebpagePage() {
                     </Nav.Link>
                   </Nav.Item>
                   <Nav.Item>
+                    <Nav.Link eventKey="rules">
+                      <i className="fas fa-gavel me-1"></i>
+                      Booking Rules
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
                     <Nav.Link eventKey="social">
                       <i className="fas fa-share-alt me-1"></i>
                       Social Media
                     </Nav.Link>
                   </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link eventKey="footer">
+                      <i className="fas fa-grip-lines me-1"></i>
+                      Footer
+                    </Nav.Link>
+                  </Nav.Item>
                 </Nav>
 
                 <Tab.Content>
+                  <Tab.Pane eventKey="header">
+                    <Form.Group className="mb-3">
+                      <Form.Label>Header Background Color</Form.Label>
+                      <Form.Control
+                        type="color"
+                        value={settings.headerSection.backgroundColor}
+                        onChange={(e) => updateHeaderSection({ backgroundColor: e.target.value })}
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>Header Text Color</Form.Label>
+                      <Form.Control
+                        type="color"
+                        value={settings.headerSection.textColor}
+                        onChange={(e) => updateHeaderSection({ textColor: e.target.value })}
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Check 
+                        type="checkbox"
+                        id="showNavigationButtons"
+                        checked={settings.headerSection.showNavigationButtons}
+                        onChange={(e) => updateHeaderSection({ showNavigationButtons: e.target.checked })}
+                        label="Show Navigation Buttons (Book & Rules)"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Check 
+                        type="checkbox"
+                        id="showSocialIcons"
+                        checked={settings.headerSection.showSocialIcons}
+                        onChange={(e) => updateHeaderSection({ showSocialIcons: e.target.checked })}
+                        label="Show Social Media Icons (when links provided)"
+                      />
+                    </Form.Group>
+
+                    <Alert variant="info" className="small">
+                      <i className="fas fa-info-circle me-2"></i>
+                      The header displays your business name and provides navigation to different sections. 
+                      Social media icons will only appear if you've added links in the Social Media tab.
+                    </Alert>
+                  </Tab.Pane>
+
                   <Tab.Pane eventKey="hero">
                     <Form.Group className="mb-3">
                       <Form.Label>Hero Title</Form.Label>
@@ -221,15 +390,32 @@ export default function WebpagePage() {
                     </Form.Group>
 
                     <Form.Group className="mb-3">
-                      <Form.Label>Background Image URL (optional)</Form.Label>
+                      <Form.Label>Background Image (optional)</Form.Label>
                       <Form.Control
-                        type="url"
-                        value={settings.heroBackgroundImage}
-                        onChange={(e) => updateSettings({ heroBackgroundImage: e.target.value })}
-                        placeholder="https://example.com/image.jpg"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'hero')}
                       />
+                      {settings.heroBackgroundImage && (
+                        <div className="mt-2">
+                          <img 
+                            src={settings.heroBackgroundImage} 
+                            alt="Hero background preview" 
+                            style={{ maxWidth: '200px', maxHeight: '100px', objectFit: 'cover' }}
+                            className="rounded"
+                          />
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            className="ms-2"
+                            onClick={() => updateSettings({ heroBackgroundImage: '' })}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      )}
                       <Form.Text className="text-muted">
-                        Leave empty to use background color only
+                        Upload an image or leave empty to use background color only
                       </Form.Text>
                     </Form.Group>
                   </Tab.Pane>
@@ -253,6 +439,129 @@ export default function WebpagePage() {
                         value={settings.businessDescription}
                         onChange={(e) => updateSettings({ businessDescription: e.target.value })}
                         placeholder="Describe your business and services..."
+                      />
+                    </Form.Group>
+                  </Tab.Pane>
+
+                  <Tab.Pane eventKey="rules">
+                    <Form.Group className="mb-3">
+                      <Form.Label>Section Title</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={settings.rulesSection.title}
+                        onChange={(e) => updateRulesSection({ title: e.target.value })}
+                        placeholder="Booking Policies"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>Background Color</Form.Label>
+                      <div className="d-flex align-items-center gap-2">
+                        <Form.Control
+                          type="color"
+                          value={settings.rulesSection.backgroundColor}
+                          onChange={(e) => updateRulesSection({ backgroundColor: e.target.value })}
+                          style={{ width: '60px' }}
+                        />
+                        <Form.Control
+                          type="text"
+                          value={settings.rulesSection.backgroundColor}
+                          onChange={(e) => updateRulesSection({ backgroundColor: e.target.value })}
+                          placeholder="#f8f9fa"
+                        />
+                      </div>
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>Background Image (optional)</Form.Label>
+                      <Form.Control
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'rules')}
+                      />
+                      {settings.rulesSection.backgroundImage && (
+                        <div className="mt-2">
+                          <img 
+                            src={settings.rulesSection.backgroundImage} 
+                            alt="Rules background preview" 
+                            style={{ maxWidth: '200px', maxHeight: '100px', objectFit: 'cover' }}
+                            className="rounded"
+                          />
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            className="ms-2"
+                            onClick={() => updateRulesSection({ backgroundImage: '' })}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      )}
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        <i className="fas fa-credit-card me-1"></i>
+                        Deposit Policy
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={settings.rulesSection.depositRule}
+                        onChange={(e) => updateRulesSection({ depositRule: e.target.value })}
+                        placeholder="A $10 deposit is required to confirm your appointment"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        <i className="fas fa-clock me-1"></i>
+                        Lateness Policy
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={settings.rulesSection.latenessRule}
+                        onChange={(e) => updateRulesSection({ latenessRule: e.target.value })}
+                        placeholder="Please arrive on time. Late arrivals may result in shortened service"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        <i className="fas fa-user-times me-1"></i>
+                        No-Show Policy
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={settings.rulesSection.noshowRule}
+                        onChange={(e) => updateRulesSection({ noshowRule: e.target.value })}
+                        placeholder="No-show appointments will forfeit their deposit"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        <i className="fas fa-ban me-1"></i>
+                        Cancellation Policy
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={settings.rulesSection.cancellationRule}
+                        onChange={(e) => updateRulesSection({ cancellationRule: e.target.value })}
+                        placeholder="Cancellations must be made 24 hours in advance for full refund"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        <i className="fas fa-list me-1"></i>
+                        Additional Rules (optional)
+                      </Form.Label>
+                      <Form.Control
+                        as="textarea"
+                        rows={3}
+                        value={settings.rulesSection.additionalRules}
+                        onChange={(e) => updateRulesSection({ additionalRules: e.target.value })}
+                        placeholder="Any additional policies or rules..."
                       />
                     </Form.Group>
                   </Tab.Pane>
@@ -310,6 +619,148 @@ export default function WebpagePage() {
                       />
                     </Form.Group>
                   </Tab.Pane>
+
+                  <Tab.Pane eventKey="footer">
+                    <Form.Group className="mb-3">
+                      <Form.Label>Background Color</Form.Label>
+                      <div className="d-flex align-items-center gap-2">
+                        <Form.Control
+                          type="color"
+                          value={settings.footerSection.backgroundColor}
+                          onChange={(e) => updateFooterSection({ backgroundColor: e.target.value })}
+                          style={{ width: '60px' }}
+                        />
+                        <Form.Control
+                          type="text"
+                          value={settings.footerSection.backgroundColor}
+                          onChange={(e) => updateFooterSection({ backgroundColor: e.target.value })}
+                          placeholder="#212529"
+                        />
+                      </div>
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>Text Color</Form.Label>
+                      <div className="d-flex align-items-center gap-2">
+                        <Form.Control
+                          type="color"
+                          value={settings.footerSection.textColor}
+                          onChange={(e) => updateFooterSection({ textColor: e.target.value })}
+                          style={{ width: '60px' }}
+                        />
+                        <Form.Control
+                          type="text"
+                          value={settings.footerSection.textColor}
+                          onChange={(e) => updateFooterSection({ textColor: e.target.value })}
+                          placeholder="#ffffff"
+                        />
+                      </div>
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>Background Image (optional)</Form.Label>
+                      <Form.Control
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'footer')}
+                      />
+                      {settings.footerSection.backgroundImage && (
+                        <div className="mt-2">
+                          <img 
+                            src={settings.footerSection.backgroundImage} 
+                            alt="Footer background preview" 
+                            style={{ maxWidth: '200px', maxHeight: '100px', objectFit: 'cover' }}
+                            className="rounded"
+                          />
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            className="ms-2"
+                            onClick={() => updateFooterSection({ backgroundImage: '' })}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      )}
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>Custom Footer Text</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={settings.footerSection.customFooterText}
+                        onChange={(e) => updateFooterSection({ customFooterText: e.target.value })}
+                        placeholder="Professional booking made easy"
+                      />
+                    </Form.Group>
+
+                    <Row>
+                      <Col md={6}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>
+                            <i className="fas fa-map-marker-alt me-1"></i>
+                            Address
+                          </Form.Label>
+                          <Form.Control
+                            type="text"
+                            value={settings.footerSection.contactInfo.address}
+                            onChange={(e) => updateContactInfo({ address: e.target.value })}
+                            placeholder="123 Main St, San Juan, PR"
+                          />
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                          <Form.Label>
+                            <i className="fas fa-phone me-1"></i>
+                            Phone
+                          </Form.Label>
+                          <Form.Control
+                            type="tel"
+                            value={settings.footerSection.contactInfo.phone}
+                            onChange={(e) => updateContactInfo({ phone: e.target.value })}
+                            placeholder="+1 (787) 555-0123"
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>
+                            <i className="fas fa-envelope me-1"></i>
+                            Email
+                          </Form.Label>
+                          <Form.Control
+                            type="email"
+                            value={settings.footerSection.contactInfo.email}
+                            onChange={(e) => updateContactInfo({ email: e.target.value })}
+                            placeholder="info@yourbusiness.com"
+                          />
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                          <Form.Label>
+                            <i className="fas fa-clock me-1"></i>
+                            Business Hours
+                          </Form.Label>
+                          <Form.Control
+                            type="text"
+                            value={settings.footerSection.contactInfo.hours}
+                            onChange={(e) => updateContactInfo({ hours: e.target.value })}
+                            placeholder="Mon-Fri: 9AM-5PM"
+                          />
+                        </Form.Group>
+                      </Col>
+                    </Row>
+
+                    <Form.Group className="mb-3">
+                      <Form.Check 
+                        type="checkbox"
+                        id="showPoweredBy"
+                        checked={settings.footerSection.showPoweredBy}
+                        onChange={(e) => updateFooterSection({ showPoweredBy: e.target.checked })}
+                        label="Show 'Powered by BookIt by Zewo'"
+                      />
+                    </Form.Group>
+                  </Tab.Pane>
                 </Tab.Content>
               </Tab.Container>
 
@@ -360,11 +811,95 @@ export default function WebpagePage() {
             </Card.Header>
             <Card.Body className="p-0">
               <div className="preview-container" style={{ height: '600px', overflow: 'auto' }}>
+                {/* Header Preview */}
+                <div
+                  className="d-flex align-items-center justify-content-between p-3 border-bottom"
+                  style={{
+                    backgroundColor: settings.headerSection.backgroundColor,
+                    color: settings.headerSection.textColor
+                  }}
+                >
+                  <div className="d-flex align-items-center">
+                    <h5 className="mb-0 fw-bold">{settings.businessName}</h5>
+                  </div>
+
+                  <div className="d-flex align-items-center gap-3">
+                    {settings.headerSection.showNavigationButtons && (
+                      <div className="d-flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant={settings.headerSection.textColor === '#000000' ? 'outline-dark' : 'outline-light'}
+                          style={{ fontSize: '0.8rem' }}
+                          onClick={() => {
+                            const bookingSection = document.getElementById('booking-section')
+                            bookingSection?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                          }}
+                        >
+                          Book Now
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant={settings.headerSection.textColor === '#000000' ? 'outline-dark' : 'outline-light'}
+                          style={{ fontSize: '0.8rem' }}
+                          onClick={() => {
+                            const rulesSection = document.getElementById('rules-section')
+                            rulesSection?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                          }}
+                        >
+                          Rules
+                        </Button>
+                      </div>
+                    )}
+
+                    {settings.headerSection.showSocialIcons && (
+                      <div className="d-flex gap-2">
+                        {settings.socialMedia.facebook && (
+                          <a 
+                            href={settings.socialMedia.facebook} 
+                            style={{ color: settings.headerSection.textColor, fontSize: '1.1rem' }}
+                            title="Facebook"
+                          >
+                            <i className="fab fa-facebook"></i>
+                          </a>
+                        )}
+                        {settings.socialMedia.instagram && (
+                          <a 
+                            href={settings.socialMedia.instagram} 
+                            style={{ color: settings.headerSection.textColor, fontSize: '1.1rem' }}
+                            title="Instagram"
+                          >
+                            <i className="fab fa-instagram"></i>
+                          </a>
+                        )}
+                        {settings.socialMedia.whatsapp && (
+                          <a 
+                            href={`https://wa.me/${settings.socialMedia.whatsapp}`} 
+                            style={{ color: settings.headerSection.textColor, fontSize: '1.1rem' }}
+                            title="WhatsApp"
+                          >
+                            <i className="fab fa-whatsapp"></i>
+                          </a>
+                        )}
+                        {settings.socialMedia.website && (
+                          <a 
+                            href={settings.socialMedia.website} 
+                            style={{ color: settings.headerSection.textColor, fontSize: '1.1rem' }}
+                            title="Website"
+                          >
+                            <i className="fas fa-globe"></i>
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Hero Section Preview */}
                 <div
+                  id="booking-section"
                   className="text-white d-flex align-items-center justify-content-center"
                   style={{
-                    height: '300px',
+                    height: '250px',
                     backgroundColor: settings.heroBackgroundColor,
                     backgroundImage: settings.heroBackgroundImage ? `url(${settings.heroBackgroundImage})` : 'none',
                     backgroundSize: 'cover',
@@ -379,51 +914,47 @@ export default function WebpagePage() {
                     />
                   )}
                   <div className="text-center position-relative">
-                    <h1 className="display-5 fw-bold mb-3">{settings.heroTitle}</h1>
-                    <p className="lead mb-4">{settings.heroSubtitle}</p>
-                    <Button variant="light" size="lg">
+                    <h2 className="fw-bold mb-2">{settings.heroTitle}</h2>
+                    <p className="mb-3">{settings.heroSubtitle}</p>
+                    <Button variant="light" size="sm">
                       Book Now
                     </Button>
                   </div>
                 </div>
 
-                {/* Services Section Preview */}
-                <div className="p-4 bg-light">
-                  <div className="text-center mb-4">
-                    <h2 className="fw-bold">{settings.businessName}</h2>
+                {/* Business Info & Services Preview */}
+                <div className="p-3 bg-light">
+                  <div className="text-center mb-3">
+                    <h4 className="fw-bold">{settings.businessName}</h4>
                     {settings.businessDescription && (
-                      <p className="text-muted">{settings.businessDescription}</p>
+                      <p className="text-muted small">{settings.businessDescription}</p>
                     )}
                   </div>
 
                   <Row>
                     <Col md={6}>
-                      <h4 className="mb-3">Our Services</h4>
-                      {services.length > 0 ? (
-                        services.slice(0, 3).map((service) => (
-                          <Card key={service.id} className="mb-2">
-                            <Card.Body className="py-2">
-                              <div className="d-flex justify-content-between align-items-center">
-                                <div>
-                                  <h6 className="mb-1">{service.name}</h6>
-                                  <small className="text-muted">{service.duration_min} min</small>
-                                </div>
-                                <div className="text-end">
-                                  <strong>${(service.price_cents / 100).toFixed(2)}</strong>
-                                </div>
+                      <h6 className="mb-2">Our Services</h6>
+                      {services.slice(0, 3).map((service) => (
+                        <Card key={service.id} className="mb-1" style={{ fontSize: '0.8rem' }}>
+                          <Card.Body className="py-2 px-3">
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <div className="fw-medium">{service.name}</div>
+                                <small className="text-muted">{service.duration_min} min</small>
                               </div>
-                            </Card.Body>
-                          </Card>
-                        ))
-                      ) : (
-                        <p className="text-muted">No services available</p>
-                      )}
+                              <div className="text-end">
+                                <strong>${(service.price_cents / 100).toFixed(2)}</strong>
+                              </div>
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      ))}
                     </Col>
                     <Col md={6}>
-                      <h4 className="mb-3">Book Appointment</h4>
-                      <div className="bg-white p-3 rounded border">
-                        <p className="text-muted text-center">
-                          <i className="fas fa-calendar-alt fa-2x mb-2 d-block"></i>
+                      <h6 className="mb-2">Book Appointment</h6>
+                      <div className="bg-white p-3 rounded border text-center">
+                        <i className="fas fa-calendar-alt fa-2x text-muted mb-2"></i>
+                        <p className="text-muted small mb-0">
                           Interactive calendar will appear here
                         </p>
                       </div>
@@ -431,39 +962,153 @@ export default function WebpagePage() {
                   </Row>
                 </div>
 
-                {/* Footer Preview */}
-                <div className="bg-dark text-white p-4">
-                  <Row>
-                    <Col md={6}>
-                      <h5>{settings.businessName}</h5>
-                      <p className="mb-0">Professional booking made easy</p>
-                    </Col>
-                    <Col md={6}>
-                      <h6>Follow Us</h6>
-                      <div className="d-flex gap-3">
-                        {settings.socialMedia.facebook && (
-                          <a href={settings.socialMedia.facebook} className="text-white">
-                            <i className="fab fa-facebook fa-lg"></i>
-                          </a>
+                {/* Rules Section Preview */}
+                <div
+                  id="rules-section"
+                  className="p-3"
+                  style={{
+                    backgroundColor: settings.rulesSection.backgroundColor,
+                    backgroundImage: settings.rulesSection.backgroundImage ? `url(${settings.rulesSection.backgroundImage})` : 'none',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    position: 'relative'
+                  }}
+                >
+                  {settings.rulesSection.backgroundImage && (
+                    <div 
+                      className="position-absolute w-100 h-100 top-0 start-0" 
+                      style={{ backgroundColor: 'rgba(255,255,255,0.8)' }}
+                    />
+                  )}
+                  <div className="position-relative">
+                    <h5 className="text-center mb-3">{settings.rulesSection.title}</h5>
+                    <Row>
+                      <Col md={6}>
+                        {settings.rulesSection.depositRule && (
+                          <div className="mb-2">
+                            <i className="fas fa-credit-card text-success me-2"></i>
+                            <small>{settings.rulesSection.depositRule}</small>
+                          </div>
                         )}
-                        {settings.socialMedia.instagram && (
-                          <a href={settings.socialMedia.instagram} className="text-white">
-                            <i className="fab fa-instagram fa-lg"></i>
-                          </a>
+                        {settings.rulesSection.latenessRule && (
+                          <div className="mb-2">
+                            <i className="fas fa-clock text-warning me-2"></i>
+                            <small>{settings.rulesSection.latenessRule}</small>
+                          </div>
                         )}
-                        {settings.socialMedia.whatsapp && (
-                          <a href={`https://wa.me/${settings.socialMedia.whatsapp}`} className="text-white">
-                            <i className="fab fa-whatsapp fa-lg"></i>
-                          </a>
+                      </Col>
+                      <Col md={6}>
+                        {settings.rulesSection.noshowRule && (
+                          <div className="mb-2">
+                            <i className="fas fa-user-times text-danger me-2"></i>
+                            <small>{settings.rulesSection.noshowRule}</small>
+                          </div>
                         )}
-                        {settings.socialMedia.website && (
-                          <a href={settings.socialMedia.website} className="text-white">
-                            <i className="fas fa-globe fa-lg"></i>
-                          </a>
+                        {settings.rulesSection.cancellationRule && (
+                          <div className="mb-2">
+                            <i className="fas fa-ban text-info me-2"></i>
+                            <small>{settings.rulesSection.cancellationRule}</small>
+                          </div>
                         )}
+                      </Col>
+                    </Row>
+                    {settings.rulesSection.additionalRules && (
+                      <div className="mt-3 pt-2 border-top">
+                        <small className="text-muted">{settings.rulesSection.additionalRules}</small>
                       </div>
-                    </Col>
-                  </Row>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer Preview */}
+                <div
+                  className="p-3 position-relative"
+                  style={{
+                    backgroundColor: settings.footerSection.backgroundColor,
+                    backgroundImage: settings.footerSection.backgroundImage ? `url(${settings.footerSection.backgroundImage})` : 'none',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    color: settings.footerSection.textColor
+                  }}
+                >
+                  {settings.footerSection.backgroundImage && (
+                    <div 
+                      className="position-absolute w-100 h-100 top-0 start-0" 
+                      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+                    />
+                  )}
+                  <div className="position-relative">
+                    <Row>
+                      <Col md={4}>
+                        <h6 style={{ fontSize: '0.9rem' }}>{settings.businessName}</h6>
+                        {settings.footerSection.customFooterText && (
+                          <p className="mb-2 small">{settings.footerSection.customFooterText}</p>
+                        )}
+                        {!settings.footerSection.customFooterText && settings.businessDescription && (
+                          <p className="mb-2 small">{settings.businessDescription}</p>
+                        )}
+                      </Col>
+                      
+                      <Col md={4}>
+                        <h6 style={{ fontSize: '0.9rem' }}>Contact Info</h6>
+                        {settings.footerSection.contactInfo.address && (
+                          <div className="mb-1 small">
+                            <i className="fas fa-map-marker-alt me-2"></i>
+                            {settings.footerSection.contactInfo.address}
+                          </div>
+                        )}
+                        {settings.footerSection.contactInfo.phone && (
+                          <div className="mb-1 small">
+                            <i className="fas fa-phone me-2"></i>
+                            {settings.footerSection.contactInfo.phone}
+                          </div>
+                        )}
+                        {settings.footerSection.contactInfo.email && (
+                          <div className="mb-1 small">
+                            <i className="fas fa-envelope me-2"></i>
+                            {settings.footerSection.contactInfo.email}
+                          </div>
+                        )}
+                        {settings.footerSection.contactInfo.hours && (
+                          <div className="mb-1 small">
+                            <i className="fas fa-clock me-2"></i>
+                            {settings.footerSection.contactInfo.hours}
+                          </div>
+                        )}
+                      </Col>
+                      
+                      <Col md={4}>
+                        <h6 style={{ fontSize: '0.9rem' }}>Follow Us</h6>
+                        <div className="d-flex gap-2 mb-2">
+                          {settings.socialMedia.facebook && (
+                            <a href={settings.socialMedia.facebook} style={{ color: settings.footerSection.textColor, fontSize: '1.2rem' }}>
+                              <i className="fab fa-facebook"></i>
+                            </a>
+                          )}
+                          {settings.socialMedia.instagram && (
+                            <a href={settings.socialMedia.instagram} style={{ color: settings.footerSection.textColor, fontSize: '1.2rem' }}>
+                              <i className="fab fa-instagram"></i>
+                            </a>
+                          )}
+                          {settings.socialMedia.whatsapp && (
+                            <a href={`https://wa.me/${settings.socialMedia.whatsapp}`} style={{ color: settings.footerSection.textColor, fontSize: '1.2rem' }}>
+                              <i className="fab fa-whatsapp"></i>
+                            </a>
+                          )}
+                          {settings.socialMedia.website && (
+                            <a href={settings.socialMedia.website} style={{ color: settings.footerSection.textColor, fontSize: '1.2rem' }}>
+                              <i className="fas fa-globe"></i>
+                            </a>
+                          )}
+                        </div>
+                        {settings.footerSection.showPoweredBy && (
+                          <p className="mb-0" style={{ fontSize: '0.7rem', opacity: 0.8 }}>
+                            Powered by <strong>BookIt by Zewo</strong>
+                          </p>
+                        )}
+                      </Col>
+                    </Row>
+                  </div>
                 </div>
               </div>
             </Card.Body>

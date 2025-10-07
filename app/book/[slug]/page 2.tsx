@@ -383,5 +383,49 @@ export default function BookingPage() {
         </Col>
       </Row>
     </Container>
+
+    {/* Footer */}
+    <footer className="bg-dark text-white py-4 mt-5">
+      <Container>
+        <Row>
+          <Col md={6}>
+            <h5>{heroSettings.businessName || business?.name}</h5>
+            <p className="mb-0">
+              {heroSettings.businessDescription || business?.description || 
+                (locale === 'es' ? 'Reservas profesionales hechas fácil' : 'Professional booking made easy')}
+            </p>
+          </Col>
+          <Col md={6}>
+            <h6>{locale === 'es' ? 'Síguenos' : 'Follow Us'}</h6>
+            <div className="d-flex gap-3">
+              {socialMedia.facebook && (
+                <a href={socialMedia.facebook} className="text-white" target="_blank" rel="noopener noreferrer">
+                  <i className="fab fa-facebook fa-lg"></i>
+                </a>
+              )}
+              {socialMedia.instagram && (
+                <a href={socialMedia.instagram} className="text-white" target="_blank" rel="noopener noreferrer">
+                  <i className="fab fa-instagram fa-lg"></i>
+                </a>
+              )}
+              {socialMedia.whatsapp && (
+                <a href={`https://wa.me/${socialMedia.whatsapp}`} className="text-white" target="_blank" rel="noopener noreferrer">
+                  <i className="fab fa-whatsapp fa-lg"></i>
+                </a>
+              )}
+              {socialMedia.website && (
+                <a href={socialMedia.website} className="text-white" target="_blank" rel="noopener noreferrer">
+                  <i className="fas fa-globe fa-lg"></i>
+                </a>
+              )}
+            </div>
+            <p className="mt-3 mb-0 small text-muted">
+              Powered by <strong>BookIt by Zewo</strong>
+            </p>
+          </Col>
+        </Row>
+      </Container>
+    </footer>
+  </div>
   )
 }

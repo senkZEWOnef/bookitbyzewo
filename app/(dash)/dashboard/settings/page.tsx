@@ -34,7 +34,26 @@ export default function SettingsPage() {
   })
 
   useEffect(() => {
-    fetchData()
+    // TEMP: Use mock data for development
+    setUser({
+      id: 'dev-user',
+      email: 'dev@example.com',
+      user_metadata: { full_name: 'Dev User' }
+    })
+    setBusiness({
+      id: 'dev-business-id',
+      name: 'Dev Hair Salon',
+      slug: 'dev-salon',
+      location: '123 Main St, San Juan, PR',
+      timezone: 'America/Puerto_Rico',
+      messaging_mode: 'manual'
+    })
+    setProfileForm({
+      full_name: 'Dev User',
+      phone: '+1 (787) 555-0123',
+      avatar_url: ''
+    })
+    setLoading(false)
   }, [])
 
   const fetchData = async () => {

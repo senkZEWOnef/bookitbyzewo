@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Row, Col, Button, Badge, Alert } from 'react-bootstrap'
+import { Row, Col, Button, Badge, Alert, Dropdown, Form, Modal, Card } from 'react-bootstrap'
 import Link from 'next/link'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parseISO, getDay } from 'date-fns'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parseISO, getDay, startOfWeek, endOfWeek, addDays, startOfDay, endOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { createSupabaseClient } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
@@ -36,6 +36,37 @@ interface AvailabilityException {
   reason?: string
 }
 
+interface CalendarSettings {
+  viewType: 'month' | 'week' | 'day'
+  showWeekends: boolean
+  startWeek: 'sunday' | 'monday'
+  timeFormat: '12h' | '24h'
+  showAppointmentDetails: boolean
+  colorTheme: 'default' | 'colorful' | 'minimal'
+  statusColors: {
+    confirmed: string
+    pending: string
+    canceled: string
+    completed: string
+    no_show: string
+  }
+  displayOptions: {
+    showCustomerNames: boolean
+    showServiceNames: boolean
+    showPhoneNumbers: boolean
+    showDuration: boolean
+    showPricing: boolean
+  }
+  filterOptions: {
+    statusFilter: string[]
+    serviceFilter: string[]
+    dateRange: {
+      start: string
+      end: string
+    }
+  }
+}
+
 export default function CalendarPage() {
   const { language } = useLanguage()
   const locale = language === 'es' ? 'es' : 'en'
@@ -49,10 +80,68 @@ export default function CalendarPage() {
   const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([])
   const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([])
   const [showAvailabilityManager, setShowAvailabilityManager] = useState(false)
+  const [showCalendarSettings, setShowCalendarSettings] = useState(false)
+  const [calendarSettings, setCalendarSettings] = useState<CalendarSettings>({
+    viewType: 'month',
+    showWeekends: true,
+    startWeek: 'sunday',
+    timeFormat: '12h',
+    showAppointmentDetails: true,
+    colorTheme: 'default',
+    statusColors: {
+      confirmed: '#198754',
+      pending: '#ffc107',
+      canceled: '#dc3545',
+      completed: '#0dcaf0',
+      no_show: '#6c757d'
+    },
+    displayOptions: {
+      showCustomerNames: true,
+      showServiceNames: true,
+      showPhoneNumbers: false,
+      showDuration: true,
+      showPricing: false
+    },
+    filterOptions: {
+      statusFilter: ['confirmed', 'pending'],
+      serviceFilter: [],
+      dateRange: {
+        start: '',
+        end: ''
+      }
+    }
+  })
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    fetchData()
-  }, [currentDate])
+    // TEMP: Use mock data for development
+    setBusiness({
+      id: 'dev-business-id',
+      name: 'Dev Hair Salon',
+      slug: 'dev-salon',
+      timezone: 'America/Puerto_Rico'
+    })
+    setAppointments([
+      {
+        id: '1',
+        customer_name: 'Maria Rodriguez',
+        customer_phone: '+1 (787) 555-0123',
+        starts_at: new Date().toISOString(),
+        status: 'confirmed',
+        service_name: 'Haircut'
+      }
+    ])
+    setAvailabilityRules([
+      { id: '1', weekday: 1, start_time: '09:00', end_time: '17:00' }, // Monday
+      { id: '2', weekday: 2, start_time: '09:00', end_time: '17:00' }, // Tuesday
+      { id: '3', weekday: 3, start_time: '09:00', end_time: '17:00' }, // Wednesday
+      { id: '4', weekday: 4, start_time: '09:00', end_time: '17:00' }, // Thursday
+      { id: '5', weekday: 5, start_time: '09:00', end_time: '17:00' }, // Friday
+      { id: '6', weekday: 6, start_time: '10:00', end_time: '15:00' }  // Saturday
+    ])
+    setAvailabilityExceptions([])
+    setLoading(false)
+  }, [])
 
   const fetchData = async () => {
     try {
@@ -129,13 +218,93 @@ export default function CalendarPage() {
     }
   }
 
-  const monthDays = eachDayOfInterval({
-    start: startOfMonth(currentDate),
-    end: endOfMonth(currentDate)
-  })
+  const getCalendarDays = () => {
+    const monthStart = startOfMonth(currentDate)
+    const monthEnd = endOfMonth(currentDate)
+    
+    // Get the start of the first week and end of the last week to fill the calendar grid properly
+    const weekStartsOn = calendarSettings.startWeek === 'monday' ? 1 : 0
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn })
+    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn })
+    
+    return eachDayOfInterval({
+      start: calendarStart,
+      end: calendarEnd
+    })
+  }
+
+  const getViewDays = () => {
+    let days: Date[]
+    
+    if (calendarSettings.viewType === 'month') {
+      days = getCalendarDays()
+    } else if (calendarSettings.viewType === 'week') {
+      const weekStartsOn = calendarSettings.startWeek === 'monday' ? 1 : 0
+      const weekStart = startOfWeek(selectedDate, { weekStartsOn })
+      const weekEnd = endOfWeek(selectedDate, { weekStartsOn })
+      days = eachDayOfInterval({ start: weekStart, end: weekEnd })
+    } else { // day view
+      days = [selectedDate]
+    }
+    
+    // Filter out weekends if showWeekends is false
+    if (!calendarSettings.showWeekends && calendarSettings.viewType === 'month') {
+      days = days.filter(day => {
+        const dayOfWeek = getDay(day)
+        return dayOfWeek !== 0 && dayOfWeek !== 6 // Remove Sunday (0) and Saturday (6)
+      })
+    }
+    
+    return days
+  }
+
+  const viewDays = getViewDays()
 
   const getAppointmentsForDay = (day: Date) => {
-    return appointments.filter(apt => isSameDay(parseISO(apt.starts_at), day))
+    return getFilteredAppointments().filter(apt => isSameDay(parseISO(apt.starts_at), day))
+  }
+
+  const getFilteredAppointments = () => {
+    let filtered = appointments
+
+    // Status filter
+    if (calendarSettings.filterOptions.statusFilter.length > 0) {
+      filtered = filtered.filter(apt => calendarSettings.filterOptions.statusFilter.includes(apt.status))
+    }
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(apt => 
+        apt.customer_name.toLowerCase().includes(query) ||
+        apt.customer_phone.includes(query) ||
+        apt.service_name.toLowerCase().includes(query)
+      )
+    }
+
+    // Date range filter
+    if (calendarSettings.filterOptions.dateRange.start && calendarSettings.filterOptions.dateRange.end) {
+      const startDate = new Date(calendarSettings.filterOptions.dateRange.start)
+      const endDate = new Date(calendarSettings.filterOptions.dateRange.end)
+      filtered = filtered.filter(apt => {
+        const aptDate = parseISO(apt.starts_at)
+        return aptDate >= startDate && aptDate <= endDate
+      })
+    }
+
+    return filtered
+  }
+
+  const updateCalendarSettings = (updates: Partial<CalendarSettings>) => {
+    setCalendarSettings(prev => ({ ...prev, ...updates }))
+  }
+
+  const exportCalendar = (format: 'pdf' | 'csv' | 'ical') => {
+    // Mock export functionality
+    const appointments = getFilteredAppointments()
+    console.log(`Exporting ${appointments.length} appointments as ${format.toUpperCase()}`)
+    // In a real app, this would generate and download the file
+    alert(`Export functionality would generate ${format.toUpperCase()} file with ${appointments.length} appointments`)
   }
 
   const getDayAvailability = (day: Date) => {
@@ -230,20 +399,25 @@ export default function CalendarPage() {
       no_show: locale === 'es' ? 'No se presentó' : 'No Show'
     }
     
-    switch (status) {
-      case 'confirmed':
-        return <Badge bg="success" className="me-1">{statusLabels.confirmed}</Badge>
-      case 'pending':
-        return <Badge bg="warning" className="me-1">{statusLabels.pending}</Badge>
-      case 'canceled':
-        return <Badge bg="danger" className="me-1">{statusLabels.canceled}</Badge>
-      case 'completed':
-        return <Badge bg="info" className="me-1">{statusLabels.completed}</Badge>
-      case 'no_show':
-        return <Badge bg="secondary" className="me-1">{statusLabels.no_show}</Badge>
-      default:
-        return <Badge bg="secondary" className="me-1">{status}</Badge>
+    const getStatusColor = (status: string) => {
+      return calendarSettings.statusColors[status as keyof typeof calendarSettings.statusColors] || '#6c757d'
     }
+    
+    const color = getStatusColor(status)
+    const label = statusLabels[status as keyof typeof statusLabels] || status
+    
+    return (
+      <Badge 
+        className="me-1" 
+        style={{ 
+          backgroundColor: color,
+          color: '#fff',
+          border: 'none'
+        }}
+      >
+        {label}
+      </Badge>
+    )
   }
 
   if (loading) {
@@ -292,15 +466,167 @@ export default function CalendarPage() {
             </p>
           </div>
         </div>
-        <div className="d-flex gap-2">
+        <div className="d-flex gap-2 flex-wrap">
+          {/* Search */}
+          <Form.Control
+            type="text"
+            placeholder={locale === 'es' ? 'Buscar citas...' : 'Search appointments...'}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ width: '200px' }}
+          />
+
+          {/* View Type Selector */}
+          <Dropdown>
+            <Dropdown.Toggle variant="outline-secondary" size="sm">
+              <i className={`fas ${
+                calendarSettings.viewType === 'month' ? 'fa-calendar' : 
+                calendarSettings.viewType === 'week' ? 'fa-calendar-week' : 
+                'fa-calendar-day'
+              } me-1`}></i>
+              {calendarSettings.viewType === 'month' ? (locale === 'es' ? 'Mes' : 'Month') :
+               calendarSettings.viewType === 'week' ? (locale === 'es' ? 'Semana' : 'Week') :
+               (locale === 'es' ? 'Día' : 'Day')}
+            </Dropdown.Toggle>
+            <Dropdown.Menu>
+              <Dropdown.Item onClick={() => updateCalendarSettings({ viewType: 'month' })}>
+                <i className="fas fa-calendar me-2"></i>
+                {locale === 'es' ? 'Vista Mensual' : 'Month View'}
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => updateCalendarSettings({ viewType: 'week' })}>
+                <i className="fas fa-calendar-week me-2"></i>
+                {locale === 'es' ? 'Vista Semanal' : 'Week View'}
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => updateCalendarSettings({ viewType: 'day' })}>
+                <i className="fas fa-calendar-day me-2"></i>
+                {locale === 'es' ? 'Vista Diaria' : 'Day View'}
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
+
+          {/* Filter Dropdown */}
+          <Dropdown>
+            <Dropdown.Toggle variant="outline-info" size="sm">
+              <i className="fas fa-filter me-1"></i>
+              {locale === 'es' ? 'Filtros' : 'Filters'}
+              {(calendarSettings.filterOptions.statusFilter.length > 0 || searchQuery.trim()) && (
+                <Badge bg="info" className="ms-1">{calendarSettings.filterOptions.statusFilter.length + (searchQuery.trim() ? 1 : 0)}</Badge>
+              )}
+            </Dropdown.Toggle>
+            <Dropdown.Menu className="p-3" style={{ minWidth: '300px' }}>
+              <Form.Group className="mb-3">
+                <Form.Label className="small fw-bold">{locale === 'es' ? 'Estado de Citas' : 'Appointment Status'}</Form.Label>
+                {['confirmed', 'pending', 'canceled', 'completed', 'no_show'].map(status => (
+                  <Form.Check
+                    key={status}
+                    type="checkbox"
+                    id={`status-${status}`}
+                    label={status === 'confirmed' ? (locale === 'es' ? 'Confirmada' : 'Confirmed') :
+                           status === 'pending' ? (locale === 'es' ? 'Pendiente' : 'Pending') :
+                           status === 'canceled' ? (locale === 'es' ? 'Cancelada' : 'Canceled') :
+                           status === 'completed' ? (locale === 'es' ? 'Completada' : 'Completed') :
+                           (locale === 'es' ? 'No se presentó' : 'No Show')}
+                    checked={calendarSettings.filterOptions.statusFilter.includes(status)}
+                    onChange={(e) => {
+                      const statusFilter = e.target.checked 
+                        ? [...calendarSettings.filterOptions.statusFilter, status]
+                        : calendarSettings.filterOptions.statusFilter.filter(s => s !== status)
+                      updateCalendarSettings({ 
+                        filterOptions: { ...calendarSettings.filterOptions, statusFilter }
+                      })
+                    }}
+                  />
+                ))}
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label className="small fw-bold">{locale === 'es' ? 'Rango de Fechas' : 'Date Range'}</Form.Label>
+                <div className="d-flex gap-2">
+                  <Form.Control
+                    type="date"
+                    size="sm"
+                    value={calendarSettings.filterOptions.dateRange.start}
+                    onChange={(e) => updateCalendarSettings({
+                      filterOptions: {
+                        ...calendarSettings.filterOptions,
+                        dateRange: { ...calendarSettings.filterOptions.dateRange, start: e.target.value }
+                      }
+                    })}
+                  />
+                  <Form.Control
+                    type="date"
+                    size="sm"
+                    value={calendarSettings.filterOptions.dateRange.end}
+                    onChange={(e) => updateCalendarSettings({
+                      filterOptions: {
+                        ...calendarSettings.filterOptions,
+                        dateRange: { ...calendarSettings.filterOptions.dateRange, end: e.target.value }
+                      }
+                    })}
+                  />
+                </div>
+              </Form.Group>
+
+              <div className="d-flex gap-2">
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  onClick={() => updateCalendarSettings({
+                    filterOptions: {
+                      statusFilter: [],
+                      serviceFilter: [],
+                      dateRange: { start: '', end: '' }
+                    }
+                  })}
+                >
+                  {locale === 'es' ? 'Limpiar' : 'Clear'}
+                </Button>
+              </div>
+            </Dropdown.Menu>
+          </Dropdown>
+
+          {/* Export Options */}
+          <Dropdown>
+            <Dropdown.Toggle variant="outline-success" size="sm">
+              <i className="fas fa-download me-1"></i>
+              {locale === 'es' ? 'Exportar' : 'Export'}
+            </Dropdown.Toggle>
+            <Dropdown.Menu>
+              <Dropdown.Item onClick={() => exportCalendar('pdf')}>
+                <i className="fas fa-file-pdf me-2 text-danger"></i>
+                {locale === 'es' ? 'Exportar PDF' : 'Export PDF'}
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => exportCalendar('csv')}>
+                <i className="fas fa-file-csv me-2 text-success"></i>
+                {locale === 'es' ? 'Exportar CSV' : 'Export CSV'}
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => exportCalendar('ical')}>
+                <i className="fas fa-calendar me-2 text-primary"></i>
+                {locale === 'es' ? 'Exportar iCal' : 'Export iCal'}
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
+
+          {/* Settings */}
           <Button 
             variant="outline-secondary"
+            size="sm"
+            onClick={() => setShowCalendarSettings(true)}
+          >
+            <i className="fas fa-cog me-1"></i>
+            {locale === 'es' ? 'Configurar' : 'Settings'}
+          </Button>
+
+          <Button 
+            variant="outline-secondary"
+            size="sm"
             onClick={() => setShowAvailabilityManager(true)}
           >
             <i className="fas fa-clock me-1"></i>
             {locale === 'es' ? 'Horarios' : 'Hours'}
           </Button>
-          <Button variant="outline-primary">
+
+          <Button variant="primary" size="sm">
             <i className="fas fa-plus me-1"></i>
             {locale === 'es' ? 'Nueva Cita' : 'New Appointment'}
           </Button>
@@ -314,27 +640,56 @@ export default function CalendarPage() {
             {/* Calendar Header */}
             <div className="d-flex justify-content-between align-items-center mb-4">
               <h4 className="fw-bold mb-0">
-                {format(currentDate, 'MMMM yyyy', { locale: dateLocale })}
+                {calendarSettings.viewType === 'month' ? 
+                  format(currentDate, 'MMMM yyyy', { locale: dateLocale }) :
+                 calendarSettings.viewType === 'week' ?
+                  `${format(startOfWeek(selectedDate, { weekStartsOn: calendarSettings.startWeek === 'monday' ? 1 : 0 }), 'MMM d', { locale: dateLocale })} - ${format(endOfWeek(selectedDate, { weekStartsOn: calendarSettings.startWeek === 'monday' ? 1 : 0 }), 'MMM d, yyyy', { locale: dateLocale })}` :
+                  format(selectedDate, 'EEEE, MMMM d, yyyy', { locale: dateLocale })
+                }
               </h4>
               <div className="d-flex gap-2">
                 <Button 
                   variant="outline-secondary" 
                   size="sm"
-                  onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))}
+                  onClick={() => {
+                    if (calendarSettings.viewType === 'month') {
+                      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))
+                    } else if (calendarSettings.viewType === 'week') {
+                      setSelectedDate(addDays(selectedDate, -7))
+                      setCurrentDate(addDays(selectedDate, -7))
+                    } else { // day
+                      setSelectedDate(addDays(selectedDate, -1))
+                      setCurrentDate(addDays(selectedDate, -1))
+                    }
+                  }}
                 >
                   <i className="fas fa-chevron-left"></i>
                 </Button>
                 <Button 
                   variant="outline-secondary" 
                   size="sm"
-                  onClick={() => setCurrentDate(new Date())}
+                  onClick={() => {
+                    const today = new Date()
+                    setCurrentDate(today)
+                    setSelectedDate(today)
+                  }}
                 >
                   {locale === 'es' ? 'Hoy' : 'Today'}
                 </Button>
                 <Button 
                   variant="outline-secondary" 
                   size="sm"
-                  onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))}
+                  onClick={() => {
+                    if (calendarSettings.viewType === 'month') {
+                      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))
+                    } else if (calendarSettings.viewType === 'week') {
+                      setSelectedDate(addDays(selectedDate, 7))
+                      setCurrentDate(addDays(selectedDate, 7))
+                    } else { // day
+                      setSelectedDate(addDays(selectedDate, 1))
+                      setCurrentDate(addDays(selectedDate, 1))
+                    }
+                  }}
                 >
                   <i className="fas fa-chevron-right"></i>
                 </Button>
@@ -342,58 +697,169 @@ export default function CalendarPage() {
             </div>
 
             {/* Calendar Header */}
-            <div className="calendar-header mb-2">
-              {(locale === 'es' ? ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).map(day => (
-                <div key={day} className="calendar-header-day">
-                  {day}
-                </div>
-              ))}
-            </div>
+            {calendarSettings.viewType === 'month' && (
+              <div 
+                className="calendar-header mb-2" 
+                style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: calendarSettings.showWeekends ? 'repeat(7, 1fr)' : 'repeat(5, 1fr)',
+                  gap: '1px', 
+                  textAlign: 'center' 
+                }}
+              >
+                {(() => {
+                  const days = locale === 'es' ? ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                  const startIdx = calendarSettings.startWeek === 'monday' ? 1 : 0
+                  let reorderedDays = [...days.slice(startIdx), ...days.slice(0, startIdx)]
+                  
+                  // Filter out weekends if showWeekends is false
+                  if (!calendarSettings.showWeekends) {
+                    reorderedDays = reorderedDays.filter((_, index) => {
+                      // In reordered array, weekends are at positions 5 (Saturday) and 6 (Sunday) when starting from Monday
+                      // or positions 0 (Sunday) and 6 (Saturday) when starting from Sunday
+                      if (calendarSettings.startWeek === 'monday') {
+                        return index !== 5 && index !== 6 // Remove Saturday and Sunday
+                      } else {
+                        return index !== 0 && index !== 6 // Remove Sunday and Saturday
+                      }
+                    })
+                  }
+                  
+                  return reorderedDays.map(day => (
+                    <div key={day} className="calendar-header-day fw-bold text-muted py-2" style={{ fontSize: '0.85rem' }}>
+                      {day}
+                    </div>
+                  ))
+                })()}
+              </div>
+            )}
+            
+            {calendarSettings.viewType === 'week' && (
+              <div className="calendar-header mb-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', textAlign: 'center' }}>
+                {viewDays.map(day => (
+                  <div key={day.toString()} className="calendar-header-day fw-bold text-muted py-2" style={{ fontSize: '0.85rem' }}>
+                    <div>{format(day, 'EEE', { locale: dateLocale })}</div>
+                    <div className="fw-normal">{format(day, 'd')}</div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Calendar Grid */}
-            <div className="calendar-grid">
-              {monthDays.map(day => {
+            <div 
+              className="calendar-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: calendarSettings.viewType === 'month' ? 
+                  (calendarSettings.showWeekends ? 'repeat(7, 1fr)' : 'repeat(5, 1fr)') :
+                  calendarSettings.viewType === 'week' ? 'repeat(7, 1fr)' : '1fr',
+                gap: '1px',
+                backgroundColor: '#e5e7eb',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                overflow: 'hidden'
+              }}
+            >
+              {viewDays.map(day => {
                 const dayAppointments = getAppointmentsForDay(day)
                 const availability = getDayAvailability(day)
                 const indicator = getAvailabilityIndicator(day)
                 const isSelected = isSameDay(day, selectedDate)
                 const isCurrentDay = isToday(day)
+                const isCurrentMonth = format(day, 'M') === format(currentDate, 'M')
                 
                 return (
                   <div
                     key={day.toString()}
-                    className={`calendar-day ${
-                      isSelected ? 'selected' : 
-                      isCurrentDay ? 'today' : 
-                      !availability.isOpen ? 'unavailable' : ''
-                    }`}
+                    className="calendar-day"
                     onClick={() => setSelectedDate(day)}
                     style={{
-                      opacity: !availability.isOpen ? 0.6 : 1
+                      backgroundColor: isSelected ? '#3b82f6' : 
+                                     isCurrentDay ? '#10b981' : '#ffffff',
+                      color: isSelected || isCurrentDay ? '#ffffff' : 
+                             isCurrentMonth ? '#000000' : '#9ca3af',
+                      minHeight: calendarSettings.viewType === 'month' ? '120px' :
+                                 calendarSettings.viewType === 'week' ? '200px' : '400px',
+                      padding: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      opacity: !availability.isOpen ? 0.6 : 1,
+                      position: 'relative',
+                      border: isSelected ? '2px solid #1d4ed8' : 
+                              isCurrentDay ? '2px solid #059669' : 'none'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected && !isCurrentDay) {
+                        e.currentTarget.style.backgroundColor = '#f3f4f6'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected && !isCurrentDay) {
+                        e.currentTarget.style.backgroundColor = '#ffffff'
+                      }
                     }}
                   >
-                    <div className="calendar-day-number">
+                    <div className="calendar-day-number fw-bold mb-1">
                       {format(day, 'd')}
+                      {calendarSettings.viewType === 'day' && (
+                        <div className="small fw-normal">
+                          {format(day, 'EEEE, MMMM d, yyyy', { locale: dateLocale })}
+                        </div>
+                      )}
                     </div>
                     
                     {/* Availability/Appointment Indicator */}
                     <div className="calendar-appointments-indicator">
                       <div 
-                        className="d-flex align-items-center justify-content-center"
+                        className="d-flex align-items-center justify-content-start mb-1"
                         style={{ 
-                          color: isSelected || isCurrentDay ? 'rgba(255,255,255,0.9)' : indicator.color,
                           fontSize: '0.7rem'
                         }}
                       >
-                        <i className={`${indicator.icon} me-1`}></i>
-                        {dayAppointments.length > 0 ? dayAppointments.length : ''}
+                        <i className={`${indicator.icon} me-1`} style={{ color: isSelected || isCurrentDay ? 'rgba(255,255,255,0.9)' : indicator.color }}></i>
+                        {dayAppointments.length > 0 && (
+                          <span style={{ color: isSelected || isCurrentDay ? 'rgba(255,255,255,0.9)' : indicator.color }}>
+                            {dayAppointments.length}
+                          </span>
+                        )}
                       </div>
-                      {availability.hours && (
+                      
+                      {/* Show appointment details in week/day view */}
+                      {(calendarSettings.viewType === 'week' || calendarSettings.viewType === 'day') && dayAppointments.length > 0 && (
+                        <div className="appointments-list">
+                          {dayAppointments.slice(0, calendarSettings.viewType === 'day' ? 10 : 3).map(apt => (
+                            <div 
+                              key={apt.id} 
+                              className="appointment-item small mb-1 p-1 rounded"
+                              style={{
+                                backgroundColor: calendarSettings.statusColors[apt.status as keyof typeof calendarSettings.statusColors] || '#6c757d',
+                                color: '#fff',
+                                fontSize: '0.65rem'
+                              }}
+                            >
+                              <div className="fw-bold">{format(parseISO(apt.starts_at), calendarSettings.timeFormat === '12h' ? 'h:mm a' : 'HH:mm')}</div>
+                              {calendarSettings.displayOptions.showCustomerNames && (
+                                <div className="text-truncate">{apt.customer_name}</div>
+                              )}
+                              {calendarSettings.displayOptions.showServiceNames && (
+                                <div className="text-truncate">{apt.service_name}</div>
+                              )}
+                            </div>
+                          ))}
+                          {dayAppointments.length > (calendarSettings.viewType === 'day' ? 10 : 3) && (
+                            <div className="small text-muted">
+                              +{dayAppointments.length - (calendarSettings.viewType === 'day' ? 10 : 3)} more
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {availability.hours && calendarSettings.viewType === 'month' && (
                         <small 
                           className="text-muted"
                           style={{ 
                             fontSize: '0.6rem',
-                            color: isSelected || isCurrentDay ? 'rgba(255,255,255,0.7)' : undefined
+                            color: isSelected || isCurrentDay ? 'rgba(255,255,255,0.7)' : '#6b7280'
                           }}
                         >
                           {availability.hours.start}-{availability.hours.end}
@@ -487,6 +953,247 @@ export default function CalendarPage() {
           </div>
         </Col>
       </Row>
+
+      {/* Calendar Settings Modal */}
+      <Modal show={showCalendarSettings} onHide={() => setShowCalendarSettings(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <i className="fas fa-cog me-2"></i>
+            {locale === 'es' ? 'Configuración del Calendario' : 'Calendar Settings'}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Row>
+            {/* Display Settings */}
+            <Col md={6}>
+              <Card className="mb-3">
+                <Card.Header>
+                  <h6 className="mb-0">
+                    <i className="fas fa-eye me-2"></i>
+                    {locale === 'es' ? 'Opciones de Vista' : 'Display Options'}
+                  </h6>
+                </Card.Header>
+                <Card.Body>
+                  <Form.Group className="mb-3">
+                    <Form.Check
+                      type="checkbox"
+                      id="showWeekends"
+                      label={locale === 'es' ? 'Mostrar fines de semana' : 'Show weekends'}
+                      checked={calendarSettings.showWeekends}
+                      onChange={(e) => updateCalendarSettings({ showWeekends: e.target.checked })}
+                    />
+                  </Form.Group>
+
+                  <Form.Group className="mb-3">
+                    <Form.Label>{locale === 'es' ? 'Iniciar semana en' : 'Start week on'}</Form.Label>
+                    <Form.Select
+                      value={calendarSettings.startWeek}
+                      onChange={(e) => updateCalendarSettings({ startWeek: e.target.value as 'sunday' | 'monday' })}
+                    >
+                      <option value="sunday">{locale === 'es' ? 'Domingo' : 'Sunday'}</option>
+                      <option value="monday">{locale === 'es' ? 'Lunes' : 'Monday'}</option>
+                    </Form.Select>
+                  </Form.Group>
+
+                  <Form.Group className="mb-3">
+                    <Form.Label>{locale === 'es' ? 'Formato de hora' : 'Time format'}</Form.Label>
+                    <Form.Select
+                      value={calendarSettings.timeFormat}
+                      onChange={(e) => updateCalendarSettings({ timeFormat: e.target.value as '12h' | '24h' })}
+                    >
+                      <option value="12h">12 {locale === 'es' ? 'horas (AM/PM)' : 'hour (AM/PM)'}</option>
+                      <option value="24h">24 {locale === 'es' ? 'horas' : 'hour'}</option>
+                    </Form.Select>
+                  </Form.Group>
+
+                  <Form.Group className="mb-3">
+                    <Form.Label>{locale === 'es' ? 'Tema de colores' : 'Color theme'}</Form.Label>
+                    <Form.Select
+                      value={calendarSettings.colorTheme}
+                      onChange={(e) => updateCalendarSettings({ colorTheme: e.target.value as 'default' | 'colorful' | 'minimal' })}
+                    >
+                      <option value="default">{locale === 'es' ? 'Predeterminado' : 'Default'}</option>
+                      <option value="colorful">{locale === 'es' ? 'Colorido' : 'Colorful'}</option>
+                      <option value="minimal">{locale === 'es' ? 'Minimalista' : 'Minimal'}</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Card.Body>
+              </Card>
+            </Col>
+
+            {/* Status Colors */}
+            <Col md={6}>
+              <Card className="mb-3">
+                <Card.Header>
+                  <h6 className="mb-0">
+                    <i className="fas fa-palette me-2"></i>
+                    {locale === 'es' ? 'Colores de Estado' : 'Status Colors'}
+                  </h6>
+                </Card.Header>
+                <Card.Body>
+                  {Object.entries(calendarSettings.statusColors).map(([status, color]) => (
+                    <Form.Group key={status} className="mb-3">
+                      <Form.Label className="d-flex align-items-center">
+                        <div
+                          className="rounded me-2"
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            backgroundColor: color
+                          }}
+                        ></div>
+                        {status === 'confirmed' ? (locale === 'es' ? 'Confirmada' : 'Confirmed') :
+                         status === 'pending' ? (locale === 'es' ? 'Pendiente' : 'Pending') :
+                         status === 'canceled' ? (locale === 'es' ? 'Cancelada' : 'Canceled') :
+                         status === 'completed' ? (locale === 'es' ? 'Completada' : 'Completed') :
+                         (locale === 'es' ? 'No se presentó' : 'No Show')}
+                      </Form.Label>
+                      <Form.Control
+                        type="color"
+                        value={color}
+                        onChange={(e) => updateCalendarSettings({
+                          statusColors: {
+                            ...calendarSettings.statusColors,
+                            [status]: e.target.value
+                          }
+                        })}
+                      />
+                    </Form.Group>
+                  ))}
+                </Card.Body>
+              </Card>
+            </Col>
+
+            {/* Appointment Display Options */}
+            <Col md={12}>
+              <Card>
+                <Card.Header>
+                  <h6 className="mb-0">
+                    <i className="fas fa-list me-2"></i>
+                    {locale === 'es' ? 'Información a Mostrar' : 'Appointment Information'}
+                  </h6>
+                </Card.Header>
+                <Card.Body>
+                  <Row>
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Check
+                          type="checkbox"
+                          id="showCustomerNames"
+                          label={locale === 'es' ? 'Nombres de clientes' : 'Customer names'}
+                          checked={calendarSettings.displayOptions.showCustomerNames}
+                          onChange={(e) => updateCalendarSettings({
+                            displayOptions: { ...calendarSettings.displayOptions, showCustomerNames: e.target.checked }
+                          })}
+                        />
+                      </Form.Group>
+                      <Form.Group className="mb-3">
+                        <Form.Check
+                          type="checkbox"
+                          id="showServiceNames"
+                          label={locale === 'es' ? 'Nombres de servicios' : 'Service names'}
+                          checked={calendarSettings.displayOptions.showServiceNames}
+                          onChange={(e) => updateCalendarSettings({
+                            displayOptions: { ...calendarSettings.displayOptions, showServiceNames: e.target.checked }
+                          })}
+                        />
+                      </Form.Group>
+                      <Form.Group className="mb-3">
+                        <Form.Check
+                          type="checkbox"
+                          id="showPhoneNumbers"
+                          label={locale === 'es' ? 'Números de teléfono' : 'Phone numbers'}
+                          checked={calendarSettings.displayOptions.showPhoneNumbers}
+                          onChange={(e) => updateCalendarSettings({
+                            displayOptions: { ...calendarSettings.displayOptions, showPhoneNumbers: e.target.checked }
+                          })}
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Check
+                          type="checkbox"
+                          id="showDuration"
+                          label={locale === 'es' ? 'Duración del servicio' : 'Service duration'}
+                          checked={calendarSettings.displayOptions.showDuration}
+                          onChange={(e) => updateCalendarSettings({
+                            displayOptions: { ...calendarSettings.displayOptions, showDuration: e.target.checked }
+                          })}
+                        />
+                      </Form.Group>
+                      <Form.Group className="mb-3">
+                        <Form.Check
+                          type="checkbox"
+                          id="showPricing"
+                          label={locale === 'es' ? 'Precios' : 'Pricing'}
+                          checked={calendarSettings.displayOptions.showPricing}
+                          onChange={(e) => updateCalendarSettings({
+                            displayOptions: { ...calendarSettings.displayOptions, showPricing: e.target.checked }
+                          })}
+                        />
+                      </Form.Group>
+                      <Form.Group className="mb-3">
+                        <Form.Check
+                          type="checkbox"
+                          id="showAppointmentDetails"
+                          label={locale === 'es' ? 'Detalles completos' : 'Full details'}
+                          checked={calendarSettings.showAppointmentDetails}
+                          onChange={(e) => updateCalendarSettings({ showAppointmentDetails: e.target.checked })}
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline-secondary" onClick={() => setShowCalendarSettings(false)}>
+            {locale === 'es' ? 'Cerrar' : 'Close'}
+          </Button>
+          <Button
+            variant="outline-primary"
+            onClick={() => {
+              // Reset to defaults
+              setCalendarSettings({
+                viewType: 'month',
+                showWeekends: true,
+                startWeek: 'sunday',
+                timeFormat: '12h',
+                showAppointmentDetails: true,
+                colorTheme: 'default',
+                statusColors: {
+                  confirmed: '#198754',
+                  pending: '#ffc107',
+                  canceled: '#dc3545',
+                  completed: '#0dcaf0',
+                  no_show: '#6c757d'
+                },
+                displayOptions: {
+                  showCustomerNames: true,
+                  showServiceNames: true,
+                  showPhoneNumbers: false,
+                  showDuration: true,
+                  showPricing: false
+                },
+                filterOptions: {
+                  statusFilter: ['confirmed', 'pending'],
+                  serviceFilter: [],
+                  dateRange: { start: '', end: '' }
+                }
+              })
+            }}
+          >
+            {locale === 'es' ? 'Restablecer' : 'Reset Defaults'}
+          </Button>
+          <Button variant="success" onClick={() => setShowCalendarSettings(false)}>
+            <i className="fas fa-save me-1"></i>
+            {locale === 'es' ? 'Guardar' : 'Save'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* Availability Manager Modal */}
       {business && (

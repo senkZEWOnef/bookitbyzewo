@@ -126,31 +126,148 @@ export default function OnboardingPage() {
     setError('')
 
     try {
-      // Get the current user
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        throw new Error('Not authenticated')
+      if (!user) throw new Error('Not authenticated')
+
+      console.log('Creating business for user:', user.id)
+      console.log('User metadata:', user.user_metadata)
+      console.log('User email:', user.email)
+
+      // Ensure user profile exists (create or update)
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          full_name: user.user_metadata?.full_name || '',
+          phone: user.user_metadata?.phone || ''
+        }, {
+          onConflict: 'id'
+        })
+        .select()
+
+      if (profileError) {
+        console.error('Profile upsert error:', profileError)
+        throw new Error(`Failed to create profile: ${profileError.message}`)
       }
 
-      const response = await fetch('/api/business/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: businessData.name,
-          slug: businessData.slug,
-          timezone: businessData.timezone,
-          location: businessData.location,
-          businessType: businessData.businessType,
-          userId: user.id
+      console.log('Profile created/updated successfully:', profileData)
+
+      // Check user plan to determine if we should delete existing businesses
+      const isPro = user.user_metadata?.plan === 'pro' || user.user_metadata?.subscription === 'pro'
+      console.log('Creating business - User isPro:', isPro)
+
+      if (!isPro) {
+        // For free users, delete any existing businesses first
+        console.log('🟡 ONBOARDING: Free user - deleting existing businesses...')
+        
+        const { data: existingBusinesses, error: existingError } = await supabase
+          .from('businesses')
+          .select('id')
+          .eq('owner_id', user.id)
+        
+        if (existingBusinesses && existingBusinesses.length > 0) {
+          console.log('🟡 ONBOARDING: Found', existingBusinesses.length, 'existing businesses to delete')
+          
+          for (const existingBusiness of existingBusinesses) {
+            const { error: deleteError } = await supabase
+              .from('businesses')
+              .delete()
+              .eq('id', existingBusiness.id)
+              .eq('owner_id', user.id) // Safety check
+            
+            if (deleteError) {
+              console.error('🟡 ONBOARDING: Error deleting business:', deleteError)
+            } else {
+              console.log('🟡 ONBOARDING: ✅ Deleted existing business:', existingBusiness.id)
+            }
+          }
+        }
+      }
+
+      // Create business
+      const businessInsertData = {
+        owner_id: user.id,
+        name: businessData.name,
+        slug: businessData.slug,
+        timezone: businessData.timezone,
+        location: businessData.location,
+        messaging_mode: 'manual'
+      }
+      
+      console.log('Attempting to insert business with data:', businessInsertData)
+      console.log('Current auth.uid():', user.id)
+      
+      const { data: business, error: businessError } = await supabase
+        .from('businesses')
+        .insert(businessInsertData)
+        .select()
+        .single()
+        
+      console.log('Business insert result:', { business, businessError })
+
+      if (businessError) {
+        console.error('Business creation error:', businessError)
+        if (businessError.code === '23505') {
+          throw new Error('Business URL is already taken. Please choose a different business name.')
+        }
+        throw new Error(`Failed to create business: ${businessError.message}`)
+      }
+
+      console.log('Business created successfully:', business)
+
+      // Create default staff entry for owner
+      const { error: staffError } = await supabase
+        .from('staff')
+        .insert({
+          business_id: business.id,
+          user_id: user.id,
+          display_name: user.user_metadata?.full_name || 'Owner',
+          phone: user.user_metadata?.phone || '',
+          role: 'admin'
         })
-      })
 
-      const result = await response.json()
+      if (staffError) {
+        console.error('Staff creation error:', staffError)
+        throw new Error(`Failed to create staff entry: ${staffError.message}`)
+      }
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to create business')
+      // Create starter services based on business type
+      const starterServices = getStarterServices(businessData.businessType)
+      if (starterServices.length > 0) {
+        const { error: servicesError } = await supabase
+          .from('services')
+          .insert(
+            starterServices.map(service => ({
+              ...service,
+              business_id: business.id
+            }))
+          )
+
+        if (servicesError) {
+          console.error('Services creation error:', servicesError)
+          throw new Error(`Failed to create services: ${servicesError.message}`)
+        }
+      }
+
+      // Create default availability (Mon-Fri 9-5)
+      const defaultAvailability = []
+      for (let day = 1; day <= 5; day++) { // Monday to Friday
+        defaultAvailability.push({
+          business_id: business.id,
+          staff_id: null, // Business-wide availability
+          weekday: day,
+          start_time: '09:00',
+          end_time: '17:00'
+        })
+      }
+
+      const { error: availabilityError } = await supabase
+        .from('availability_rules')
+        .insert(defaultAvailability)
+
+      if (availabilityError) {
+        console.error('Availability creation error:', availabilityError)
+        throw new Error(`Failed to create availability: ${availabilityError.message}`)
       }
 
       console.log('Business setup completed successfully! Redirecting to dashboard...')
@@ -163,6 +280,39 @@ export default function OnboardingPage() {
       setError(err instanceof Error ? err.message : 'Setup failed')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const getStarterServices = (businessType: string) => {
+    switch (businessType) {
+      case 'barber':
+        return [
+          { name: 'Haircut', duration_min: 45, price_cents: 3500, deposit_cents: 1000 },
+          { name: 'Beard Trim', duration_min: 20, price_cents: 1500, deposit_cents: 500 },
+          { name: 'Haircut & Beard', duration_min: 60, price_cents: 4500, deposit_cents: 1500 }
+        ]
+      case 'beauty':
+        return [
+          { name: 'Manicure', duration_min: 60, price_cents: 3000, deposit_cents: 1000 },
+          { name: 'Pedicure', duration_min: 90, price_cents: 4000, deposit_cents: 1500 },
+          { name: 'Gel Nails', duration_min: 120, price_cents: 6000, deposit_cents: 2000 }
+        ]
+      case 'cleaning':
+        return [
+          { name: 'House Cleaning (Small)', duration_min: 120, price_cents: 8000, deposit_cents: 2000 },
+          { name: 'House Cleaning (Large)', duration_min: 240, price_cents: 15000, deposit_cents: 3000 },
+          { name: 'Deep Cleaning', duration_min: 300, price_cents: 20000, deposit_cents: 5000 }
+        ]
+      case 'tutor':
+        return [
+          { name: '1-on-1 Tutoring', duration_min: 60, price_cents: 5000, deposit_cents: 1000 },
+          { name: 'Group Session', duration_min: 90, price_cents: 7500, deposit_cents: 1500 }
+        ]
+      default:
+        return [
+          { name: 'Consultation', duration_min: 30, price_cents: 2500, deposit_cents: 500 },
+          { name: 'Service', duration_min: 60, price_cents: 5000, deposit_cents: 1000 }
+        ]
     }
   }
 

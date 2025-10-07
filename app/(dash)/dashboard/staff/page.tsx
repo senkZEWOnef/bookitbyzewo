@@ -39,7 +39,33 @@ export default function StaffPage() {
   })
 
   useEffect(() => {
-    fetchData()
+    // TEMP: Use mock data for development
+    setBusiness({
+      id: 'dev-business-id',
+      name: 'Dev Hair Salon',
+      slug: 'dev-salon'
+    })
+    setStaff([
+      {
+        id: '1',
+        display_name: 'Dev User (Owner)',
+        phone: '+1787555001',
+        role: 'admin',
+        user_id: 'dev-user',
+        business_id: 'dev-business-id',
+        created_at: new Date().toISOString()
+      },
+      {
+        id: '2',
+        display_name: 'Maria Gonzalez',
+        phone: '+1787555002',
+        role: 'member',
+        user_id: null,
+        business_id: 'dev-business-id',
+        created_at: new Date().toISOString()
+      }
+    ])
+    setLoading(false)
   }, [])
 
   const fetchData = async () => {

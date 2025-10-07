@@ -15,6 +15,8 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  console.log('🔴 LAYOUT: DashboardLayout rendering')
+  
   const router = useRouter()
   const pathname = usePathname()
   const { language } = useLanguage()
@@ -23,16 +25,70 @@ export default function DashboardLayout({
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  
+  console.log('🔴 LAYOUT: Current pathname from usePathname():', pathname)
 
   useEffect(() => {
-    // TEMP: Bypass auth for development
-    setUser({ 
-      id: 'dev-user',
-      email: 'dev@example.com',
-      user_metadata: { full_name: 'Dev User' }
+    console.log('🔴 LAYOUT: useEffect triggered')
+    const supabase = createSupabaseClient()
+    
+    const getUser = async () => {
+      console.log('🔴 LAYOUT: Getting user...')
+      try {
+        // Add a timeout to prevent infinite loading
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth timeout')), 10000)
+        )
+        
+        const authPromise = supabase.auth.getUser()
+        const { data: { user }, error: userError } = await Promise.race([authPromise, timeoutPromise]) as any
+        
+        if (userError) {
+          console.error('🔴 LAYOUT: Error getting user:', userError)
+          console.log('🔴 LAYOUT: Attempting to refresh session...')
+          
+          const { data: { user: refreshedUser }, error: refreshError } = await supabase.auth.refreshSession()
+          
+          if (refreshError || !refreshedUser) {
+            console.error('🔴 LAYOUT: Session refresh failed, redirecting to login')
+            router.push('/login')
+            return
+          }
+          
+          console.log('🔴 LAYOUT: Session refreshed successfully')
+          setUser(refreshedUser)
+          setLoading(false)
+          return
+        }
+        
+        if (!user) {
+          console.log('🔴 LAYOUT: No user found, redirecting to login')
+          router.push('/login')
+          return
+        }
+        
+        console.log('🔴 LAYOUT: User found:', user.id)
+        console.log('🔴 LAYOUT: Setting user and loading=false')
+        setUser(user)
+        setLoading(false)
+      } catch (error) {
+        console.error('🔴 LAYOUT: Unexpected error in getUser:', error)
+        console.log('🔴 LAYOUT: Redirecting to login due to error')
+        setLoading(false)
+        router.push('/login')
+      }
+    }
+
+    getUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
+      if (!session) {
+        router.push('/login')
+      }
     })
-    setLoading(false)
-  }, [])
+
+    return () => subscription.unsubscribe()
+  }, [router])
 
   const handleSignOut = async () => {
     const supabase = createSupabaseClient()
@@ -56,13 +112,6 @@ export default function DashboardLayout({
       label: locale === 'es' ? 'Panel' : 'Dashboard',
       href: '/dashboard',
       active: pathname === '/dashboard',
-      available: true
-    },
-    {
-      icon: 'fas fa-globe',
-      label: locale === 'es' ? 'Página Web' : 'Webpage',
-      href: '/dashboard/webpage',
-      active: pathname === '/dashboard/webpage',
       available: true
     },
     {

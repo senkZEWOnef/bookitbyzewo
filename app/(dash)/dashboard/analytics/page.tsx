@@ -33,7 +33,45 @@ export default function AnalyticsPage() {
   const [business, setBusiness] = useState<any>(null)
 
   useEffect(() => {
-    fetchData()
+    // TEMP: Use mock data for development
+    setBusiness({
+      id: 'dev-business-id',
+      name: 'Dev Hair Salon',
+      slug: 'dev-salon'
+    })
+    setAnalytics({
+      totalAppointments: 245,
+      totalRevenue: 12450,
+      averageBookingValue: 50.8,
+      bookingsByMonth: [
+        { month: '2024-01', count: 28 },
+        { month: '2024-02', count: 35 },
+        { month: '2024-03', count: 42 },
+        { month: '2024-04', count: 38 },
+        { month: '2024-05', count: 45 },
+        { month: '2024-06', count: 57 }
+      ],
+      revenueByMonth: [
+        { month: '2024-01', revenue: 1400 },
+        { month: '2024-02', revenue: 1750 },
+        { month: '2024-03', revenue: 2100 },
+        { month: '2024-04', revenue: 1900 },
+        { month: '2024-05', revenue: 2250 },
+        { month: '2024-06', revenue: 3050 }
+      ],
+      topServices: [
+        { name: 'Haircut', count: 120, revenue: 6000 },
+        { name: 'Beard Trim', count: 85, revenue: 2550 },
+        { name: 'Haircut & Beard', count: 40, revenue: 3900 }
+      ],
+      appointmentsByStatus: [
+        { status: 'completed', count: 200, percentage: 81.6 },
+        { status: 'confirmed', count: 25, percentage: 10.2 },
+        { status: 'canceled', count: 15, percentage: 6.1 },
+        { status: 'noshow', count: 5, percentage: 2.1 }
+      ]
+    })
+    setLoading(false)
   }, [])
 
   const fetchData = async () => {
