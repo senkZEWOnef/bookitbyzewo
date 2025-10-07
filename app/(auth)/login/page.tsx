@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Form, Button, Card, Alert } from 'react-bootstrap'
 import { createSupabaseClient } from '@/lib/supabase'
@@ -16,8 +16,30 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createSupabaseClient()
   const { t } = useLanguage()
+
+  const redirectTo = searchParams.get('redirectTo') || '/dashboard'
+  const authError = searchParams.get('error')
+
+  useEffect(() => {
+    if (authError) {
+      switch (authError) {
+        case 'auth_callback_error':
+          setError('Authentication failed. Please try again.')
+          break
+        case 'auth_exchange_error':
+          setError('Session setup failed. Please try logging in again.')
+          break
+        case 'no_auth_code':
+          setError('Authentication code missing. Please try again.')
+          break
+        default:
+          setError('An authentication error occurred.')
+      }
+    }
+  }, [authError])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,7 +54,21 @@ export default function LoginPage() {
     if (error) {
       setError(error.message)
     } else {
-      router.push('/dashboard')
+      // Check if user has completed business setup
+      const { data: user } = await supabase.auth.getUser()
+      if (user.user) {
+        const { data: business } = await supabase
+          .from('businesses')
+          .select('id')
+          .eq('owner_id', user.user.id)
+          .single()
+
+        if (!business && redirectTo === '/dashboard') {
+          router.push('/dashboard/onboarding')
+        } else {
+          router.push(redirectTo)
+        }
+      }
     }
     
     setLoading(false)
