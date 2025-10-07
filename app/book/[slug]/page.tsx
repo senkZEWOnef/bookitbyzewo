@@ -38,6 +38,7 @@ export default function BookingPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [webpageSettings, setWebpageSettings] = useState<any>(null)
 
   const locale = customerData.locale.startsWith('es') ? 'es' : 'en'
 
@@ -56,6 +57,7 @@ export default function BookingPage() {
 
       setBusiness(data.business)
       setServices(data.services || [])
+      setWebpageSettings(data.business?.webpage_settings || {})
       
       // Auto-select service if only one
       if ((data.services?.length ?? 0) === 1) {
@@ -167,17 +169,43 @@ export default function BookingPage() {
     )
   }
 
+  const heroSettings = webpageSettings || {}
+  const socialMedia = webpageSettings?.socialMedia || {}
+
   return (
-    <Container className="py-4">
-      <Row className="justify-content-center">
-        <Col lg={8}>
-          {/* Header */}
-          <div className="text-center mb-4">
-            <h2 className="fw-bold">{business?.name}</h2>
-            <p className="text-muted">
-              {locale === 'es' ? 'Reserva tu cita' : 'Book your appointment'}
-            </p>
-          </div>
+    <div>
+      {/* Hero Section */}
+      <div
+        className="text-white d-flex align-items-center justify-content-center"
+        style={{
+          minHeight: '400px',
+          backgroundColor: heroSettings.heroBackgroundColor || '#10b981',
+          backgroundImage: heroSettings.heroBackgroundImage ? `url(${heroSettings.heroBackgroundImage})` : 'none',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          position: 'relative'
+        }}
+      >
+        {heroSettings.heroBackgroundImage && (
+          <div 
+            className="position-absolute w-100 h-100" 
+            style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+          />
+        )}
+        <Container className="position-relative text-center">
+          <h1 className="display-4 fw-bold mb-3">
+            {heroSettings.heroTitle || (locale === 'es' ? 'Reserva tu cita' : 'Book Your Appointment')}
+          </h1>
+          <p className="lead mb-4">
+            {heroSettings.heroSubtitle || (locale === 'es' ? 'Servicios profesionales a tu conveniencia' : 'Professional services at your convenience')}
+          </p>
+          <h2 className="fw-bold">{business?.name}</h2>
+        </Container>
+      </div>
+
+      <Container className="py-4">
+        <Row className="justify-content-center">
+          <Col lg={8}>
 
           {/* Demo Banner */}
           {businessSlug === 'demo' && (
@@ -383,5 +411,49 @@ export default function BookingPage() {
         </Col>
       </Row>
     </Container>
+
+    {/* Footer */}
+    <footer className="bg-dark text-white py-4 mt-5">
+      <Container>
+        <Row>
+          <Col md={6}>
+            <h5>{heroSettings.businessName || business?.name}</h5>
+            <p className="mb-0">
+              {heroSettings.businessDescription || business?.description || 
+                (locale === 'es' ? 'Reservas profesionales hechas fácil' : 'Professional booking made easy')}
+            </p>
+          </Col>
+          <Col md={6}>
+            <h6>{locale === 'es' ? 'Síguenos' : 'Follow Us'}</h6>
+            <div className="d-flex gap-3">
+              {socialMedia.facebook && (
+                <a href={socialMedia.facebook} className="text-white" target="_blank" rel="noopener noreferrer">
+                  <i className="fab fa-facebook fa-lg"></i>
+                </a>
+              )}
+              {socialMedia.instagram && (
+                <a href={socialMedia.instagram} className="text-white" target="_blank" rel="noopener noreferrer">
+                  <i className="fab fa-instagram fa-lg"></i>
+                </a>
+              )}
+              {socialMedia.whatsapp && (
+                <a href={`https://wa.me/${socialMedia.whatsapp}`} className="text-white" target="_blank" rel="noopener noreferrer">
+                  <i className="fab fa-whatsapp fa-lg"></i>
+                </a>
+              )}
+              {socialMedia.website && (
+                <a href={socialMedia.website} className="text-white" target="_blank" rel="noopener noreferrer">
+                  <i className="fas fa-globe fa-lg"></i>
+                </a>
+              )}
+            </div>
+            <p className="mt-3 mb-0 small text-muted">
+              Powered by <strong>BookIt by Zewo</strong>
+            </p>
+          </Col>
+        </Row>
+      </Container>
+    </footer>
+  </div>
   )
 }

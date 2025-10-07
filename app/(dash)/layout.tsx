@@ -31,76 +31,54 @@ export default function DashboardLayout({
   useEffect(() => {
     console.log('🔴 LAYOUT: useEffect triggered')
     const supabase = createSupabaseClient()
+    let mounted = true
     
     const getUser = async () => {
       console.log('🔴 LAYOUT: Getting user...')
       try {
         const { data: { user }, error: userError } = await supabase.auth.getUser()
         
-        if (userError) {
-          console.error('🔴 LAYOUT: Error getting user:', userError)
-          console.log('🔴 LAYOUT: Attempting to refresh session...')
-          
-          const { data: { user: refreshedUser }, error: refreshError } = await supabase.auth.refreshSession()
-          
-          if (refreshError || !refreshedUser) {
-            console.error('🔴 LAYOUT: Session refresh failed, redirecting to login')
-            router.push('/login')
-            return
-          }
-          
-          console.log('🔴 LAYOUT: Session refreshed successfully')
-          setUser(refreshedUser)
-          setLoading(false)
-          return
-        }
+        if (!mounted) return
         
-        if (!user) {
-          console.log('🔴 LAYOUT: No user found, redirecting to login')
+        if (userError || !user) {
+          console.log('🔴 LAYOUT: No user or error, redirecting to login')
+          setLoading(false)
           router.push('/login')
           return
         }
         
         console.log('🔴 LAYOUT: User found:', user.id)
-      
-      // Ensure profile exists in layout too
-      console.log('🔴 LAYOUT: Creating/updating profile...')
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          full_name: user.user_metadata?.full_name || '',
-          phone: user.user_metadata?.phone || ''
-        }, {
-          onConflict: 'id'
-        })
-      
-      if (profileError) {
-        console.error('🔴 LAYOUT: Profile creation error:', profileError)
-      } else {
-        console.log('🔴 LAYOUT: Profile created/updated successfully')
-      }
-      
-        console.log('🔴 LAYOUT: Setting user and loading=false')
         setUser(user)
         setLoading(false)
       } catch (error) {
-        console.error('🔴 LAYOUT: Unexpected error in getUser:', error)
-        console.log('🔴 LAYOUT: Redirecting to login due to error')
-        router.push('/login')
+        console.error('🔴 LAYOUT: Error in getUser:', error)
+        if (mounted) {
+          setLoading(false)
+          router.push('/login')
+        }
       }
     }
 
     getUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
-      if (!session) {
-        router.push('/login')
+      if (mounted) {
+        if (session?.user) {
+          setUser(session.user)
+          setLoading(false)
+        } else {
+          setUser(null)
+          setLoading(false)
+          router.push('/login')
+        }
       }
     })
 
-    return () => subscription.unsubscribe()
-  }, [router])
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
+  }, [])
 
   const handleSignOut = async () => {
     const supabase = createSupabaseClient()
@@ -152,6 +130,13 @@ export default function DashboardLayout({
       label: locale === 'es' ? 'Analíticas' : 'Analytics',
       href: '/dashboard/analytics',
       active: pathname === '/dashboard/analytics',
+      available: true
+    },
+    {
+      icon: 'fas fa-globe',
+      label: locale === 'es' ? 'Página Web' : 'Webpage',
+      href: '/dashboard/webpage',
+      active: pathname === '/dashboard/webpage',
       available: true
     },
     {
