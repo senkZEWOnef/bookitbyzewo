@@ -247,8 +247,8 @@ export default function WebpagePage() {
 
   return (
     <Container fluid>
-      <Row>
-        <Col lg={6}>
+      <Row className="g-4">
+        <Col lg={6} className="order-2 order-lg-1">
           <Card>
             <Card.Header>
               <h5 className="mb-0">
@@ -264,7 +264,7 @@ export default function WebpagePage() {
               )}
 
               <Tab.Container defaultActiveKey="header">
-                <Nav variant="tabs" className="mb-4">
+                <Nav variant="tabs" className="mb-4 flex-wrap flex-sm-nowrap">
                   <Nav.Item>
                     <Nav.Link eventKey="header">
                       <i className="fas fa-window-maximize me-1"></i>
@@ -695,7 +695,7 @@ export default function WebpagePage() {
                     </Form.Group>
 
                     <Row>
-                      <Col md={6}>
+                      <Col md={6} className="mb-3 mb-md-0">
                         <Form.Group className="mb-3">
                           <Form.Label>
                             <i className="fas fa-map-marker-alt me-1"></i>
@@ -801,7 +801,7 @@ export default function WebpagePage() {
           </Card>
         </Col>
 
-        <Col lg={6}>
+        <Col lg={6} className="order-1 order-lg-2">
           <Card>
             <Card.Header>
               <h5 className="mb-0">

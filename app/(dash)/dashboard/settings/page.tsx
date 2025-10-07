@@ -24,7 +24,16 @@ export default function SettingsPage() {
     slug: '',
     timezone: '',
     location: '',
-    messaging_mode: 'manual'
+    messaging_mode: 'manual',
+    ath_movil_enabled: false,
+    ath_movil_public_token: '',
+    ath_movil_private_token: '',
+    stripe_enabled: false,
+    stripe_publishable_key: '',
+    stripe_secret_key: '',
+    deposit_enabled: false,
+    deposit_amount: 10.00,
+    deposit_policy: 'A deposit is required to confirm your appointment'
   })
 
   const [profileForm, setProfileForm] = useState({
@@ -46,7 +55,26 @@ export default function SettingsPage() {
       slug: 'dev-salon',
       location: '123 Main St, San Juan, PR',
       timezone: 'America/Puerto_Rico',
-      messaging_mode: 'manual'
+      messaging_mode: 'manual',
+      ath_movil_enabled: false,
+      ath_movil_public_token: '',
+      ath_movil_private_token: '',
+      deposit_enabled: true,
+      deposit_amount: 15.00,
+      deposit_policy: 'A $15 deposit is required to confirm your appointment'
+    })
+    setBusinessForm({
+      name: 'Dev Hair Salon',
+      slug: 'dev-salon',
+      timezone: 'America/Puerto_Rico',
+      location: '123 Main St, San Juan, PR',
+      messaging_mode: 'manual',
+      ath_movil_enabled: false,
+      ath_movil_public_token: '',
+      ath_movil_private_token: '',
+      deposit_enabled: true,
+      deposit_amount: 15.00,
+      deposit_policy: 'A $15 deposit is required to confirm your appointment'
     })
     setProfileForm({
       full_name: 'Dev User',
@@ -248,8 +276,8 @@ export default function SettingsPage() {
 
       <Row className="g-4">
         {/* Profile Settings */}
-        <Col lg={6}>
-          <div className="glass-card p-4 rounded-4">
+        <Col lg={6} className="mb-4 mb-lg-0">
+          <div className="glass-card p-3 p-md-4 rounded-4">
             <div className="d-flex align-items-center mb-4">
               <div className="me-3">
                 {user && (
@@ -330,9 +358,9 @@ export default function SettingsPage() {
         </Col>
 
         {/* Business Settings */}
-        <Col lg={6}>
+        <Col lg={6} className="mb-4 mb-lg-0">
           {business ? (
-            <div className="glass-card p-4 rounded-4">
+            <div className="glass-card p-3 p-md-4 rounded-4">
               <div className="d-flex align-items-center mb-4">
                 <div 
                   className="rounded-circle me-3 d-flex align-items-center justify-content-center"
@@ -429,6 +457,164 @@ export default function SettingsPage() {
                   </Form.Text>
                 </Form.Group>
 
+                {/* ATH Móvil Payment Settings */}
+                <hr className="my-4" />
+                <h6 className="mb-3 text-primary">
+                  <i className="fas fa-credit-card me-2"></i>
+                  {locale === 'es' ? 'Configuración de Pagos ATH Móvil' : 'ATH Móvil Payment Settings'}
+                </h6>
+
+                <Form.Group className="mb-3">
+                  <Form.Check
+                    type="checkbox"
+                    id="deposit_enabled"
+                    checked={businessForm.deposit_enabled}
+                    onChange={(e) => setBusinessForm(prev => ({ ...prev, deposit_enabled: e.target.checked }))}
+                    label={locale === 'es' ? 'Requerir depósito para confirmación' : 'Require deposit for confirmation'}
+                  />
+                </Form.Group>
+
+                {businessForm.deposit_enabled && (
+                  <>
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        <i className="fas fa-dollar-sign me-1"></i>
+                        {locale === 'es' ? 'Monto del Depósito ($)' : 'Deposit Amount ($)'}
+                      </Form.Label>
+                      <Form.Control
+                        type="number"
+                        min="1"
+                        max="1500"
+                        step="0.01"
+                        value={businessForm.deposit_amount}
+                        onChange={(e) => setBusinessForm(prev => ({ ...prev, deposit_amount: parseFloat(e.target.value) || 0 }))}
+                        placeholder="15.00"
+                      />
+                      <Form.Text className="text-muted">
+                        {locale === 'es' ? 'Monto entre $1.00 - $1,500.00' : 'Amount between $1.00 - $1,500.00'}
+                      </Form.Text>
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        <i className="fas fa-info-circle me-1"></i>
+                        {locale === 'es' ? 'Política de Depósito' : 'Deposit Policy'}
+                      </Form.Label>
+                      <Form.Control
+                        as="textarea"
+                        rows={2}
+                        value={businessForm.deposit_policy}
+                        onChange={(e) => setBusinessForm(prev => ({ ...prev, deposit_policy: e.target.value }))}
+                        placeholder={locale === 'es' ? 'Un depósito de $15 es requerido para confirmar tu cita' : 'A $15 deposit is required to confirm your appointment'}
+                        maxLength={200}
+                      />
+                      <Form.Text className="text-muted">
+                        {locale === 'es' ? 'Máximo 200 caracteres' : 'Maximum 200 characters'}
+                      </Form.Text>
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Check
+                        type="checkbox"
+                        id="ath_movil_enabled"
+                        checked={businessForm.ath_movil_enabled}
+                        onChange={(e) => setBusinessForm(prev => ({ ...prev, ath_movil_enabled: e.target.checked }))}
+                        label={locale === 'es' ? 'Habilitar pagos con ATH Móvil' : 'Enable ATH Móvil payments'}
+                      />
+                    </Form.Group>
+
+                    {businessForm.ath_movil_enabled && (
+                      <>
+                        <Form.Group className="mb-3">
+                          <Form.Label>
+                            <i className="fas fa-key me-1"></i>
+                            {locale === 'es' ? 'Token Público de ATH Business' : 'ATH Business Public Token'}
+                          </Form.Label>
+                          <Form.Control
+                            type="text"
+                            value={businessForm.ath_movil_public_token}
+                            onChange={(e) => setBusinessForm(prev => ({ ...prev, ath_movil_public_token: e.target.value }))}
+                            placeholder="a66ce73d04f2087615f6320b724defc5b4eedc55"
+                          />
+                          <Form.Text className="text-muted">
+                            {locale === 'es' 
+                              ? 'Encuentra este token en la configuración de tu app ATH Business' 
+                              : 'Find this token in your ATH Business app settings'}
+                          </Form.Text>
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                          <Form.Label>
+                            <i className="fas fa-lock me-1"></i>
+                            {locale === 'es' ? 'Token Privado de ATH Business' : 'ATH Business Private Token'}
+                          </Form.Label>
+                          <Form.Control
+                            type="password"
+                            value={businessForm.ath_movil_private_token}
+                            onChange={(e) => setBusinessForm(prev => ({ ...prev, ath_movil_private_token: e.target.value }))}
+                            placeholder="••••••••••••••••••••••••••••••••••••••••"
+                          />
+                          <Form.Text className="text-muted">
+                            {locale === 'es' 
+                              ? 'Token privado para reembolsos y consultas (se mantiene seguro)' 
+                              : 'Private token for refunds and queries (kept secure)'}
+                          </Form.Text>
+                        </Form.Group>
+                      </>
+                    )}
+
+                    <Form.Group className="mb-3">
+                      <Form.Check
+                        type="checkbox"
+                        id="stripe_enabled"
+                        checked={businessForm.stripe_enabled}
+                        onChange={(e) => setBusinessForm(prev => ({ ...prev, stripe_enabled: e.target.checked }))}
+                        label={locale === 'es' ? 'Habilitar pagos con tarjeta (Stripe)' : 'Enable card payments (Stripe)'}
+                      />
+                    </Form.Group>
+
+                    {businessForm.stripe_enabled && (
+                      <>
+                        <Form.Group className="mb-3">
+                          <Form.Label>
+                            <i className="fas fa-key me-1"></i>
+                            {locale === 'es' ? 'Clave Pública de Stripe' : 'Stripe Publishable Key'}
+                          </Form.Label>
+                          <Form.Control
+                            type="text"
+                            value={businessForm.stripe_publishable_key}
+                            onChange={(e) => setBusinessForm(prev => ({ ...prev, stripe_publishable_key: e.target.value }))}
+                            placeholder="pk_live_..."
+                          />
+                          <Form.Text className="text-muted">
+                            {locale === 'es' 
+                              ? 'Clave pública de tu cuenta Stripe (empieza con pk_)' 
+                              : 'Your Stripe publishable key (starts with pk_)'}
+                          </Form.Text>
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                          <Form.Label>
+                            <i className="fas fa-lock me-1"></i>
+                            {locale === 'es' ? 'Clave Secreta de Stripe' : 'Stripe Secret Key'}
+                          </Form.Label>
+                          <Form.Control
+                            type="password"
+                            value={businessForm.stripe_secret_key}
+                            onChange={(e) => setBusinessForm(prev => ({ ...prev, stripe_secret_key: e.target.value }))}
+                            placeholder="sk_live_..."
+                          />
+                          <Form.Text className="text-muted">
+                            {locale === 'es' 
+                              ? 'Clave secreta de Stripe (se mantiene segura, empieza con sk_)' 
+                              : 'Your Stripe secret key (kept secure, starts with sk_)'}
+                          </Form.Text>
+                        </Form.Group>
+                      </>
+                    )}
+                  </>
+                )}
+
                 <Button variant="primary" type="submit" disabled={submitting}>
                   {submitting ? (
                     <>
@@ -472,8 +658,8 @@ export default function SettingsPage() {
         </Col>
 
         {/* Quick Actions */}
-        <Col lg={6}>
-          <div className="glass-card p-4 rounded-4">
+        <Col lg={6} className="mb-4 mb-lg-0">
+          <div className="glass-card p-3 p-md-4 rounded-4">
             <div className="d-flex align-items-center mb-4">
               <div 
                 className="rounded-circle me-3 d-flex align-items-center justify-content-center"
@@ -558,7 +744,7 @@ export default function SettingsPage() {
         {/* Danger Zone */}
         <Col lg={6}>
           <div 
-            className="glass-card p-4 rounded-4"
+            className="glass-card p-3 p-md-4 rounded-4"
             style={{ 
               background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(220, 38, 38, 0.02) 100%)',
               border: '1px solid rgba(239, 68, 68, 0.1)'

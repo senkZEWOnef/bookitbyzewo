@@ -9,6 +9,11 @@ export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'BookIt by Zewo - WhatsApp-First Booking',
   description: 'A Calendly built for WhatsApp. Service pros get a shareable booking link that confirms appointments, collects deposits, and sends updates via WhatsApp.',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
 }
 
 export default function RootLayout({

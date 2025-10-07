@@ -5,6 +5,8 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Container, Row, Col, Card, Form, Button, Alert, Spinner, Badge } from 'react-bootstrap'
 import ServiceCard from '@/components/ServiceCard'
 import TimeSlotPicker from '@/components/TimeSlotPicker'
+import ATHMovilPayment from '@/components/ATHMovilPayment'
+import StripePayment from '@/components/StripePayment'
 import { Service, Business } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -16,6 +18,7 @@ interface BookingData {
   customerName: string
   customerPhone: string
   customerLocale: string
+  paymentData?: any
 }
 
 export default function BookingPage() {
@@ -25,6 +28,8 @@ export default function BookingPage() {
   const businessSlug = params.slug as string
   
   const [step, setStep] = useState<'service' | 'time' | 'details' | 'payment'>('service')
+  const [pendingBooking, setPendingBooking] = useState<any>(null)
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'ath' | 'stripe' | null>(null)
   const [business, setBusiness] = useState<Business | null>(null)
   const [services, setServices] = useState<Service[]>([])
   const [selectedService, setSelectedService] = useState<Service | null>(null)
@@ -92,6 +97,31 @@ export default function BookingPage() {
       return
     }
 
+    // If deposit required and payment methods enabled, go to payment step
+    if ((selectedService?.deposit_cents ?? 0) > 0 && (business?.ath_movil_enabled || business?.stripe_enabled)) {
+      const bookingData: BookingData = {
+        serviceId: selectedService.id,
+        staffId: selectedStaff || undefined,
+        datetime: selectedSlot,
+        customerName: customerData.name,
+        customerPhone: customerData.phone,
+        customerLocale: customerData.locale
+      }
+      setPendingBooking(bookingData)
+      setStep('payment')
+      return
+    }
+
+    // Otherwise, submit booking directly
+    await submitBooking()
+  }
+
+  const submitBooking = async (paymentData?: any) => {
+    if (!selectedService || !selectedSlot || !customerData.name || !customerData.phone) {
+      setError(locale === 'es' ? 'Completa todos los campos' : 'Please fill all required fields')
+      return
+    }
+
     setSubmitting(true)
     setError('')
 
@@ -102,7 +132,8 @@ export default function BookingPage() {
         datetime: selectedSlot,
         customerName: customerData.name,
         customerPhone: customerData.phone,
-        customerLocale: customerData.locale
+        customerLocale: customerData.locale,
+        paymentData
       }
 
       const response = await fetch(`/api/book/${businessSlug}`, {
@@ -117,12 +148,14 @@ export default function BookingPage() {
         throw new Error(result.error || 'Booking failed')
       }
 
-      // If deposit required, redirect to payment
-      if ((selectedService?.deposit_cents ?? 0) > 0) {
+      // Redirect to confirmation
+      if (paymentData) {
+        router.push(`/book/${businessSlug}/confirm?id=${result.appointmentId}&payment=ath`)
+      } else if ((selectedService?.deposit_cents ?? 0) > 0) {
         if (result.stripeUrl) {
           window.location.href = result.stripeUrl
         } else {
-          router.push(`/book/${businessSlug}/confirm?id=${result.appointmentId}&payment=ath`)
+          router.push(`/book/${businessSlug}/confirm?id=${result.appointmentId}&payment=pending`)
         }
       } else {
         router.push(`/book/${businessSlug}/confirm?id=${result.appointmentId}`)
@@ -132,6 +165,23 @@ export default function BookingPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handlePaymentSuccess = async (paymentResponse: any) => {
+    console.log('Payment successful:', paymentResponse)
+    await submitBooking(paymentResponse)
+  }
+
+  const handlePaymentCancel = () => {
+    setError(locale === 'es' ? 'Pago cancelado' : 'Payment cancelled')
+  }
+
+  const handlePaymentExpired = () => {
+    setError(locale === 'es' ? 'Sesión de pago expirada' : 'Payment session expired')
+  }
+
+  const handlePaymentError = (error: string) => {
+    setError(error)
   }
 
   const formatPrice = (cents: number) => {
@@ -207,8 +257,10 @@ export default function BookingPage() {
             {[
               { key: 'service', label: locale === 'es' ? 'Servicio' : 'Service' },
               { key: 'time', label: locale === 'es' ? 'Horario' : 'Time' },
-              { key: 'details', label: locale === 'es' ? 'Detalles' : 'Details' }
-            ].map((stepInfo, index) => (
+              { key: 'details', label: locale === 'es' ? 'Detalles' : 'Details' },
+              ...(((selectedService?.deposit_cents ?? 0) > 0 && (business?.ath_movil_enabled || business?.stripe_enabled)) ? 
+                [{ key: 'payment', label: locale === 'es' ? 'Pago' : 'Payment' }] : [])
+            ].map((stepInfo, index, array) => (
               <div key={stepInfo.key} className="d-flex align-items-center">
                 <Badge 
                   bg={step === stepInfo.key ? 'success' : 'secondary'}
@@ -219,7 +271,7 @@ export default function BookingPage() {
                 <span className={`ms-2 ${step === stepInfo.key ? 'fw-bold' : 'text-muted'}`}>
                   {stepInfo.label}
                 </span>
-                {index < 2 && <span className="mx-3 text-muted">→</span>}
+                {index < array.length - 1 && <span className="mx-3 text-muted">→</span>}
               </div>
             ))}
           </div>
@@ -376,6 +428,220 @@ export default function BookingPage() {
                       </Button>
                     </div>
                   </Form>
+                </div>
+              )}
+
+              {/* Step 4: Payment */}
+              {step === 'payment' && selectedService && business && (
+                <div>
+                  <div className="d-flex justify-content-between align-items-center mb-4">
+                    <h5 className="mb-0">
+                      {locale === 'es' ? 'Pagar depósito' : 'Pay deposit'}
+                    </h5>
+                    <Button 
+                      variant="link" 
+                      size="sm"
+                      onClick={() => setStep('details')}
+                    >
+                      ← {locale === 'es' ? 'Volver' : 'Back'}
+                    </Button>
+                  </div>
+
+                  {/* Booking Summary */}
+                  <div className="mb-4 p-3 bg-light rounded">
+                    <h6 className="fw-bold mb-3">
+                      {locale === 'es' ? 'Resumen de reserva' : 'Booking summary'}
+                    </h6>
+                    <div className="mb-2">
+                      <strong>{selectedService.name}</strong>
+                    </div>
+                    <div className="mb-2 text-muted">
+                      {selectedSlot && new Date(selectedSlot).toLocaleDateString(locale === 'es' ? 'es-PR' : 'en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })}
+                    </div>
+                    <div className="mb-2 text-muted">
+                      {customerData.name} • {customerData.phone}
+                    </div>
+                    <hr />
+                    <div className="d-flex justify-content-between">
+                      <span>{locale === 'es' ? 'Depósito requerido:' : 'Required deposit:'}</span>
+                      <strong>{formatPrice(selectedService.deposit_cents || 0)}</strong>
+                    </div>
+                  </div>
+
+                  {/* Payment Method Selection */}
+                  {!selectedPaymentMethod && (business.ath_movil_enabled && business.stripe_enabled) && (
+                    <div className="mb-4">
+                      <h6 className="mb-3">
+                        {locale === 'es' ? 'Selecciona método de pago' : 'Choose payment method'}
+                      </h6>
+                      <Row className="g-3">
+                        {business.ath_movil_enabled && (
+                          <Col md={6}>
+                            <Card 
+                              className="h-100 border-2 cursor-pointer"
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => setSelectedPaymentMethod('ath')}
+                            >
+                              <Card.Body className="text-center p-4">
+                                <div 
+                                  className="mb-3 mx-auto"
+                                  style={{
+                                    width: '60px',
+                                    height: '60px',
+                                    backgroundColor: '#ff6b35',
+                                    borderRadius: '12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                    fontSize: '16px'
+                                  }}
+                                >
+                                  ATH
+                                </div>
+                                <h6 className="mb-2">ATH Móvil</h6>
+                                <small className="text-muted">
+                                  {locale === 'es' 
+                                    ? 'Paga con tu app ATH Móvil' 
+                                    : 'Pay with your ATH Móvil app'}
+                                </small>
+                              </Card.Body>
+                            </Card>
+                          </Col>
+                        )}
+                        {business.stripe_enabled && (
+                          <Col md={6}>
+                            <Card 
+                              className="h-100 border-2 cursor-pointer"
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => setSelectedPaymentMethod('stripe')}
+                            >
+                              <Card.Body className="text-center p-4">
+                                <div 
+                                  className="mb-3 mx-auto"
+                                  style={{
+                                    width: '60px',
+                                    height: '60px',
+                                    backgroundColor: '#635BFF',
+                                    borderRadius: '12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white',
+                                    fontSize: '24px'
+                                  }}
+                                >
+                                  <i className="fas fa-credit-card"></i>
+                                </div>
+                                <h6 className="mb-2">
+                                  {locale === 'es' ? 'Tarjeta' : 'Credit/Debit Card'}
+                                </h6>
+                                <small className="text-muted">
+                                  {locale === 'es' 
+                                    ? 'Visa, Mastercard, Amex' 
+                                    : 'Visa, Mastercard, Amex'}
+                                </small>
+                              </Card.Body>
+                            </Card>
+                          </Col>
+                        )}
+                      </Row>
+                    </div>
+                  )}
+
+                  {/* ATH Móvil Payment */}
+                  {(selectedPaymentMethod === 'ath' || (!selectedPaymentMethod && business.ath_movil_enabled && !business.stripe_enabled)) && business.ath_movil_enabled && (
+                    <div className="mb-4">
+                      <div className="d-flex justify-content-between align-items-center mb-3">
+                        <h6 className="mb-0">ATH Móvil Payment</h6>
+                        <Button 
+                          variant="link" 
+                          size="sm"
+                          onClick={() => setSelectedPaymentMethod(null)}
+                        >
+                          ← {locale === 'es' ? 'Cambiar método' : 'Change method'}
+                        </Button>
+                      </div>
+                      <ATHMovilPayment
+                        amount={(selectedService.deposit_cents || 0) / 100}
+                        description={`${locale === 'es' ? 'Depósito para' : 'Deposit for'} ${selectedService.name}`}
+                        publicToken={business.ath_movil_public_token || ''}
+                        onSuccess={handlePaymentSuccess}
+                        onCancel={handlePaymentCancel}
+                        onExpired={handlePaymentExpired}
+                        onError={handlePaymentError}
+                        disabled={submitting}
+                        clientName={customerData.name}
+                        appointmentId={`booking-${Date.now()}`}
+                      />
+                    </div>
+                  )}
+
+                  {/* Stripe Payment */}
+                  {(selectedPaymentMethod === 'stripe' || (!selectedPaymentMethod && business.stripe_enabled && !business.ath_movil_enabled)) && business.stripe_enabled && (
+                    <div className="mb-4">
+                      <div className="d-flex justify-content-between align-items-center mb-3">
+                        <h6 className="mb-0">
+                          {locale === 'es' ? 'Pago con Tarjeta' : 'Card Payment'}
+                        </h6>
+                        <Button 
+                          variant="link" 
+                          size="sm"
+                          onClick={() => setSelectedPaymentMethod(null)}
+                        >
+                          ← {locale === 'es' ? 'Cambiar método' : 'Change method'}
+                        </Button>
+                      </div>
+                      <StripePayment
+                        amount={(selectedService.deposit_cents || 0) / 100}
+                        description={`${locale === 'es' ? 'Depósito para' : 'Deposit for'} ${selectedService.name}`}
+                        publishableKey={business.stripe_publishable_key || ''}
+                        onSuccess={handlePaymentSuccess}
+                        onCancel={() => setSelectedPaymentMethod(null)}
+                        onError={handlePaymentError}
+                        disabled={submitting}
+                        clientName={customerData.name}
+                        appointmentId={`booking-${Date.now()}`}
+                        businessSlug={businessSlug}
+                      />
+                    </div>
+                  )}
+
+                  {/* Alternative Payment Notice */}
+                  <div className="mt-4 p-3 border rounded bg-light">
+                    <small className="text-muted">
+                      <i className="fas fa-info-circle me-2"></i>
+                      {locale === 'es' 
+                        ? 'Si prefieres pagar en efectivo o tienes problemas con el pago, puedes reservar sin depósito y coordinar el pago directamente con el negocio.'
+                        : 'If you prefer to pay cash or have payment issues, you can book without deposit and coordinate payment directly with the business.'
+                      }
+                    </small>
+                    <div className="mt-2">
+                      <Button 
+                        variant="outline-secondary" 
+                        size="sm"
+                        onClick={() => submitBooking()}
+                        disabled={submitting}
+                      >
+                        {submitting ? (
+                          <>
+                            <Spinner animation="border" size="sm" className="me-2" />
+                            {locale === 'es' ? 'Reservando...' : 'Booking...'}
+                          </>
+                        ) : (
+                          locale === 'es' ? 'Reservar sin depósito' : 'Book without deposit'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
             </Card.Body>

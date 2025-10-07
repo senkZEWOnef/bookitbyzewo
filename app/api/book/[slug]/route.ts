@@ -22,7 +22,7 @@ export async function POST(
   
   try {
     const body = await request.json()
-    const { serviceId, staffId, datetime, customerName, customerPhone, customerLocale } = body
+    const { serviceId, staffId, datetime, customerName, customerPhone, customerLocale, paymentData } = body
 
     if (!serviceId || !datetime || !customerName || !customerPhone) {
       return NextResponse.json(
@@ -88,6 +88,12 @@ export async function POST(
       )
     }
 
+    // Determine appointment status
+    let appointmentStatus = 'confirmed'
+    if (service.deposit_cents > 0) {
+      appointmentStatus = paymentData ? 'confirmed' : 'pending'
+    }
+
     // Create appointment
     const { data: appointment, error: appointmentError } = await supabase
       .from('appointments')
@@ -100,8 +106,10 @@ export async function POST(
         customer_name: customerName,
         customer_phone: customerPhone,
         customer_locale: customerLocale || 'es-PR',
-        status: service.deposit_cents > 0 ? 'pending' : 'confirmed',
-        source: 'public'
+        status: appointmentStatus,
+        source: 'public',
+        deposit_amount: service.deposit_cents,
+        total_amount: service.price_cents
       })
       .select()
       .single()
@@ -114,10 +122,52 @@ export async function POST(
       )
     }
 
-    // If deposit required, create Stripe checkout session
-    if (service.deposit_cents > 0) {
+    // If ATH Móvil payment was completed, store payment record
+    if (paymentData && service.deposit_cents > 0) {
       try {
-        const session = await stripe.checkout.sessions.create({
+        await supabase
+          .from('payments')
+          .insert({
+            business_id: business.id,
+            provider: 'ath_movil',
+            external_id: paymentData.referenceNumber || paymentData.transactionId || '',
+            amount_cents: service.deposit_cents,
+            currency: 'USD',
+            status: 'completed',
+            kind: 'deposit',
+            meta: { 
+              appointment_id: appointment.id,
+              ath_payment_data: paymentData 
+            }
+          })
+
+        return NextResponse.json({
+          appointmentId: appointment.id,
+          requiresPayment: false,
+          paymentMethod: 'ath_movil'
+        })
+      } catch (paymentError) {
+        console.error('ATH Móvil payment recording error:', paymentError)
+        // Still return success since appointment was created
+        return NextResponse.json({
+          appointmentId: appointment.id,
+          requiresPayment: false,
+          paymentMethod: 'ath_movil',
+          paymentRecordingError: true
+        })
+      }
+    }
+
+    // If deposit required and no payment data, handle payment options
+    if (service.deposit_cents > 0 && !paymentData) {
+      // Check if business has Stripe enabled and configured
+      if (business.stripe_enabled && business.stripe_secret_key) {
+        try {
+          const businessStripe = new Stripe(business.stripe_secret_key, {
+            apiVersion: '2023-08-16'
+          })
+
+          const session = await businessStripe.checkout.sessions.create({
           payment_method_types: ['card'],
           line_items: [
             {
@@ -156,20 +206,46 @@ export async function POST(
             meta: { appointment_id: appointment.id }
           })
 
-        return NextResponse.json({
-          appointmentId: appointment.id,
-          stripeUrl: session.url,
-          requiresPayment: true
-        })
-      } catch (stripeError) {
-        console.error('Stripe error:', stripeError)
-        
-        // Offer ATH Móvil as fallback
+          return NextResponse.json({
+            appointmentId: appointment.id,
+            stripeUrl: session.url,
+            requiresPayment: true
+          })
+        } catch (stripeError) {
+          console.error('Stripe error:', stripeError)
+          
+          // If Stripe fails but ATH Móvil is available, suggest that
+          if (business.ath_movil_enabled) {
+            return NextResponse.json({
+              appointmentId: appointment.id,
+              athRequired: true,
+              depositAmount: service.deposit_cents,
+              requiresPayment: true,
+              stripeError: true
+            })
+          } else {
+            // No payment methods available
+            return NextResponse.json({
+              appointmentId: appointment.id,
+              requiresPayment: false,
+              paymentUnavailable: true
+            })
+          }
+        }
+      } else if (business.ath_movil_enabled) {
+        // Only ATH Móvil is available
         return NextResponse.json({
           appointmentId: appointment.id,
           athRequired: true,
           depositAmount: service.deposit_cents,
           requiresPayment: true
+        })
+      } else {
+        // No payment methods configured, book without deposit
+        return NextResponse.json({
+          appointmentId: appointment.id,
+          requiresPayment: false,
+          paymentUnavailable: true
         })
       }
     }

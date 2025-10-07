@@ -18,6 +18,10 @@ interface Appointment {
   starts_at: string
   status: string
   service_name: string
+  deposit_amount?: number
+  total_amount?: number
+  payment_status?: 'pending' | 'completed' | 'failed' | null
+  payment_provider?: string | null
 }
 
 interface AvailabilityRule {
@@ -172,21 +176,46 @@ export default function CalendarPage() {
             customer_phone,
             starts_at,
             status,
-            services (name)
+            deposit_amount,
+            total_amount,
+            services (name),
+            payments (
+              id,
+              status,
+              provider,
+              amount_cents
+            )
           `)
           .eq('business_id', businessData.id)
           .gte('starts_at', monthStart.toISOString())
           .lte('starts_at', monthEnd.toISOString())
           .order('starts_at', { ascending: true })
 
-        const formattedAppointments = appointmentData?.map((apt: any) => ({
-          id: apt.id,
-          customer_name: apt.customer_name,
-          customer_phone: apt.customer_phone,
-          starts_at: apt.starts_at,
-          status: apt.status,
-          service_name: apt.services?.name || 'Unknown Service'
-        })) || []
+        const formattedAppointments = appointmentData?.map((apt: any) => {
+          // Determine payment status from payments array
+          let paymentStatus: 'pending' | 'completed' | 'failed' | null = null
+          let paymentProvider: string | null = null
+          if (apt.payments && apt.payments.length > 0) {
+            const latestPayment = apt.payments[apt.payments.length - 1]
+            paymentStatus = latestPayment.status
+            paymentProvider = latestPayment.provider
+          } else if (apt.deposit_amount && apt.deposit_amount > 0) {
+            paymentStatus = 'pending'
+          }
+
+          return {
+            id: apt.id,
+            customer_name: apt.customer_name,
+            customer_phone: apt.customer_phone,
+            starts_at: apt.starts_at,
+            status: apt.status,
+            service_name: apt.services?.name || 'Unknown Service',
+            deposit_amount: apt.deposit_amount,
+            total_amount: apt.total_amount,
+            payment_status: paymentStatus,
+            payment_provider: paymentProvider
+          }
+        }) || []
 
         setAppointments(formattedAppointments)
 
@@ -420,6 +449,59 @@ export default function CalendarPage() {
     )
   }
 
+  const getPaymentBadge = (appointment: Appointment) => {
+    if (!appointment.deposit_amount || appointment.deposit_amount === 0) {
+      return null
+    }
+
+    const amount = (appointment.deposit_amount / 100).toFixed(2)
+    
+    let variant: string
+    let icon: string
+    let label: string
+    let provider = ''
+
+    // Add provider indicator
+    if (appointment.payment_provider === 'ath_movil') {
+      provider = ' (ATH)'
+    } else if (appointment.payment_provider === 'stripe') {
+      provider = ' (Card)'
+    }
+
+    switch (appointment.payment_status) {
+      case 'completed':
+        variant = 'success'
+        icon = 'fas fa-check-circle'
+        label = locale === 'es' ? `Pagado $${amount}${provider}` : `Paid $${amount}${provider}`
+        break
+      case 'pending':
+        variant = 'warning'
+        icon = 'fas fa-clock'
+        label = locale === 'es' ? `Pendiente $${amount}${provider}` : `Pending $${amount}${provider}`
+        break
+      case 'failed':
+        variant = 'danger'
+        icon = 'fas fa-times-circle'
+        label = locale === 'es' ? `Falló $${amount}${provider}` : `Failed $${amount}${provider}`
+        break
+      default:
+        variant = 'secondary'
+        icon = 'fas fa-dollar-sign'
+        label = locale === 'es' ? `Depósito $${amount}` : `Deposit $${amount}`
+    }
+
+    return (
+      <Badge 
+        bg={variant} 
+        className="me-1" 
+        style={{ fontSize: '0.65rem' }}
+      >
+        <i className={`${icon} me-1`}></i>
+        {label}
+      </Badge>
+    )
+  }
+
   if (loading) {
     return (
       <div className="text-center py-5">
@@ -466,15 +548,30 @@ export default function CalendarPage() {
             </p>
           </div>
         </div>
-        <div className="d-flex gap-2 flex-wrap">
+        <div className="d-flex gap-1 gap-md-2 flex-wrap justify-content-end justify-content-md-start">
           {/* Search */}
           <Form.Control
             type="text"
             placeholder={locale === 'es' ? 'Buscar citas...' : 'Search appointments...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            className="d-none d-lg-block"
             style={{ width: '200px' }}
           />
+
+          {/* Mobile Search Button */}
+          <Button 
+            variant="outline-secondary"
+            size="sm"
+            className="d-lg-none"
+            onClick={() => {
+              // Toggle mobile search - in a real app this would open a search modal
+              const query = prompt(locale === 'es' ? 'Buscar citas:' : 'Search appointments:')
+              if (query !== null) setSearchQuery(query)
+            }}
+          >
+            <i className="fas fa-search"></i>
+          </Button>
 
           {/* View Type Selector */}
           <Dropdown>
@@ -635,8 +732,8 @@ export default function CalendarPage() {
 
       <Row className="g-4">
         {/* Calendar */}
-        <Col lg={8}>
-          <div className="glass-card p-4 rounded-4">
+        <Col xl={8} lg={12} className="order-2 order-xl-1">
+          <div className="glass-card p-2 p-md-4 rounded-4">
             {/* Calendar Header */}
             <div className="d-flex justify-content-between align-items-center mb-4">
               <h4 className="fw-bold mb-0">
@@ -778,15 +875,16 @@ export default function CalendarPage() {
                                      isCurrentDay ? '#10b981' : '#ffffff',
                       color: isSelected || isCurrentDay ? '#ffffff' : 
                              isCurrentMonth ? '#000000' : '#9ca3af',
-                      minHeight: calendarSettings.viewType === 'month' ? '120px' :
-                                 calendarSettings.viewType === 'week' ? '200px' : '400px',
-                      padding: '8px',
+                      minHeight: calendarSettings.viewType === 'month' ? '70px' :
+                        calendarSettings.viewType === 'week' ? '150px' : '300px',
+                      padding: '4px',
                       cursor: 'pointer',
                       transition: 'all 0.2s ease',
                       opacity: !availability.isOpen ? 0.6 : 1,
                       position: 'relative',
                       border: isSelected ? '2px solid #1d4ed8' : 
-                              isCurrentDay ? '2px solid #059669' : 'none'
+                              isCurrentDay ? '2px solid #059669' : 'none',
+                      fontSize: '0.8rem'
                     }}
                     onMouseEnter={(e) => {
                       if (!isSelected && !isCurrentDay) {
@@ -874,8 +972,8 @@ export default function CalendarPage() {
         </Col>
 
         {/* Selected Day Details */}
-        <Col lg={4}>
-          <div className="glass-card p-4 rounded-4">
+        <Col xl={4} lg={12} className="order-1 order-xl-2">
+          <div className="glass-card p-3 p-md-4 rounded-4">
             <h5 className="fw-bold mb-3">
               {format(selectedDate, 'EEEE, MMMM d', { locale: dateLocale })}
               {isToday(selectedDate) && (
@@ -936,7 +1034,10 @@ export default function CalendarPage() {
                         <div className="fw-semibold">{appointment.customer_name}</div>
                         <small className="text-muted">{appointment.customer_phone}</small>
                       </div>
-                      {getStatusBadge(appointment.status)}
+                      <div className="d-flex flex-wrap">
+                        {getStatusBadge(appointment.status)}
+                        {getPaymentBadge(appointment)}
+                      </div>
                     </div>
                     <div className="small text-muted mb-1">
                       <i className="fas fa-clock me-1"></i>
