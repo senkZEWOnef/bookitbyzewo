@@ -11,30 +11,57 @@ export default function Navigation() {
   const { language, setLanguage, t } = useLanguage()
   const [user, setUser] = useState<any>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false) // Start as false, only load when needed
   const router = useRouter()
-  const supabase = createSupabaseClient()
 
+  // Only initialize auth check when needed
   useEffect(() => {
-    // Get initial user state
+    // Skip auth check for public pages
+    const currentPath = window.location.pathname
+    const publicPaths = ['/', '/pricing', '/book', '/api']
+    const isPublicPage = publicPaths.some(path => currentPath.startsWith(path))
+    
+    if (isPublicPage && !currentPath.includes('/dashboard') && !currentPath.includes('/login')) {
+      console.log('Skipping auth check for public page:', currentPath)
+      setLoading(false)
+      return
+    }
+
+    // Only create Supabase client when we actually need authentication
+    const supabase = createSupabaseClient()
+    setLoading(true)
+    
+    // Get initial user state with timeout
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      
-      if (user) {
-        // Fetch user profile data - handle case where profiles table doesn't exist
-        try {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single()
-          
-          setUserProfile(profileData)
-        } catch (error) {
-          // Profiles table doesn't exist yet, just use user metadata
-          setUserProfile(null)
+      try {
+        // Add timeout to prevent hanging
+        const userPromise = supabase.auth.getUser()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth timeout')), 3000) // Reduced to 3 seconds
+        )
+        
+        const { data: { user } } = await Promise.race([userPromise, timeoutPromise]) as any
+        setUser(user)
+        
+        if (user) {
+          // Fetch user profile data - handle case where profiles table doesn't exist
+          try {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', user.id)
+              .single()
+            
+            setUserProfile(profileData)
+          } catch (error) {
+            // Profiles table doesn't exist yet, just use user metadata
+            setUserProfile(null)
+          }
         }
+      } catch (error) {
+        console.log('Navigation auth check failed or timed out:', error.message)
+        setUser(null)
+        setUserProfile(null)
       }
       
       setLoading(false)
@@ -42,25 +69,31 @@ export default function Navigation() {
     
     getUser()
 
-    // Listen for auth changes
+    // Listen for auth changes only when needed
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
-      setUser(session?.user || null)
-      
-      if (session?.user) {
-        // Fetch user profile data - handle case where profiles table doesn't exist
-        try {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-          
-          setUserProfile(profileData)
-        } catch (error) {
-          // Profiles table doesn't exist yet, just use user metadata
+      try {
+        setUser(session?.user || null)
+        
+        if (session?.user) {
+          // Fetch user profile data - handle case where profiles table doesn't exist
+          try {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single()
+            
+            setUserProfile(profileData)
+          } catch (error) {
+            // Profiles table doesn't exist yet, just use user metadata
+            setUserProfile(null)
+          }
+        } else {
           setUserProfile(null)
         }
-      } else {
+      } catch (error) {
+        console.log('Navigation auth state change error:', error)
+        setUser(null)
         setUserProfile(null)
       }
       
@@ -71,6 +104,7 @@ export default function Navigation() {
   }, [])
 
   const handleSignOut = async () => {
+    const supabase = createSupabaseClient()
     await supabase.auth.signOut()
     router.push('/')
   }

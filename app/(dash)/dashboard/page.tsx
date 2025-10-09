@@ -5,6 +5,7 @@ import { Row, Col, Alert, Button, Badge, Spinner, Modal } from 'react-bootstrap'
 import Link from 'next/link'
 import { format, parseISO, isToday, isTomorrow } from 'date-fns'
 import { createSupabaseClient } from '@/lib/supabase'
+import { mockAuth } from '@/lib/mock-auth'
 import { createWhatsAppLink } from '@/lib/whatsapp'
 import QRCode from 'qrcode'
 
@@ -84,39 +85,8 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    console.log('🚀 DASHBOARD COMPONENT: useEffect triggered, using mock data for dev')
-    // TEMP: Use mock data for development
-    setBusiness({
-      id: 'dev-business-id',
-      name: 'Dev Hair Salon',
-      slug: 'dev-salon'
-    })
-    setStats({
-      todayAppointments: 5,
-      tomorrowAppointments: 8,
-      pendingPayments: 2,
-      totalRevenue: 1250
-    })
-    setRecentAppointments([
-      {
-        id: '1',
-        customer_name: 'Maria Rodriguez',
-        customer_phone: '+1787555001',
-        starts_at: new Date().toISOString(),
-        status: 'confirmed',
-        service_name: 'Haircut',
-        deposit_amount: 1000
-      },
-      {
-        id: '2', 
-        customer_name: 'Carlos Vega',
-        customer_phone: '+1787555002',
-        starts_at: new Date(Date.now() + 86400000).toISOString(),
-        status: 'pending',
-        service_name: 'Beard Trim'
-      }
-    ])
-    setLoading(false)
+    console.log('🚀 DASHBOARD COMPONENT: useEffect triggered, fetching real data')
+    fetchDashboardData()
   }, [])
 
   useEffect(() => {
@@ -127,17 +97,26 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async () => {
     if (fetchingRef.current) {
-      console.log('🔍 DASHBOARD: fetchDashboardData already running, skipping...')
       return
     }
     
     fetchingRef.current = true
-    console.log('🔍 DASHBOARD: Starting fetchDashboardData...')
     
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      // Get user from stored session
+      const storedSession = localStorage.getItem('sb-itbgpdzvggnvhjrysadh-auth-token')
+      let user = null
+      
+      if (storedSession) {
+        try {
+          const session = JSON.parse(storedSession)
+          user = session.user
+        } catch (e) {
+          // Invalid stored session
+        }
+      }
+      
       if (!user) {
-        console.log('❌ DASHBOARD: No user found, redirecting to login')
         window.location.href = '/login'
         return
       }

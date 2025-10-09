@@ -1,8 +1,13 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
+
 export default function Footer() {
+  const router = useRouter()
+  
   const handleAdminAccess = () => {
-    window.location.href = '/admin/login'
+    console.log('Z button clicked - navigating to admin login')
+    router.push('/admin/login')
   }
 
   return (

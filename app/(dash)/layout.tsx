@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from 'react-bootstrap'
-import { createSupabaseClient } from '@/lib/supabase'
+import { supabase, getUser } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 export default function DashboardLayout({
@@ -41,17 +41,17 @@ export default function DashboardLayout({
   }, [])
 
   useEffect(() => {
-    // TEMP: Bypass auth for development
-    setUser({ 
-      id: 'dev-user',
-      email: 'dev@example.com',
-      user_metadata: { full_name: 'Dev User' }
+    getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUser(user)
+      } else {
+        router.push('/login')
+      }
+      setLoading(false)
     })
-    setLoading(false)
   }, [])
 
   const handleSignOut = async () => {
-    const supabase = createSupabaseClient()
     await supabase.auth.signOut()
     router.push('/')
   }

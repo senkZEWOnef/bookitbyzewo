@@ -10,7 +10,19 @@ export async function middleware(request: NextRequest) {
   const supabase = createMiddlewareClient({ req: request, res })
 
   // Refresh session if expired - required for Server Components
-  const { data: { session } } = await supabase.auth.getSession()
+  let session = null
+  try {
+    const { data: { session: supabaseSession } } = await supabase.auth.getSession()
+    session = supabaseSession
+    console.log('🔧 MIDDLEWARE: Session check for', pathname, '- session exists:', !!session)
+  } catch (error) {
+    console.error('🔧 MIDDLEWARE: Session check failed:', error)
+  }
+
+  // Skip all middleware checks for admin routes
+  if (pathname.startsWith('/admin')) {
+    return res
+  }
 
   // Auth routes that should redirect to dashboard if already logged in
   const authRoutes = ['/login', '/signup', '/forgot-password', '/reset-password']
@@ -27,7 +39,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // If user is not logged in and trying to access protected routes, redirect to login
-  if (!session && protectedRoutes.some(route => pathname.startsWith(route))) {
+  // SKIP this check for /dashboard to allow client-side auth handling
+  if (!session && protectedRoutes.some(route => pathname.startsWith(route)) && !pathname.startsWith('/dashboard')) {
     const redirectUrl = new URL('/login', request.url)
     redirectUrl.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(redirectUrl)
@@ -35,10 +48,6 @@ export async function middleware(request: NextRequest) {
 
   // Check subscription access for authenticated users on protected routes
   if (session && protectedRoutes.some(route => pathname.startsWith(route))) {
-    // Skip admin routes
-    if (pathname.startsWith('/admin')) {
-      return res
-    }
 
     try {
       const accessCheckUrl = new URL('/api/check-access', request.url)
