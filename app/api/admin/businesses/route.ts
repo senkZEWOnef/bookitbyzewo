@@ -1,26 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { query } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // Helper function to verify admin token
 async function verifyAdminToken(token: string) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  try {
+    const result = await query(
+      'SELECT expires_at FROM admin_sessions WHERE session_token = $1',
+      [token]
+    )
 
-  const { data: session } = await supabase
-    .from('admin_sessions')
-    .select('expires_at')
-    .eq('session_token', token)
-    .single()
-
-  if (!session || new Date(session.expires_at) < new Date()) {
+    if (result.rows.length === 0 || new Date(result.rows[0].expires_at) < new Date()) {
+      return false
+    }
+    return true
+  } catch (error) {
+    console.error('Token verification error:', error)
     return false
   }
-  return true
 }
 
 export async function GET(request: NextRequest) {
@@ -30,31 +29,37 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
   try {
-    // Get all businesses with owner info and stats
-    const { data: businesses, error } = await supabase
-      .from('businesses')
-      .select(`
-        *,
-        profiles:owner_id (
-          full_name,
-          phone
-        ),
-        appointments:appointments (count),
-        services:services (count),
-        staff:staff (count)
-      `)
-      .order('created_at', { ascending: false })
+    // Get all businesses with owner info and stats using Neon
+    const result = await query(`
+      SELECT 
+        b.*,
+        u.full_name as owner_name,
+        u.phone as owner_phone,
+        (SELECT COUNT(*) FROM appointments WHERE business_id = b.id) as appointment_count,
+        (SELECT COUNT(*) FROM services WHERE business_id = b.id) as service_count
+      FROM businesses b
+      LEFT JOIN users u ON b.owner_id = u.id
+      ORDER BY b.created_at DESC
+    `)
 
-    if (error) {
-      console.error('Error fetching businesses:', error)
-      return NextResponse.json({ error: 'Failed to fetch businesses' }, { status: 500 })
-    }
+    const businesses = result.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      location: row.location,
+      timezone: row.timezone,
+      subscription_status: row.subscription_status || 'trial',
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      profiles: {
+        full_name: row.owner_name,
+        phone: row.owner_phone
+      },
+      appointments: [{ count: parseInt(row.appointment_count) || 0 }],
+      services: [{ count: parseInt(row.service_count) || 0 }],
+      staff: [{ count: 0 }] // TODO: Add staff count when staff table is implemented
+    }))
 
     return NextResponse.json({ businesses })
   } catch (error) {
@@ -70,24 +75,11 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
   try {
     const { businessId } = await request.json()
 
     // Delete business (cascade will handle related records)
-    const { error } = await supabase
-      .from('businesses')
-      .delete()
-      .eq('id', businessId)
-
-    if (error) {
-      console.error('Error deleting business:', error)
-      return NextResponse.json({ error: 'Failed to delete business' }, { status: 500 })
-    }
+    await query('DELETE FROM businesses WHERE id = $1', [businessId])
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -103,41 +95,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
   try {
-    const { action, businessId, data } = await request.json()
+    const { action, businessId } = await request.json()
 
     if (action === 'suspend') {
       // Suspend business by setting subscription to inactive
-      const { error } = await supabase
-        .from('businesses')
-        .update({ 
-          subscription_status: 'suspended',
-          last_payment_failed: true
-        })
-        .eq('id', businessId)
-
-      if (error) {
-        return NextResponse.json({ error: 'Failed to suspend business' }, { status: 500 })
-      }
+      await query(
+        'UPDATE businesses SET subscription_status = $1, updated_at = NOW() WHERE id = $2',
+        ['suspended', businessId]
+      )
     } else if (action === 'activate') {
       // Activate business
-      const { error } = await supabase
-        .from('businesses')
-        .update({ 
-          subscription_status: 'active',
-          last_payment_failed: false,
-          trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
-        })
-        .eq('id', businessId)
-
-      if (error) {
-        return NextResponse.json({ error: 'Failed to activate business' }, { status: 500 })
-      }
+      await query(
+        'UPDATE businesses SET subscription_status = $1, updated_at = NOW() WHERE id = $2',
+        ['active', businessId]
+      )
     }
 
     return NextResponse.json({ success: true })

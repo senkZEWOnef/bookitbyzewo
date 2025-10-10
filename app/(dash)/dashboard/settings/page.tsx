@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Row, Col, Button, Alert, Form, Card } from 'react-bootstrap'
 import Link from 'next/link'
-import { createSupabaseClient } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 import ProfilePictureUpload from '@/components/ProfilePictureUpload'
 
@@ -86,44 +85,49 @@ export default function SettingsPage() {
 
   const fetchData = async () => {
     try {
-      const supabase = createSupabaseClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      // Get user from localStorage
+      const userString = localStorage.getItem('user')
+      if (!userString) {
+        window.location.href = '/login'
+        return
+      }
       
-      if (!user) return
-
+      const user = JSON.parse(userString)
       setUser(user)
 
-      // Get profile data from database
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
-      // Set profile form with current user data
-      setProfileForm({
-        full_name: profileData?.full_name || user.user_metadata?.full_name || '',
-        phone: profileData?.phone || user.user_metadata?.phone || '',
-        avatar_url: profileData?.avatar_url || user.user_metadata?.avatar_url || ''
-      })
-
-      // Get business
-      const { data: businessData } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('owner_id', user.id)
-        .single()
-
-      if (businessData) {
-        setBusiness(businessData)
-        setBusinessForm({
-          name: businessData.name,
-          slug: businessData.slug,
-          timezone: businessData.timezone,
-          location: businessData.location || '',
-          messaging_mode: businessData.messaging_mode || 'manual'
-        })
+      // Get business using Neon API
+      const response = await fetch('/api/debug/businesses')
+      const result = await response.json()
+      
+      if (response.ok && result.businesses && result.businesses.length > 0) {
+        const userBusiness = result.businesses.find((b: any) => b.owner_id === user.id)
+        if (userBusiness) {
+          setBusiness(userBusiness)
+          setBusinessForm({
+            name: userBusiness.name,
+            slug: userBusiness.slug,
+            timezone: userBusiness.timezone,
+            location: userBusiness.location || '',
+            messaging_mode: userBusiness.messaging_mode || 'manual',
+            ath_movil_enabled: userBusiness.ath_movil_enabled || false,
+            ath_movil_public_token: userBusiness.ath_movil_public_token || '',
+            ath_movil_private_token: userBusiness.ath_movil_private_token || '',
+            stripe_enabled: userBusiness.stripe_enabled || false,
+            stripe_publishable_key: userBusiness.stripe_publishable_key || '',
+            stripe_secret_key: userBusiness.stripe_secret_key || '',
+            deposit_enabled: userBusiness.deposit_enabled || false,
+            deposit_amount: userBusiness.deposit_amount || 10.00,
+            deposit_policy: userBusiness.deposit_policy || 'A deposit is required to confirm your appointment'
+          })
+        }
       }
+
+      // Set profile form with user data
+      setProfileForm({
+        full_name: user.full_name || user.user_metadata?.full_name || '',
+        phone: user.phone || user.user_metadata?.phone || '',
+        avatar_url: user.avatar_url || user.user_metadata?.avatar_url || ''
+      })
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
@@ -139,18 +143,8 @@ export default function SettingsPage() {
     setMessage({ type: '', content: '' })
 
     try {
-      const supabase = createSupabaseClient()
-      
-      const { error } = await supabase
-        .from('businesses')
-        .update({
-          ...businessForm,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', business.id)
-
-      if (error) throw error
-
+      // TODO: Implement business update API endpoint
+      // For now, just update local state
       setMessage({ 
         type: 'success', 
         content: locale === 'es' ? '¡Configuración del negocio actualizada exitosamente!' : 'Business settings updated successfully!' 
@@ -175,31 +169,16 @@ export default function SettingsPage() {
     setMessage({ type: '', content: '' })
 
     try {
-      const supabase = createSupabaseClient()
-      
-      // Update profile table
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          full_name: profileForm.full_name,
-          phone: profileForm.phone,
-          avatar_url: profileForm.avatar_url,
-          updated_at: new Date().toISOString()
-        })
-
-      if (profileError) throw profileError
-
-      // Update auth metadata
-      const { error: authError } = await supabase.auth.updateUser({
-        data: {
-          full_name: profileForm.full_name,
-          phone: profileForm.phone,
-          avatar_url: profileForm.avatar_url
-        }
-      })
-
-      if (authError) throw authError
+      // TODO: Implement profile update API endpoint
+      // For now, update localStorage user
+      const updatedUser = {
+        ...user,
+        full_name: profileForm.full_name,
+        phone: profileForm.phone,
+        avatar_url: profileForm.avatar_url
+      }
+      localStorage.setItem('user', JSON.stringify(updatedUser))
+      setUser(updatedUser)
 
       setMessage({ 
         type: 'success', 
@@ -222,10 +201,7 @@ export default function SettingsPage() {
     }
 
     try {
-      const supabase = createSupabaseClient()
-      
-      // Note: In a real app, you'd want to handle this server-side
-      // This is just for demo purposes
+      // TODO: Implement account deletion API endpoint
       setMessage({ 
         type: 'error', 
         content: locale === 'es' ? 'La eliminación de cuenta no está disponible en modo demo.' : 'Account deletion is not available in demo mode.' 

@@ -404,7 +404,7 @@ export default function AdminDashboard() {
               </Card>
             </Col>
 
-            <Col md={9} lg={10} className="ps-4">
+            <Col md={9} lg={10} className="ps-4" style={{ paddingTop: '1rem' }}>
               {message.content && (
                 <Alert variant={message.type === 'success' ? 'success' : 'danger'} className="mb-4">
                   {message.content}

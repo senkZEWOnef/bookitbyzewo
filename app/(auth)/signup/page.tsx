@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Form, Button, Card, Alert } from 'react-bootstrap'
-import { createSupabaseClient } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 export const dynamic = 'force-dynamic'
@@ -21,7 +20,6 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
-  const supabase = createSupabaseClient()
   const { t } = useLanguage()
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -41,22 +39,27 @@ export default function SignupPage() {
       return
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email: formData.email,
-      password: formData.password,
-      options: {
-        data: {
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email.trim(),
+          password: formData.password,
           full_name: formData.fullName,
           phone: formData.phone
-        }
-      }
-    })
+        })
+      })
 
-    if (error) {
-      setError(error.message)
-    } else if (data.user) {
-      // Profile is automatically created by database trigger
-      router.push('/dashboard/onboarding')
+      const result = await response.json()
+
+      if (response.ok) {
+        router.push('/login?message=Account created successfully! Please login.')
+      } else {
+        setError(result.error || 'Failed to create account')
+      }
+    } catch (error) {
+      setError('Network error. Please try again.')
     }
     
     setLoading(false)

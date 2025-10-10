@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Button, Badge, Modal, Table, Form, Alert } from 'react-bootstrap'
 import { format, startOfWeek, endOfWeek, addDays, parseISO, isSameDay, startOfDay, endOfDay } from 'date-fns'
-import { createSupabaseClient } from '@/lib/supabase'
 import { Appointment, Service, Staff } from '@/types/database'
 import WhatsAppBadge from '@/components/WhatsAppBadge'
 
@@ -27,7 +26,6 @@ export default function CalendarPage() {
   const [businessName, setBusiness] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const supabase = createSupabaseClient()
 
   useEffect(() => {
     fetchData()

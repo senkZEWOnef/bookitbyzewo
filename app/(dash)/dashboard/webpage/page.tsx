@@ -100,47 +100,123 @@ export default function WebpagePage() {
   const [services, setServices] = useState<any[]>([])
 
   useEffect(() => {
-    // TEMP: Use mock data for development
-    setBusiness({
-      id: 'dev-business-id',
-      name: 'Dev Hair Salon',
-      slug: 'dev-salon'
-    })
-    setServices([
-      {
-        id: '1',
-        name: 'Haircut',
-        duration_min: 45,
-        price_cents: 3500
-      },
-      {
-        id: '2',
-        name: 'Beard Trim',
-        duration_min: 20,
-        price_cents: 1500
-      },
-      {
-        id: '3',
-        name: 'Haircut & Beard',
-        duration_min: 60,
-        price_cents: 4500
-      }
-    ])
-    setLoading(false)
+    fetchBusinessData()
   }, [])
 
+  const fetchBusinessData = async () => {
+    setLoading(true)
+    try {
+      // Get user from localStorage
+      const userString = localStorage.getItem('user')
+      if (!userString) {
+        console.log('❌ WEBPAGE: No user in localStorage, redirecting to login')
+        window.location.href = '/login'
+        return
+      }
+      
+      const user = JSON.parse(userString)
+      console.log('✅ WEBPAGE: User found:', user.id, user)
+
+      // Fetch user's businesses from Neon database
+      const response = await fetch('/api/debug/businesses')
+      const result = await response.json()
+      
+      console.log('🔍 WEBPAGE: Business API response:', response.status, result)
+      
+      if (response.ok && result.businesses && result.businesses.length > 0) {
+        console.log('🔍 WEBPAGE: All businesses:', result.businesses)
+        console.log('🔍 WEBPAGE: Looking for owner_id:', user.id)
+        
+        // Find business owned by this user
+        const userBusiness = result.businesses.find((b: any) => b.owner_id === user.id)
+        
+        if (userBusiness) {
+          console.log('✅ WEBPAGE: Found user business:', userBusiness)
+          setBusiness({
+            id: userBusiness.id,
+            name: userBusiness.name,
+            slug: userBusiness.slug
+          })
+
+          // Fetch services for this business
+          const servicesResponse = await fetch(`/api/business/${userBusiness.slug}`)
+          const servicesResult = await servicesResponse.json()
+          
+          if (servicesResponse.ok) {
+            setServices(servicesResult.services || [])
+            console.log('✅ WEBPAGE: Found', servicesResult.services?.length || 0, 'services')
+          }
+
+          // Fetch existing webpage settings
+          const settingsResponse = await fetch(`/api/webpage-settings?businessId=${userBusiness.id}`)
+          const settingsResult = await settingsResponse.json()
+          
+          if (settingsResponse.ok && settingsResult.settings && Object.keys(settingsResult.settings).length > 0) {
+            console.log('✅ WEBPAGE: Loaded existing settings')
+            setSettings({ ...defaultSettings, ...settingsResult.settings })
+          } else {
+            console.log('📄 WEBPAGE: Using default settings')
+            // Update default settings with actual business data
+            setSettings(prev => ({
+              ...prev,
+              businessName: userBusiness.name,
+              heroTitle: `Book Your Appointment at ${userBusiness.name}`,
+              footerSection: {
+                ...prev.footerSection,
+                customFooterText: `${userBusiness.name} - Professional booking made easy`
+              }
+            }))
+          }
+        } else {
+          console.log('❌ WEBPAGE: No business found for user:', user.id)
+          setBusiness(null)
+        }
+      } else {
+        console.log('❌ WEBPAGE: No businesses in database')
+        setBusiness(null)
+      }
+    } catch (err) {
+      console.error('WEBPAGE loading error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleSave = async () => {
+    if (!business) {
+      setMessage('No business found to save settings for')
+      return
+    }
+
     setSaving(true)
     setMessage('')
 
     try {
-      // TEMP: Simulate saving
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      console.log('💾 WEBPAGE: Saving settings for business:', business.id)
+      
+      const response = await fetch('/api/webpage-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          businessId: business.id,
+          settings: settings
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to save settings')
+      }
+
+      console.log('✅ WEBPAGE: Settings saved successfully')
       setMessage('Webpage settings saved successfully!')
       setTimeout(() => setMessage(''), 3000)
     } catch (error) {
-      console.error('Error saving settings:', error)
-      setMessage('Error saving settings. Please try again.')
+      console.error('🔴 WEBPAGE: Error saving settings:', error)
+      setMessage(error instanceof Error ? error.message : 'Error saving settings. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -787,7 +863,7 @@ export default function WebpagePage() {
 
                 {business && (
                   <a
-                    href={`/book/${business.slug}`}
+                    href={`/page/${business.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-outline-primary"

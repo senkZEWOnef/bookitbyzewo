@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { query } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 async function verifyAdminToken(token: string) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  try {
+    const result = await query(
+      'SELECT expires_at FROM admin_sessions WHERE session_token = $1',
+      [token]
+    )
 
-  const { data: session } = await supabase
-    .from('admin_sessions')
-    .select('expires_at')
-    .eq('session_token', token)
-    .single()
-
-  return session && new Date(session.expires_at) > new Date()
+    if (result.rows.length === 0 || new Date(result.rows[0].expires_at) < new Date()) {
+      return false
+    }
+    return true
+  } catch (error) {
+    return false
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -26,25 +27,34 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
   try {
-    const { data: coupons, error } = await supabase
-      .from('coupon_codes')
-      .select('*')
-      .order('created_at', { ascending: false })
+    // Create coupons table if it doesn't exist
+    await query(`
+      CREATE TABLE IF NOT EXISTS coupon_codes (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        code VARCHAR(20) UNIQUE NOT NULL,
+        discount_type VARCHAR(20) NOT NULL CHECK (discount_type IN ('percentage', 'free_trial')),
+        discount_value INTEGER NOT NULL DEFAULT 0,
+        free_trial_months INTEGER NOT NULL DEFAULT 0,
+        max_uses INTEGER NOT NULL DEFAULT 1,
+        used_count INTEGER NOT NULL DEFAULT 0,
+        expires_at TIMESTAMP NOT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `)
 
-    if (error) {
-      throw error
-    }
+    // Get all coupons using Neon
+    const result = await query(`
+      SELECT * FROM coupon_codes 
+      ORDER BY created_at DESC
+    `)
 
-    return NextResponse.json({ coupons })
+    return NextResponse.json({ coupons: result.rows })
 
   } catch (error) {
-    console.error('Coupon fetch error:', error)
+    console.error('Coupons fetch error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch coupons' },
       { status: 500 }

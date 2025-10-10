@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from 'react-bootstrap'
-import { supabase, getUser } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 export default function DashboardLayout({
@@ -41,18 +40,18 @@ export default function DashboardLayout({
   }, [])
 
   useEffect(() => {
-    getUser().then(({ data: { user } }) => {
-      if (user) {
-        setUser(user)
-      } else {
-        router.push('/login')
-      }
-      setLoading(false)
-    })
+    const user = localStorage.getItem('user')
+    if (user) {
+      setUser(JSON.parse(user))
+    } else {
+      router.push('/login')
+    }
+    setLoading(false)
   }, [])
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
+    localStorage.removeItem('user')
+    localStorage.removeItem('token')
     router.push('/')
   }
 

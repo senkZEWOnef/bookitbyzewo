@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { query } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 async function verifyAdminToken(token: string) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  try {
+    const result = await query(
+      'SELECT expires_at FROM admin_sessions WHERE session_token = $1',
+      [token]
+    )
 
-  const { data: session } = await supabase
-    .from('admin_sessions')
-    .select('expires_at')
-    .eq('session_token', token)
-    .single()
-
-  return session && new Date(session.expires_at) > new Date()
+    if (result.rows.length === 0 || new Date(result.rows[0].expires_at) < new Date()) {
+      return false
+    }
+    return true
+  } catch (error) {
+    return false
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -25,11 +26,6 @@ export async function POST(request: NextRequest) {
   if (!token || !await verifyAdminToken(token)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
 
   try {
     const body = await request.json()
@@ -42,42 +38,48 @@ export async function POST(request: NextRequest) {
 
     // Calculate expiration date
     const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + (expires_days || 30))
+    expiresAt.setDate(expiresAt.getDate() + expires_days)
 
-    // Insert coupon
-    const { data: coupon, error } = await supabase
-      .from('coupon_codes')
-      .insert({
-        code,
-        discount_type,
-        discount_value: discount_type === 'percentage' ? discount_value : null,
-        free_trial_months: discount_type === 'free_trial' ? free_trial_months : null,
-        max_uses: max_uses || 1,
-        expires_at: expiresAt.toISOString(),
-        created_by: '00000000-0000-0000-0000-000000000001' // Admin user ID
-      })
-      .select()
-      .single()
+    // Create coupons table if it doesn't exist
+    await query(`
+      CREATE TABLE IF NOT EXISTS coupon_codes (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        code VARCHAR(20) UNIQUE NOT NULL,
+        discount_type VARCHAR(20) NOT NULL CHECK (discount_type IN ('percentage', 'free_trial')),
+        discount_value INTEGER NOT NULL DEFAULT 0,
+        free_trial_months INTEGER NOT NULL DEFAULT 0,
+        max_uses INTEGER NOT NULL DEFAULT 1,
+        used_count INTEGER NOT NULL DEFAULT 0,
+        expires_at TIMESTAMP NOT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `)
 
-    if (error) {
-      throw error
-    }
+    // Insert the new coupon using Neon
+    await query(`
+      INSERT INTO coupon_codes (
+        code, discount_type, discount_value, free_trial_months, 
+        max_uses, expires_at, is_active
+      ) VALUES ($1, $2, $3, $4, $5, $6, true)
+    `, [
+      code,
+      discount_type,
+      discount_value || 0,
+      free_trial_months || 0,
+      max_uses,
+      expiresAt.toISOString()
+    ])
 
     return NextResponse.json({ 
-      code: coupon.code,
-      coupon 
+      success: true, 
+      code,
+      expires_at: expiresAt.toISOString()
     })
 
-  } catch (error: any) {
-    console.error('Coupon generation error:', error)
-    
-    if (error.code === '23505') { // Unique constraint violation
-      return NextResponse.json(
-        { error: 'Coupon code already exists, please try again' },
-        { status: 400 }
-      )
-    }
-
+  } catch (error) {
+    console.error('Generate coupon error:', error)
     return NextResponse.json(
       { error: 'Failed to generate coupon' },
       { status: 500 }

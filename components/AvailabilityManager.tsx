@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { Modal, Button, Form, Row, Col, Badge, Alert, Tabs, Tab } from 'react-bootstrap'
 import { format, parseISO, startOfWeek, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { createSupabaseClient } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 interface AvailabilityRule {

@@ -4,8 +4,6 @@ import { useState, useEffect, useRef } from 'react'
 import { Row, Col, Alert, Button, Badge, Spinner, Modal } from 'react-bootstrap'
 import Link from 'next/link'
 import { format, parseISO, isToday, isTomorrow } from 'date-fns'
-import { createSupabaseClient } from '@/lib/supabase'
-import { mockAuth } from '@/lib/mock-auth'
 import { createWhatsAppLink } from '@/lib/whatsapp'
 import QRCode from 'qrcode'
 
@@ -49,40 +47,6 @@ export default function DashboardPage() {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('')
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fetchingRef = useRef(false)
-  const supabase = createSupabaseClient()
-  
-  console.log('🚀 DASHBOARD COMPONENT: Supabase client created')
-
-  // Debug helper function
-  const debugBusinessAccess = async (user: any) => {
-    console.log('=== DEBUGGING BUSINESS ACCESS ===')
-    console.log('User ID:', user.id)
-    console.log('User metadata:', user.user_metadata)
-    
-    // Check if profile exists
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-    console.log('Profile check:', { profile, profileError })
-    
-    // Check businesses with different approaches
-    const { data: businessesByOwner, error: ownerError } = await supabase
-      .from('businesses')
-      .select('*')
-      .eq('owner_id', user.id)
-    console.log('Businesses by owner_id:', { businessesByOwner, ownerError })
-    
-    // Check staff memberships
-    const { data: staffMemberships, error: staffError } = await supabase
-      .from('staff')
-      .select('*, businesses(*)')
-      .eq('user_id', user.id)
-    console.log('Staff memberships:', { staffMemberships, staffError })
-    
-    console.log('=== END DEBUG ===')
-  }
 
   useEffect(() => {
     console.log('🚀 DASHBOARD COMPONENT: useEffect triggered, fetching real data')
@@ -103,98 +67,45 @@ export default function DashboardPage() {
     fetchingRef.current = true
     
     try {
-      // Get user from stored session
-      const storedSession = localStorage.getItem('sb-itbgpdzvggnvhjrysadh-auth-token')
-      let user = null
-      
-      if (storedSession) {
-        try {
-          const session = JSON.parse(storedSession)
-          user = session.user
-        } catch (e) {
-          // Invalid stored session
-        }
-      }
-      
-      if (!user) {
+      // Get user from localStorage like webpage editor does
+      const userString = localStorage.getItem('user')
+      if (!userString) {
         window.location.href = '/login'
         return
       }
-
+      
+      const user = JSON.parse(userString)
       console.log('✅ DASHBOARD: User found:', user.id)
-      console.log('📊 DASHBOARD: User metadata:', user.user_metadata)
 
-      // Ensure user profile exists first and wait for it
-      console.log('👤 DASHBOARD: Creating/updating user profile...')
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          full_name: user.user_metadata?.full_name || '',
-          phone: user.user_metadata?.phone || ''
-        }, {
-          onConflict: 'id'
-        })
-        .select()
-        .single()
-
-      if (profileError) {
-        console.error('❌ DASHBOARD: Profile creation error:', profileError)
-        throw new Error(`Failed to create/update profile: ${profileError.message}`)
-      }
-
-      console.log('✅ DASHBOARD: Profile ready:', profileData)
-
-      // Small delay to ensure everything is ready
-      await new Promise(resolve => setTimeout(resolve, 100))
-
-      // Get user's business with better error handling
-      console.log('🏢 DASHBOARD: Querying businesses table for user:', user.id)
+      // Fetch user's businesses from API
+      const response = await fetch('/api/debug/businesses')
+      const result = await response.json()
       
-      // Get user's business
-      console.log('🏢 DASHBOARD: Querying business for user...')
-      
-      const { data: businessList, error: businessError } = await supabase
-        .from('businesses')
-        .select('id, name, slug, timezone, location, messaging_mode')
-        .eq('owner_id', user.id)
-      
-      const businessData = businessList && businessList.length > 0 ? businessList[0] : null
-
-      console.log('🏢 DASHBOARD: Business query result:', { businessData, businessError })
-
-      if (businessError) {
-        console.error('❌ DASHBOARD: Business query error details:', {
-          message: businessError.message,
-          code: businessError.code,
-          details: businessError.details,
-          hint: businessError.hint
-        })
+      if (response.ok && result.businesses && result.businesses.length > 0) {
+        // Find business owned by this user
+        const userBusiness = result.businesses.find((b: any) => b.owner_id === user.id)
         
-        // Only redirect to onboarding if it's specifically a "no rows" error
-        if (businessError.code === 'PGRST116') {
-          console.log('🚫 DASHBOARD: No business found (PGRST116), redirecting to onboarding')
-          window.location.href = '/dashboard/onboarding'
-          return
+        if (userBusiness) {
+          setBusiness(userBusiness)
+          // Set some basic stats for now
+          setStats({
+            todayAppointments: 0,
+            tomorrowAppointments: 0,
+            pendingPayments: 0,
+            totalRevenue: 0
+          })
+          setRecentAppointments([])
+        } else {
+          setBusiness(null)
+          setStats({
+            todayAppointments: 0,
+            tomorrowAppointments: 0,
+            pendingPayments: 0,
+            totalRevenue: 0
+          })
+          setRecentAppointments([])
         }
-        
-        // For other errors, run debug and try to handle them gracefully
-        console.error('⚠️ DASHBOARD: Unexpected business query error, running debug...')
-        await debugBusinessAccess(user)
-        
-        setTimeout(() => {
-          console.log('🔄 DASHBOARD: Reloading page after error...')
-          window.location.reload()
-        }, 3000)
-        return
-      }
-
-      // Handle case where no business is found - show empty dashboard instead of redirecting
-      if (!businessData) {
-        console.log('🚫 DASHBOARD: No business data found, showing empty dashboard')
-        console.log('🚫 DASHBOARD: businessData value:', businessData)
-        
-        // Don't redirect, just continue with empty business state
+      } else {
         setBusiness(null)
         setStats({
           todayAppointments: 0,
@@ -203,77 +114,7 @@ export default function DashboardPage() {
           totalRevenue: 0
         })
         setRecentAppointments([])
-        return
       }
-
-      console.log('🎉 DASHBOARD: Business found successfully:', businessData)
-
-      setBusiness(businessData)
-
-      // Get dashboard stats
-      const today = new Date().toISOString().split('T')[0]
-      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-
-      const [todayAppts, tomorrowAppts, pendingPayments, recentAppts] = await Promise.all([
-        // Today's appointments
-        supabase
-          .from('appointments')
-          .select('id')
-          .eq('business_id', businessData.id)
-          .gte('starts_at', `${today}T00:00:00`)
-          .lt('starts_at', `${today}T23:59:59`)
-          .in('status', ['confirmed', 'pending']),
-
-        // Tomorrow's appointments  
-        supabase
-          .from('appointments')
-          .select('id')
-          .eq('business_id', businessData.id)
-          .gte('starts_at', `${tomorrow}T00:00:00`)
-          .lt('starts_at', `${tomorrow}T23:59:59`)
-          .in('status', ['confirmed', 'pending']),
-
-        // Pending payments
-        supabase
-          .from('appointments')
-          .select('id')
-          .eq('business_id', businessData.id)
-          .eq('status', 'pending'),
-
-        // Recent appointments
-        supabase
-          .from('appointments')
-          .select(`
-            id,
-            customer_name,
-            customer_phone,
-            starts_at,
-            status,
-            services (name, deposit_cents)
-          `)
-          .eq('business_id', businessData.id)
-          .order('created_at', { ascending: false })
-          .limit(10)
-      ])
-
-      setStats({
-        todayAppointments: todayAppts.data?.length || 0,
-        tomorrowAppointments: tomorrowAppts.data?.length || 0,
-        pendingPayments: pendingPayments.data?.length || 0,
-        totalRevenue: 0 // TODO: Calculate from payments
-      })
-
-      const formattedAppointments = recentAppts.data?.map((apt: any) => ({
-        id: apt.id,
-        customer_name: apt.customer_name,
-        customer_phone: apt.customer_phone,
-        starts_at: apt.starts_at,
-        status: apt.status,
-        service_name: apt.services[0]?.name,
-        deposit_amount: apt.services[0]?.deposit_cents
-      })) || []
-
-      setRecentAppointments(formattedAppointments)
       
     } catch (err) {
       console.error('Dashboard loading error:', err)
@@ -316,7 +157,7 @@ export default function DashboardPage() {
   const generateDashboardQRCode = async () => {
     if (!business) return
     
-    const bookingUrl = `${window.location.origin}/book/${business.slug}`
+    const bookingUrl = `${window.location.origin}/page/${business.slug}`
     setQrCodeUrl(bookingUrl)
     
     try {
@@ -536,7 +377,7 @@ export default function DashboardPage() {
         </div>
         {business && (
           <div className="d-flex gap-2">
-            <Link href={`/book/${business?.slug}`} target="_blank">
+            <Link href={`/page/${business?.slug}`} target="_blank">
               <Button variant="success" className="px-3">
                 <i className="fas fa-external-link-alt me-1"></i>
                 View Booking Page
@@ -866,7 +707,7 @@ export default function DashboardPage() {
                     cursor: 'pointer'
                   }}
                   onClick={() => {
-                    const text = `Check out my booking page: ${window.location.origin}/book/${business?.slug}`
+                    const text = `Check out my booking page: ${window.location.origin}/page/${business?.slug}`
                     navigator.clipboard.writeText(text)
                     alert('Booking link copied to clipboard!')
                   }}

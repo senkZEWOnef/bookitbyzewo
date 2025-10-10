@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Form, Button, Card, Alert } from 'react-bootstrap'
-import { signIn } from '@/lib/supabase'
+// No imports needed
 import { useLanguage } from '@/lib/language-context'
 
 export const dynamic = 'force-dynamic'
@@ -61,91 +61,32 @@ export default function LoginPage() {
       return
     }
 
-    const { data, error } = await signIn(email.trim(), password)
+    // AWS auth - clean and simple
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), password })
+    })
 
-    if (error) {
-      setError(error.message)
+    const result = await response.json()
+
+    if (result.error) {
+      setError(result.error)
       setLoading(false)
       return
     }
 
-    if (data?.user) {
-      window.location.href = '/dashboard'
+    if (result.user && result.token) {
+      localStorage.setItem('user', JSON.stringify(result.user))
+      localStorage.setItem('token', result.token)
+      console.log('🔐 LOGIN: Success! Redirecting to dashboard...')
+      router.push('/dashboard')
       return
     }
     
     setLoading(false)
   }
 
-  // Test function to bypass form
-  const testMockAuth = async () => {
-    console.log('🧪 TEST: Direct mock auth test - button clicked!')
-    alert('Test button clicked - check console!')
-    try {
-      console.log('🧪 TEST: About to call mockAuth.signInWithPassword')
-      const result = await mockAuth.signInWithPassword({
-        email: 'ralph.ulysse509@gmail.com',
-        password: 'Poesie509$$$'
-      })
-      console.log('🧪 TEST: Mock auth result:', result)
-      alert(`Mock auth result: ${JSON.stringify(result)}`)
-      if (result.data?.user) {
-        console.log('🧪 TEST: Success! Redirecting...')
-        alert('Success! About to redirect...')
-        window.location.href = '/dashboard'
-      } else {
-        alert('No user in result')
-      }
-    } catch (err) {
-      console.error('🧪 TEST: Error:', err)
-      alert(`Error: ${err.message}`)
-    }
-  }
-
-  // Test real Supabase connectivity
-  const testRealSupabase = async () => {
-    console.log('🔧 SUPABASE TEST: Testing direct fetch to Supabase')
-    alert('Testing direct fetch - check console!')
-    
-    try {
-      console.log('🔧 SUPABASE TEST: Making direct fetch call...')
-      const response = await fetch('https://itbgpdzvggnvhjrysadh.supabase.co/auth/v1/token?grant_type=password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml0YmdwZHp2Z2dudmhqcnlzYWRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk2ODkzNTksImV4cCI6MjA3NTI2NTM1OX0.LxWBsCZF4dbErBcWnI6mWS4Ud5CW1f20NpAGNfPVMTQ'
-        },
-        body: JSON.stringify({
-          email: 'ralph.ulysse509@gmail.com',
-          password: 'Poesie509$$$'
-        })
-      })
-      
-      console.log('🔧 SUPABASE TEST: Fetch response status:', response.status)
-      const result = await response.json()
-      console.log('🔧 SUPABASE TEST: Fetch result:', result)
-      
-      if (result.access_token) {
-        alert('Direct fetch SUCCESS! Supabase is working.')
-        
-        // Now test with Supabase client
-        console.log('🔧 SUPABASE TEST: Now testing with Supabase client...')
-        const testClient = createSupabaseClient()
-        const { data, error } = await testClient.auth.signInWithPassword({
-          email: 'ralph.ulysse509@gmail.com',
-          password: 'Poesie509$$$'
-        })
-        
-        console.log('🔧 SUPABASE TEST: Client result:', { data, error })
-        alert(`Client result: ${error ? error.message : 'Success!'}`)
-      } else {
-        alert(`Direct fetch failed: ${result.error || 'Unknown error'}`)
-      }
-    } catch (err) {
-      console.error('🔧 SUPABASE TEST: Direct fetch error:', err)
-      alert(`Direct fetch error: ${err.message}`)
-    }
-  }
 
   return (
     <Card>

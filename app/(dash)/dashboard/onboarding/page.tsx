@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Container, Row, Col, Card, Form, Button, Alert, ProgressBar } from 'react-bootstrap'
-import { createSupabaseClient } from '@/lib/supabase'
 
 interface BusinessData {
   name: string
@@ -50,7 +49,6 @@ export default function OnboardingPage() {
   const [hasExistingBusiness, setHasExistingBusiness] = useState(false)
   const [isPro, setIsPro] = useState(false)
   const router = useRouter()
-  const supabase = createSupabaseClient()
 
   // Check if user already has a business on component mount
   useEffect(() => {
@@ -58,44 +56,21 @@ export default function OnboardingPage() {
     
     const checkExistingBusiness = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+        const userString = localStorage.getItem('user')
+        if (!userString) return
+
+        const user = JSON.parse(userString)
 
         // Check user's plan (for now, assume everyone is on free plan unless they have pro metadata)
         const userIsPro = user.user_metadata?.plan === 'pro' || user.user_metadata?.subscription === 'pro'
         setIsPro(userIsPro)
         console.log('🟡 ONBOARDING: User plan check - isPro:', userIsPro)
         
-        // Check for existing business
-        const { data: businessList, error } = await supabase
-          .from('businesses')
-          .select('id, name, slug')
-          .eq('owner_id', user.id)
+        // TODO: Check for existing business with Neon database
+        // For now, assume no existing business
+        setHasExistingBusiness(false)
         
-        const business = businessList && businessList.length > 0 ? businessList[0] : null
-        setHasExistingBusiness(!!business)
-        
-        console.log('🟡 ONBOARDING: Existing business check result:')
-        console.log('🟡 ONBOARDING: - businessList:', businessList)
-        console.log('🟡 ONBOARDING: - businessList length:', businessList?.length)
-        console.log('🟡 ONBOARDING: - business:', business)
-        console.log('🟡 ONBOARDING: - error:', error)
-        console.log('🟡 ONBOARDING: - business type:', typeof business)
-        console.log('🟡 ONBOARDING: - business truthy?', !!business)
-        console.log('🟡 ONBOARDING: - error truthy?', !!error)
-        
-        if (business && !error) {
-          if (userIsPro) {
-            console.log('🟡 ONBOARDING: ✅ Pro user with existing business, allowing multiple businesses')
-            // Pro users can have multiple businesses, so continue with onboarding
-          } else {
-            console.log('🟡 ONBOARDING: ✅ Free user with existing business, allowing replacement via Create New Business button')
-            // Free users can replace their business by clicking "Create New Business"
-            // Don't redirect them, let them proceed with onboarding
-          }
-        } else {
-          console.log('🟡 ONBOARDING: ❌ No business found, staying on onboarding')
-        }
+        console.log('🟡 ONBOARDING: No existing business found, staying on onboarding')
       } catch (err) {
         console.error('🟡 ONBOARDING: Error checking existing business:', err)
       }
@@ -126,155 +101,36 @@ export default function OnboardingPage() {
     setError('')
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+      const userString = localStorage.getItem('user')
+      if (!userString) throw new Error('Not authenticated')
+      
+      const user = JSON.parse(userString)
 
       console.log('Creating business for user:', user.id)
-      console.log('User metadata:', user.user_metadata)
-      console.log('User email:', user.email)
+      console.log('Business data:', businessData)
 
-      // Ensure user profile exists (create or update)
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          full_name: user.user_metadata?.full_name || '',
-          phone: user.user_metadata?.phone || ''
-        }, {
-          onConflict: 'id'
+      const response = await fetch('/api/businesses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: businessData.name,
+          slug: businessData.slug,
+          location: businessData.location,
+          timezone: businessData.timezone,
+          businessType: businessData.businessType,
+          userId: user.id
         })
-        .select()
+      })
 
-      if (profileError) {
-        console.error('Profile upsert error:', profileError)
-        throw new Error(`Failed to create profile: ${profileError.message}`)
-      }
+      const result = await response.json()
 
-      console.log('Profile created/updated successfully:', profileData)
-
-      // Check user plan to determine if we should delete existing businesses
-      const isPro = user.user_metadata?.plan === 'pro' || user.user_metadata?.subscription === 'pro'
-      console.log('Creating business - User isPro:', isPro)
-
-      if (!isPro) {
-        // For free users, delete any existing businesses first
-        console.log('🟡 ONBOARDING: Free user - deleting existing businesses...')
-        
-        const { data: existingBusinesses, error: existingError } = await supabase
-          .from('businesses')
-          .select('id')
-          .eq('owner_id', user.id)
-        
-        if (existingBusinesses && existingBusinesses.length > 0) {
-          console.log('🟡 ONBOARDING: Found', existingBusinesses.length, 'existing businesses to delete')
-          
-          for (const existingBusiness of existingBusinesses) {
-            const { error: deleteError } = await supabase
-              .from('businesses')
-              .delete()
-              .eq('id', existingBusiness.id)
-              .eq('owner_id', user.id) // Safety check
-            
-            if (deleteError) {
-              console.error('🟡 ONBOARDING: Error deleting business:', deleteError)
-            } else {
-              console.log('🟡 ONBOARDING: ✅ Deleted existing business:', existingBusiness.id)
-            }
-          }
-        }
-      }
-
-      // Create business
-      const businessInsertData = {
-        owner_id: user.id,
-        name: businessData.name,
-        slug: businessData.slug,
-        timezone: businessData.timezone,
-        location: businessData.location,
-        messaging_mode: 'manual'
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create business')
       }
       
-      console.log('Attempting to insert business with data:', businessInsertData)
-      console.log('Current auth.uid():', user.id)
-      
-      const { data: business, error: businessError } = await supabase
-        .from('businesses')
-        .insert(businessInsertData)
-        .select()
-        .single()
-        
-      console.log('Business insert result:', { business, businessError })
-
-      if (businessError) {
-        console.error('Business creation error:', businessError)
-        if (businessError.code === '23505') {
-          throw new Error('Business URL is already taken. Please choose a different business name.')
-        }
-        throw new Error(`Failed to create business: ${businessError.message}`)
-      }
-
-      console.log('Business created successfully:', business)
-
-      // Create default staff entry for owner
-      const { error: staffError } = await supabase
-        .from('staff')
-        .insert({
-          business_id: business.id,
-          user_id: user.id,
-          display_name: user.user_metadata?.full_name || 'Owner',
-          phone: user.user_metadata?.phone || '',
-          role: 'admin'
-        })
-
-      if (staffError) {
-        console.error('Staff creation error:', staffError)
-        throw new Error(`Failed to create staff entry: ${staffError.message}`)
-      }
-
-      // Create starter services based on business type
-      const starterServices = getStarterServices(businessData.businessType)
-      if (starterServices.length > 0) {
-        const { error: servicesError } = await supabase
-          .from('services')
-          .insert(
-            starterServices.map(service => ({
-              ...service,
-              business_id: business.id
-            }))
-          )
-
-        if (servicesError) {
-          console.error('Services creation error:', servicesError)
-          throw new Error(`Failed to create services: ${servicesError.message}`)
-        }
-      }
-
-      // Create default availability (Mon-Fri 9-5)
-      const defaultAvailability = []
-      for (let day = 1; day <= 5; day++) { // Monday to Friday
-        defaultAvailability.push({
-          business_id: business.id,
-          staff_id: null, // Business-wide availability
-          weekday: day,
-          start_time: '09:00',
-          end_time: '17:00'
-        })
-      }
-
-      const { error: availabilityError } = await supabase
-        .from('availability_rules')
-        .insert(defaultAvailability)
-
-      if (availabilityError) {
-        console.error('Availability creation error:', availabilityError)
-        throw new Error(`Failed to create availability: ${availabilityError.message}`)
-      }
-
       console.log('Business setup completed successfully! Redirecting to dashboard...')
-      
-      // Small delay to ensure database consistency before redirect
-      await new Promise(resolve => setTimeout(resolve, 200))
-      
       router.push('/dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Setup failed')

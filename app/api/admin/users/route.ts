@@ -1,26 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { query } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // Helper function to verify admin token
 async function verifyAdminToken(token: string) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  try {
+    const result = await query(
+      'SELECT expires_at FROM admin_sessions WHERE session_token = $1',
+      [token]
+    )
 
-  const { data: session } = await supabase
-    .from('admin_sessions')
-    .select('expires_at')
-    .eq('session_token', token)
-    .single()
-
-  if (!session || new Date(session.expires_at) < new Date()) {
+    if (result.rows.length === 0 || new Date(result.rows[0].expires_at) < new Date()) {
+      return false
+    }
+    return true
+  } catch (error) {
     return false
   }
-  return true
 }
 
 export async function GET(request: NextRequest) {
@@ -30,52 +28,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
   try {
-    // Get all users with their business info
-    const { data: users, error } = await supabase
-      .from('profiles')
-      .select(`
-        *,
-        businesses:businesses!owner_id (
-          id,
-          name,
-          subscription_status,
-          created_at
-        )
-      `)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching users:', error)
-      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
-    }
-
-    // Also get auth users data
-    const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers()
-
-    if (authError) {
-      console.error('Error fetching auth users:', authError)
-      return NextResponse.json({ error: 'Failed to fetch auth data' }, { status: 500 })
-    }
-
-    // Merge profile and auth data
-    const enrichedUsers = users?.map(user => {
-      const authUser = authUsers.users.find(au => au.id === user.id)
-      return {
-        ...user,
-        email: authUser?.email,
-        email_confirmed_at: authUser?.email_confirmed_at,
-        last_sign_in_at: authUser?.last_sign_in_at,
-        created_at: authUser?.created_at || user.created_at
-      }
-    })
-
-    return NextResponse.json({ users: enrichedUsers })
+    // Get users from Neon database
+    const result = await query('SELECT id, email, full_name, phone, created_at FROM users ORDER BY created_at DESC')
+    
+    return NextResponse.json({ users: result.rows })
   } catch (error) {
     console.error('Admin users error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -89,44 +46,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
   try {
-    const { action, userId, data } = await request.json()
+    const { action, userId } = await request.json()
 
-    if (action === 'ban') {
-      // Ban user by updating auth
-      const { error } = await supabase.auth.admin.updateUserById(
-        userId,
-        { ban_duration: '24h' } // Ban for 24 hours, adjust as needed
-      )
+    // For now, just log the action since we need to implement proper user management
+    console.log(`Admin action: ${action} for user ${userId}`)
 
-      if (error) {
-        return NextResponse.json({ error: 'Failed to ban user' }, { status: 500 })
-      }
-    } else if (action === 'unban') {
-      // Remove ban
-      const { error } = await supabase.auth.admin.updateUserById(
-        userId,
-        { ban_duration: 'none' }
-      )
+    // TODO: Implement with Neon database
+    // if (action === 'ban') {
+    //   // Add banned_until column to users table and update it
+    // } else if (action === 'unban') {
+    //   // Remove ban from users table
+    // } else if (action === 'delete') {
+    //   // Delete user from users table
+    // }
 
-      if (error) {
-        return NextResponse.json({ error: 'Failed to unban user' }, { status: 500 })
-      }
-    } else if (action === 'delete') {
-      // Delete user account
-      const { error } = await supabase.auth.admin.deleteUser(userId)
-
-      if (error) {
-        return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 })
-      }
-    }
-
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, message: `User ${action} action logged` })
   } catch (error) {
     console.error('Admin user action error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

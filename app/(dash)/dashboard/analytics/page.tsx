@@ -5,7 +5,6 @@ import { Row, Col, Alert, Button } from 'react-bootstrap'
 import Link from 'next/link'
 import { format, startOfMonth, endOfMonth, subMonths, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { createSupabaseClient } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 export const dynamic = 'force-dynamic'
@@ -76,41 +75,41 @@ export default function AnalyticsPage() {
 
   const fetchData = async () => {
     try {
-      const supabase = createSupabaseClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const userString = localStorage.getItem('user')
+      if (!userString) {
+        window.location.href = '/login'
+        return
+      }
+      const user = JSON.parse(userString)
       
       if (!user) return
 
-      // Get business
-      const { data: businessData } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('owner_id', user.id)
-        .single()
+      // Get business using Neon API
+      const response = await fetch('/api/debug/businesses')
+      const result = await response.json()
+      
+      if (response.ok && result.businesses && result.businesses.length > 0) {
+        const userBusiness = result.businesses.find((b: any) => b.owner_id === user.id)
+        
+        if (userBusiness) {
+          setBusiness(userBusiness)
+          
+          // For now, just set mock analytics data since appointments API isn't implemented yet
+          // TODO: Replace with real Neon API calls when appointment endpoints are ready
 
-      setBusiness(businessData)
-
-      if (businessData) {
-        // Calculate analytics
-        const currentDate = new Date()
-        const sixMonthsAgo = subMonths(currentDate, 6)
-
-        // Get appointments data
-        const { data: appointmentsData } = await supabase
-          .from('appointments')
-          .select(`
-            id,
-            status,
-            starts_at,
-            created_at,
-            services (name, price_cents)
-          `)
-          .eq('business_id', businessData.id)
-          .gte('created_at', sixMonthsAgo.toISOString())
-
-        if (appointmentsData) {
-          const analytics = calculateAnalytics(appointmentsData)
-          setAnalytics(analytics)
+          // Set mock analytics for now
+          setAnalytics({
+            totalAppointments: 0,
+            completedAppointments: 0,
+            canceledAppointments: 0,
+            totalRevenue: 0,
+            averageSessionValue: 0,
+            noShowRate: 0,
+            bookingsByMonth: [],
+            revenueByMonth: [],
+            topServices: [],
+            appointmentsByStatus: []
+          })
         }
       }
     } catch (error) {

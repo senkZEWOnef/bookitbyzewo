@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Row, Col, Button, Card, Badge, Alert, Modal, Form } from 'react-bootstrap'
 import Link from 'next/link'
-import { createSupabaseClient } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 export const dynamic = 'force-dynamic'
@@ -86,30 +85,28 @@ export default function ServicesPage() {
 
   const fetchData = async () => {
     try {
-      const supabase = createSupabaseClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (!user) return
-
-      // Get business
-      const { data: businessData } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('owner_id', user.id)
-        .single()
-
-      setBusiness(businessData)
-
-      if (businessData) {
-        // Get services
-        const { data: servicesData } = await supabase
-          .from('services')
-          .select('*')
-          .eq('business_id', businessData.id)
-          .order('created_at', { ascending: false })
-
-        setServices(servicesData || [])
+      // Get user from localStorage
+      const userString = localStorage.getItem('user')
+      if (!userString) {
+        window.location.href = '/login'
+        return
       }
+      
+      const user = JSON.parse(userString)
+
+      // Get business using Neon API
+      const response = await fetch('/api/debug/businesses')
+      const result = await response.json()
+      
+      if (response.ok && result.businesses && result.businesses.length > 0) {
+        const userBusiness = result.businesses.find((b: any) => b.owner_id === user.id)
+        if (userBusiness) {
+          setBusiness(userBusiness)
+        }
+      }
+
+      // TODO: Implement services API endpoint
+      // For now, keep using mock data
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
@@ -124,33 +121,26 @@ export default function ServicesPage() {
     setSubmitting(true)
 
     try {
-      const supabase = createSupabaseClient()
-      
+      // TODO: Implement service create/update API endpoints
       if (editingService) {
-        // Update service
-        await supabase
-          .from('services')
-          .update({
-            ...formData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', editingService.id)
+        // Update existing service in mock data
+        setServices(prev => prev.map(s => 
+          s.id === editingService.id 
+            ? { ...s, ...formData }
+            : s
+        ))
       } else {
-        // Create new service
-        await supabase
-          .from('services')
-          .insert({
-            ...formData,
-            business_id: business.id,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
+        // Add new service to mock data
+        const newService: Service = {
+          ...formData,
+          id: Date.now().toString(),
+        }
+        setServices(prev => [newService, ...prev])
       }
 
       setShowModal(false)
       setEditingService(null)
       resetForm()
-      fetchData()
     } catch (error) {
       console.error('Error saving service:', error)
     } finally {
@@ -190,13 +180,13 @@ export default function ServicesPage() {
 
   const toggleServiceStatus = async (service: Service) => {
     try {
-      const supabase = createSupabaseClient()
-      await supabase
-        .from('services')
-        .update({ is_active: !service.is_active })
-        .eq('id', service.id)
-      
-      fetchData()
+      // TODO: Implement service status update API endpoint
+      // For now, update in mock data
+      setServices(prev => prev.map(s => 
+        s.id === service.id 
+          ? { ...s, is_active: !s.is_active }
+          : s
+      ))
     } catch (error) {
       console.error('Error updating service:', error)
     }

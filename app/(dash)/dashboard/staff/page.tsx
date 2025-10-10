@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Row, Col, Button, Badge, Alert, Modal, Form } from 'react-bootstrap'
 import Link from 'next/link'
-import { createSupabaseClient } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 export const dynamic = 'force-dynamic'
@@ -70,30 +69,28 @@ export default function StaffPage() {
 
   const fetchData = async () => {
     try {
-      const supabase = createSupabaseClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (!user) return
-
-      // Get business
-      const { data: businessData } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('owner_id', user.id)
-        .single()
-
-      setBusiness(businessData)
-
-      if (businessData) {
-        // Get staff
-        const { data: staffData } = await supabase
-          .from('staff')
-          .select('*')
-          .eq('business_id', businessData.id)
-          .order('created_at', { ascending: false })
-
-        setStaff(staffData || [])
+      // Get user from localStorage
+      const userString = localStorage.getItem('user')
+      if (!userString) {
+        window.location.href = '/login'
+        return
       }
+      
+      const user = JSON.parse(userString)
+
+      // Get business using Neon API
+      const response = await fetch('/api/debug/businesses')
+      const result = await response.json()
+      
+      if (response.ok && result.businesses && result.businesses.length > 0) {
+        const userBusiness = result.businesses.find((b: any) => b.owner_id === user.id)
+        if (userBusiness) {
+          setBusiness(userBusiness)
+        }
+      }
+
+      // TODO: Implement staff API endpoint
+      // For now, keep using mock data
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
@@ -108,33 +105,27 @@ export default function StaffPage() {
     setSubmitting(true)
 
     try {
-      const supabase = createSupabaseClient()
-      
+      // TODO: Implement staff create/update API endpoints
       if (editingStaff) {
-        // Update staff
-        await supabase
-          .from('staff')
-          .update({
-            ...formData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', editingStaff.id)
+        // Update existing staff in mock data
+        setStaff(prev => prev.map(s => 
+          s.id === editingStaff.id 
+            ? { ...s, ...formData }
+            : s
+        ))
       } else {
-        // Create new staff
-        await supabase
-          .from('staff')
-          .insert({
-            ...formData,
-            business_id: business.id,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
+        // Add new staff to mock data
+        const newStaff: Staff = {
+          ...formData,
+          id: Date.now().toString(),
+          created_at: new Date().toISOString()
+        }
+        setStaff(prev => [newStaff, ...prev])
       }
 
       setShowModal(false)
       setEditingStaff(null)
       resetForm()
-      fetchData()
     } catch (error) {
       console.error('Error saving staff:', error)
     } finally {
@@ -166,13 +157,13 @@ export default function StaffPage() {
 
   const toggleStaffStatus = async (staffMember: Staff) => {
     try {
-      const supabase = createSupabaseClient()
-      await supabase
-        .from('staff')
-        .update({ is_active: !staffMember.is_active })
-        .eq('id', staffMember.id)
-      
-      fetchData()
+      // TODO: Implement staff status update API endpoint
+      // For now, update in mock data
+      setStaff(prev => prev.map(s => 
+        s.id === staffMember.id 
+          ? { ...s, is_active: !s.is_active }
+          : s
+      ))
     } catch (error) {
       console.error('Error updating staff:', error)
     }

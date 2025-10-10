@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Form, Button, Alert, Table, Modal, Badge } from 'react-bootstrap'
-import { createSupabaseClient } from '@/lib/supabase'
 import { AvailabilityRule, AvailabilityException, Business } from '@/types/database'
 
 interface AvailabilityFormData {
@@ -51,7 +50,6 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const supabase = createSupabaseClient()
 
   useEffect(() => {
     fetchData()
@@ -59,15 +57,16 @@ export default function SettingsPage() {
 
   const fetchData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const userString = localStorage.getItem('user')
+      if (!userString) {
+        window.location.href = '/login'
+        return
+      }
 
-      // Get business
-      const { data: businessData, error: businessError } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('owner_id', user.id)
-        .single()
+      const user = JSON.parse(userString)
+      
+      // For now, show empty form since database isn't fully set up
+      setLoading(false)
 
       if (businessError) throw businessError
       setBusiness(businessData)

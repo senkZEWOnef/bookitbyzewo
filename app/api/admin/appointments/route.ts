@@ -1,26 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { query } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // Helper function to verify admin token
 async function verifyAdminToken(token: string) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  try {
+    const result = await query(
+      'SELECT expires_at FROM admin_sessions WHERE session_token = $1',
+      [token]
+    )
 
-  const { data: session } = await supabase
-    .from('admin_sessions')
-    .select('expires_at')
-    .eq('session_token', token)
-    .single()
-
-  if (!session || new Date(session.expires_at) < new Date()) {
+    if (result.rows.length === 0 || new Date(result.rows[0].expires_at) < new Date()) {
+      return false
+    }
+    return true
+  } catch (error) {
     return false
   }
-  return true
 }
 
 export async function GET(request: NextRequest) {
@@ -30,122 +28,49 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
   try {
-    const url = new URL(request.url)
-    const limit = parseInt(url.searchParams.get('limit') || '50')
-    const offset = parseInt(url.searchParams.get('offset') || '0')
-    const status = url.searchParams.get('status')
+    const { searchParams } = new URL(request.url)
+    const limit = parseInt(searchParams.get('limit') || '50')
 
-    let query = supabase
-      .from('appointments')
-      .select(`
-        *,
-        businesses:business_id (
-          name,
-          slug
-        ),
-        services:service_id (
-          name,
-          price_cents
-        ),
-        staff:staff_id (
-          display_name
-        ),
-        payments (
-          amount_cents,
-          status,
-          provider
-        )
-      `)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
+    // Get recent appointments with business and service info using Neon
+    const result = await query(`
+      SELECT 
+        a.id,
+        a.customer_name,
+        a.customer_phone,
+        a.starts_at,
+        a.status,
+        b.name as business_name,
+        b.slug as business_slug,
+        s.name as service_name,
+        s.price_cents as service_price
+      FROM appointments a
+      LEFT JOIN businesses b ON a.business_id = b.id
+      LEFT JOIN services s ON a.service_id = s.id
+      ORDER BY a.created_at DESC
+      LIMIT $1
+    `, [limit])
 
-    if (status) {
-      query = query.eq('status', status)
-    }
+    const appointments = result.rows.map(row => ({
+      id: row.id,
+      customer_name: row.customer_name,
+      customer_phone: row.customer_phone,
+      starts_at: row.starts_at,
+      status: row.status,
+      businesses: {
+        name: row.business_name,
+        slug: row.business_slug
+      },
+      services: {
+        name: row.service_name,
+        price_cents: row.service_price
+      },
+      payments: [] // TODO: Implement payments when payment table is available
+    }))
 
-    const { data: appointments, error } = await query
-
-    if (error) {
-      console.error('Error fetching appointments:', error)
-      return NextResponse.json({ error: 'Failed to fetch appointments' }, { status: 500 })
-    }
-
-    // Get total count for pagination
-    const { count, error: countError } = await supabase
-      .from('appointments')
-      .select('*', { count: 'exact', head: true })
-
-    if (countError) {
-      console.error('Error counting appointments:', countError)
-    }
-
-    return NextResponse.json({ 
-      appointments,
-      total: count || 0,
-      limit,
-      offset
-    })
+    return NextResponse.json({ appointments })
   } catch (error) {
     console.error('Admin appointments error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
-
-export async function POST(request: NextRequest) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  
-  if (!token || !(await verifyAdminToken(token))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
-  try {
-    const { action, appointmentId, data } = await request.json()
-
-    if (action === 'cancel') {
-      // Cancel appointment
-      const { error } = await supabase
-        .from('appointments')
-        .update({ 
-          status: 'canceled',
-          notes: (data?.reason ? `Admin canceled: ${data.reason}` : 'Canceled by admin')
-        })
-        .eq('id', appointmentId)
-
-      if (error) {
-        return NextResponse.json({ error: 'Failed to cancel appointment' }, { status: 500 })
-      }
-    } else if (action === 'refund') {
-      // Mark payment as refunded (would need Stripe integration for actual refund)
-      const { error } = await supabase
-        .from('payments')
-        .update({ status: 'refunded' })
-        .eq('appointment_id', appointmentId)
-
-      if (error) {
-        return NextResponse.json({ error: 'Failed to process refund' }, { status: 500 })
-      }
-
-      // Also cancel the appointment
-      await supabase
-        .from('appointments')
-        .update({ status: 'canceled', notes: 'Refunded by admin' })
-        .eq('id', appointmentId)
-    }
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Admin appointment action error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

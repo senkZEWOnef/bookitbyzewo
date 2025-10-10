@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Navbar, Nav, Container, Button, NavDropdown } from 'react-bootstrap'
 import { useLanguage } from '@/lib/language-context'
-import { createSupabaseClient } from '@/lib/supabase'
 
 export default function Navigation() {
   const { language, setLanguage, t } = useLanguage()
@@ -14,98 +13,16 @@ export default function Navigation() {
   const [loading, setLoading] = useState(false) // Start as false, only load when needed
   const router = useRouter()
 
-  // Only initialize auth check when needed
+  // Disable auth check in navigation for now
   useEffect(() => {
-    // Skip auth check for public pages
-    const currentPath = window.location.pathname
-    const publicPaths = ['/', '/pricing', '/book', '/api']
-    const isPublicPage = publicPaths.some(path => currentPath.startsWith(path))
-    
-    if (isPublicPage && !currentPath.includes('/dashboard') && !currentPath.includes('/login')) {
-      console.log('Skipping auth check for public page:', currentPath)
-      setLoading(false)
-      return
-    }
-
-    // Only create Supabase client when we actually need authentication
-    const supabase = createSupabaseClient()
-    setLoading(true)
-    
-    // Get initial user state with timeout
-    const getUser = async () => {
-      try {
-        // Add timeout to prevent hanging
-        const userPromise = supabase.auth.getUser()
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Auth timeout')), 3000) // Reduced to 3 seconds
-        )
-        
-        const { data: { user } } = await Promise.race([userPromise, timeoutPromise]) as any
-        setUser(user)
-        
-        if (user) {
-          // Fetch user profile data - handle case where profiles table doesn't exist
-          try {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', user.id)
-              .single()
-            
-            setUserProfile(profileData)
-          } catch (error) {
-            // Profiles table doesn't exist yet, just use user metadata
-            setUserProfile(null)
-          }
-        }
-      } catch (error) {
-        console.log('Navigation auth check failed or timed out:', error.message)
-        setUser(null)
-        setUserProfile(null)
-      }
-      
-      setLoading(false)
-    }
-    
-    getUser()
-
-    // Listen for auth changes only when needed
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
-      try {
-        setUser(session?.user || null)
-        
-        if (session?.user) {
-          // Fetch user profile data - handle case where profiles table doesn't exist
-          try {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single()
-            
-            setUserProfile(profileData)
-          } catch (error) {
-            // Profiles table doesn't exist yet, just use user metadata
-            setUserProfile(null)
-          }
-        } else {
-          setUserProfile(null)
-        }
-      } catch (error) {
-        console.log('Navigation auth state change error:', error)
-        setUser(null)
-        setUserProfile(null)
-      }
-      
-      setLoading(false)
-    })
-
-    return () => subscription.unsubscribe()
+    setLoading(false)
+    setUser(null)
+    setUserProfile(null)
   }, [])
 
   const handleSignOut = async () => {
-    const supabase = createSupabaseClient()
-    await supabase.auth.signOut()
+    localStorage.removeItem('user')
+    localStorage.removeItem('token')
     router.push('/')
   }
 

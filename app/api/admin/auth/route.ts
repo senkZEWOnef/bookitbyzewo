@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { randomBytes } from 'crypto'
+import { query } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -12,10 +12,6 @@ const ADMIN_CREDENTIALS = {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
 
   try {
     const { username, password } = await request.json()
@@ -32,16 +28,23 @@ export async function POST(request: NextRequest) {
     const sessionToken = randomBytes(32).toString('hex')
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
 
-    // Store session in database
-    const { error } = await supabase
-      .from('admin_sessions')
-      .insert({
-        session_token: sessionToken,
-        expires_at: expiresAt.toISOString()
-      })
-
-    if (error) {
-      console.error('Admin session creation error:', error)
+    // Store session in database (create table if it doesn't exist)
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS admin_sessions (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          session_token VARCHAR(255) UNIQUE NOT NULL,
+          expires_at TIMESTAMP NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `)
+      
+      await query(
+        'INSERT INTO admin_sessions (session_token, expires_at) VALUES ($1, $2)',
+        [sessionToken, expiresAt.toISOString()]
+      )
+    } catch (dbError) {
+      console.error('Admin session creation error:', dbError)
       return NextResponse.json(
         { error: 'Session creation failed' },
         { status: 500 }
@@ -64,11 +67,6 @@ export async function POST(request: NextRequest) {
 
 // Verify admin session
 export async function GET(request: NextRequest) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
 
   if (!token) {
@@ -76,13 +74,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { data: session } = await supabase
-      .from('admin_sessions')
-      .select('expires_at')
-      .eq('session_token', token)
-      .single()
+    const result = await query(
+      'SELECT expires_at FROM admin_sessions WHERE session_token = $1',
+      [token]
+    )
 
-    if (!session || new Date(session.expires_at) < new Date()) {
+    if (result.rows.length === 0 || new Date(result.rows[0].expires_at) < new Date()) {
       return NextResponse.json({ valid: false }, { status: 401 })
     }
 

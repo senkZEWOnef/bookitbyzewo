@@ -2,7 +2,6 @@
 
 import { useState, useRef } from 'react'
 import { Button, Modal, Alert, Spinner } from 'react-bootstrap'
-import { createSupabaseClient } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 
 interface ProfilePictureUploadProps {
@@ -56,8 +55,6 @@ export default function ProfilePictureUpload({ currentPictureUrl, onPictureUpdat
     setError('')
 
     try {
-      const supabase = createSupabaseClient()
-      
       // Convert image to base64 for simple storage
       const reader = new FileReader()
       
@@ -72,25 +69,28 @@ export default function ProfilePictureUpload({ currentPictureUrl, onPictureUpdat
 
       const base64Data = await base64Promise
 
-      // Update profile in database with base64 data
-      const { error: dbError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: userId,
-          avatar_url: base64Data,
-          updated_at: new Date().toISOString()
+      // Update profile using new Neon API
+      const response = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          avatar_url: base64Data
         })
+      })
 
-      if (dbError) {
-        throw dbError
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update profile')
       }
 
-      // Update auth metadata
-      await supabase.auth.updateUser({
-        data: {
-          avatar_url: base64Data
-        }
-      })
+      // Update localStorage user data
+      const userString = localStorage.getItem('user')
+      if (userString) {
+        const user = JSON.parse(userString)
+        user.avatar_url = base64Data
+        localStorage.setItem('user', JSON.stringify(user))
+      }
 
       onPictureUpdate(base64Data)
       setShowModal(false)
@@ -112,27 +112,28 @@ export default function ProfilePictureUpload({ currentPictureUrl, onPictureUpdat
     setError('')
 
     try {
-      const supabase = createSupabaseClient()
-
-      // Remove from database
-      const { error: dbError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: userId,
-          avatar_url: null,
-          updated_at: new Date().toISOString()
+      // Remove profile picture using new Neon API
+      const response = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          avatar_url: null
         })
+      })
 
-      if (dbError) {
-        throw dbError
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to remove profile picture')
       }
 
-      // Update auth metadata
-      await supabase.auth.updateUser({
-        data: {
-          avatar_url: null
-        }
-      })
+      // Update localStorage user data
+      const userString = localStorage.getItem('user')
+      if (userString) {
+        const user = JSON.parse(userString)
+        user.avatar_url = null
+        localStorage.setItem('user', JSON.stringify(user))
+      }
 
       onPictureUpdate('')
       setShowModal(false)

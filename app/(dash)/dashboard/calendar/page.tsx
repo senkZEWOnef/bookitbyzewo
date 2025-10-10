@@ -5,7 +5,6 @@ import { Row, Col, Button, Badge, Alert, Dropdown, Form, Modal, Card } from 'rea
 import Link from 'next/link'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parseISO, getDay, startOfWeek, endOfWeek, addDays, startOfDay, endOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { createSupabaseClient } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
 import AvailabilityManager from '@/components/AvailabilityManager'
 
@@ -118,127 +117,86 @@ export default function CalendarPage() {
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    // TEMP: Use mock data for development
-    setBusiness({
-      id: 'dev-business-id',
-      name: 'Dev Hair Salon',
-      slug: 'dev-salon',
-      timezone: 'America/Puerto_Rico'
-    })
-    setAppointments([
-      {
-        id: '1',
-        customer_name: 'Maria Rodriguez',
-        customer_phone: '+1 (787) 555-0123',
-        starts_at: new Date().toISOString(),
-        status: 'confirmed',
-        service_name: 'Haircut'
-      }
-    ])
-    setAvailabilityRules([
-      { id: '1', weekday: 1, start_time: '09:00', end_time: '17:00' }, // Monday
-      { id: '2', weekday: 2, start_time: '09:00', end_time: '17:00' }, // Tuesday
-      { id: '3', weekday: 3, start_time: '09:00', end_time: '17:00' }, // Wednesday
-      { id: '4', weekday: 4, start_time: '09:00', end_time: '17:00' }, // Thursday
-      { id: '5', weekday: 5, start_time: '09:00', end_time: '17:00' }, // Friday
-      { id: '6', weekday: 6, start_time: '10:00', end_time: '15:00' }  // Saturday
-    ])
-    setAvailabilityExceptions([])
-    setLoading(false)
-  }, [])
+    fetchData()
+  }, [currentDate])
 
   const fetchData = async () => {
     try {
-      const supabase = createSupabaseClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      // Get user from localStorage
+      const userString = localStorage.getItem('user')
+      if (!userString) {
+        window.location.href = '/login'
+        return
+      }
       
-      if (!user) return
+      const user = JSON.parse(userString)
 
-      // Get business
-      const { data: businessData } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('owner_id', user.id)
-        .single()
+      // Get business using Neon API
+      const response = await fetch('/api/debug/businesses')
+      const result = await response.json()
+      
+      if (response.ok && result.businesses && result.businesses.length > 0) {
+        const userBusiness = result.businesses.find((b: any) => b.owner_id === user.id)
+        if (userBusiness) {
+          setBusiness(userBusiness)
 
-      setBusiness(businessData)
-
-      if (businessData) {
-        // Get appointments for current month
-        const monthStart = startOfMonth(currentDate)
-        const monthEnd = endOfMonth(currentDate)
-
-        const { data: appointmentData } = await supabase
-          .from('appointments')
-          .select(`
-            id,
-            customer_name,
-            customer_phone,
-            starts_at,
-            status,
-            deposit_amount,
-            total_amount,
-            services (name),
-            payments (
-              id,
-              status,
-              provider,
-              amount_cents
+          // Get appointments for current month
+          const monthStart = startOfMonth(currentDate)
+          const monthEnd = endOfMonth(currentDate)
+          
+          try {
+            const appointmentsResponse = await fetch(
+              `/api/businesses/${userBusiness.id}/appointments?start=${monthStart.toISOString()}&end=${monthEnd.toISOString()}`
             )
-          `)
-          .eq('business_id', businessData.id)
-          .gte('starts_at', monthStart.toISOString())
-          .lte('starts_at', monthEnd.toISOString())
-          .order('starts_at', { ascending: true })
-
-        const formattedAppointments = appointmentData?.map((apt: any) => {
-          // Determine payment status from payments array
-          let paymentStatus: 'pending' | 'completed' | 'failed' | null = null
-          let paymentProvider: string | null = null
-          if (apt.payments && apt.payments.length > 0) {
-            const latestPayment = apt.payments[apt.payments.length - 1]
-            paymentStatus = latestPayment.status
-            paymentProvider = latestPayment.provider
-          } else if (apt.deposit_amount && apt.deposit_amount > 0) {
-            paymentStatus = 'pending'
+            if (appointmentsResponse.ok) {
+              const appointmentsResult = await appointmentsResponse.json()
+              setAppointments(appointmentsResult.appointments || [])
+              console.log('📅 Loaded', appointmentsResult.appointments?.length || 0, 'appointments')
+            }
+          } catch (err) {
+            console.error('Error fetching appointments:', err)
+            setAppointments([])
           }
 
-          return {
-            id: apt.id,
-            customer_name: apt.customer_name,
-            customer_phone: apt.customer_phone,
-            starts_at: apt.starts_at,
-            status: apt.status,
-            service_name: apt.services?.name || 'Unknown Service',
-            deposit_amount: apt.deposit_amount,
-            total_amount: apt.total_amount,
-            payment_status: paymentStatus,
-            payment_provider: paymentProvider
+          // Get availability rules and exceptions
+          try {
+            const availabilityResponse = await fetch(`/api/businesses/${userBusiness.id}/availability`)
+            if (availabilityResponse.ok) {
+              const availabilityResult = await availabilityResponse.json()
+              const rules = availabilityResult.availability?.rules || []
+              const exceptions = availabilityResult.availability?.exceptions || []
+              
+              setAvailabilityRules(rules)
+              setAvailabilityExceptions(exceptions)
+              console.log('📅 Loaded', rules.length, 'availability rules')
+
+              // If no availability rules exist, automatically create default schedule
+              if (rules.length === 0) {
+                console.log('📅 No availability rules found, creating default schedule...')
+                try {
+                  const setupResponse = await fetch(`/api/businesses/${userBusiness.id}/setup-default-schedule`, {
+                    method: 'POST'
+                  })
+                  if (setupResponse.ok) {
+                    console.log('📅 Default schedule created, refreshing availability...')
+                    // Refresh availability data
+                    const refreshResponse = await fetch(`/api/businesses/${userBusiness.id}/availability`)
+                    if (refreshResponse.ok) {
+                      const refreshResult = await refreshResponse.json()
+                      setAvailabilityRules(refreshResult.availability?.rules || [])
+                    }
+                  }
+                } catch (setupErr) {
+                  console.error('Error setting up default schedule:', setupErr)
+                }
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching availability:', err)
+            setAvailabilityRules([])
+            setAvailabilityExceptions([])
           }
-        }) || []
-
-        setAppointments(formattedAppointments)
-
-        // Get availability rules
-        const { data: rulesData } = await supabase
-          .from('availability_rules')
-          .select('*')
-          .eq('business_id', businessData.id)
-          .is('staff_id', null)
-          .order('weekday')
-
-        setAvailabilityRules(rulesData || [])
-
-        // Get availability exceptions for current month
-        const { data: exceptionsData } = await supabase
-          .from('availability_exceptions')
-          .select('*')
-          .eq('business_id', businessData.id)
-          .is('staff_id', null)
-          .gte('date', monthStart.toISOString().split('T')[0])
-          .lte('date', monthEnd.toISOString().split('T')[0])
-
-        setAvailabilityExceptions(exceptionsData || [])
+        }
       }
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -715,12 +673,16 @@ export default function CalendarPage() {
           </Button>
 
           <Button 
-            variant="outline-secondary"
+            variant={availabilityRules.length === 0 ? "warning" : "outline-secondary"}
             size="sm"
             onClick={() => setShowAvailabilityManager(true)}
+            className={availabilityRules.length === 0 ? "animate__animated animate__pulse animate__infinite" : ""}
           >
             <i className="fas fa-clock me-1"></i>
-            {locale === 'es' ? 'Horarios' : 'Hours'}
+            {availabilityRules.length === 0 
+              ? (locale === 'es' ? 'Configurar Horarios' : 'Set Hours') 
+              : (locale === 'es' ? 'Horarios' : 'Hours')
+            }
           </Button>
 
           <Button variant="primary" size="sm">
@@ -729,6 +691,18 @@ export default function CalendarPage() {
           </Button>
         </div>
       </div>
+
+      {availabilityRules.length === 0 && (
+        <Alert variant="warning" className="mb-4">
+          <i className="fas fa-exclamation-triangle me-2"></i>
+          <strong>{locale === 'es' ? '¡Configura tu horario!' : 'Set up your schedule!'}</strong>
+          {' '}
+          {locale === 'es' 
+            ? 'Todos los días aparecen como "Cerrado" porque no has configurado tus horarios de trabajo. Haz clic en "Configurar Horarios" para establecer cuándo estás disponible.'
+            : 'All days show as "Closed" because you haven\'t set your working hours. Click "Set Hours" to configure when you\'re available.'
+          }
+        </Alert>
+      )}
 
       <Row className="g-4">
         {/* Calendar */}
