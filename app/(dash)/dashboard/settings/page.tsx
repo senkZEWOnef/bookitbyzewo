@@ -42,45 +42,7 @@ export default function SettingsPage() {
   })
 
   useEffect(() => {
-    // TEMP: Use mock data for development
-    setUser({
-      id: 'dev-user',
-      email: 'dev@example.com',
-      user_metadata: { full_name: 'Dev User' }
-    })
-    setBusiness({
-      id: 'dev-business-id',
-      name: 'Dev Hair Salon',
-      slug: 'dev-salon',
-      location: '123 Main St, San Juan, PR',
-      timezone: 'America/Puerto_Rico',
-      messaging_mode: 'manual',
-      ath_movil_enabled: false,
-      ath_movil_public_token: '',
-      ath_movil_private_token: '',
-      deposit_enabled: true,
-      deposit_amount: 15.00,
-      deposit_policy: 'A $15 deposit is required to confirm your appointment'
-    })
-    setBusinessForm({
-      name: 'Dev Hair Salon',
-      slug: 'dev-salon',
-      timezone: 'America/Puerto_Rico',
-      location: '123 Main St, San Juan, PR',
-      messaging_mode: 'manual',
-      ath_movil_enabled: false,
-      ath_movil_public_token: '',
-      ath_movil_private_token: '',
-      deposit_enabled: true,
-      deposit_amount: 15.00,
-      deposit_policy: 'A $15 deposit is required to confirm your appointment'
-    })
-    setProfileForm({
-      full_name: 'Dev User',
-      phone: '+1 (787) 555-0123',
-      avatar_url: ''
-    })
-    setLoading(false)
+    fetchData()
   }, [])
 
   const fetchData = async () => {

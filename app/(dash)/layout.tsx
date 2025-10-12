@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from 'react-bootstrap'
 import { useLanguage } from '@/lib/language-context'
+import BusinessSwitcher from '@/components/BusinessSwitcher'
 
 export default function DashboardLayout({
   children,
@@ -23,6 +24,7 @@ export default function DashboardLayout({
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
+  const [currentBusiness, setCurrentBusiness] = useState<any>(null)
 
   useEffect(() => {
     const checkIfMobile = () => {
@@ -43,6 +45,12 @@ export default function DashboardLayout({
     const user = localStorage.getItem('user')
     if (user) {
       setUser(JSON.parse(user))
+      
+      // Load current business from localStorage
+      const business = localStorage.getItem('currentBusiness')
+      if (business) {
+        setCurrentBusiness(JSON.parse(business))
+      }
     } else {
       router.push('/login')
     }
@@ -294,6 +302,12 @@ export default function DashboardLayout({
               </div>
             </div>
             <div className="d-flex align-items-center gap-2">
+              {/* Business Switcher */}
+              <BusinessSwitcher 
+                currentBusiness={currentBusiness}
+                onBusinessChange={setCurrentBusiness}
+              />
+              
               <Button variant="outline-primary" size="sm" className="d-none d-sm-inline-block">
                 <i className="fas fa-bell me-1"></i>
                 <span className="d-none d-lg-inline">

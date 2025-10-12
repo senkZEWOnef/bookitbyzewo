@@ -37,34 +37,11 @@ export default function StaffPage() {
     is_active: true
   })
 
+  const [pendingInvitations, setPendingInvitations] = useState<any[]>([])
+  const [showInvitations, setShowInvitations] = useState(false)
+
   useEffect(() => {
-    // TEMP: Use mock data for development
-    setBusiness({
-      id: 'dev-business-id',
-      name: 'Dev Hair Salon',
-      slug: 'dev-salon'
-    })
-    setStaff([
-      {
-        id: '1',
-        display_name: 'Dev User (Owner)',
-        phone: '+1787555001',
-        role: 'admin',
-        user_id: 'dev-user',
-        business_id: 'dev-business-id',
-        created_at: new Date().toISOString()
-      },
-      {
-        id: '2',
-        display_name: 'Maria Gonzalez',
-        phone: '+1787555002',
-        role: 'member',
-        user_id: null,
-        business_id: 'dev-business-id',
-        created_at: new Date().toISOString()
-      }
-    ])
-    setLoading(false)
+    fetchData()
   }, [])
 
   const fetchData = async () => {
@@ -86,15 +63,39 @@ export default function StaffPage() {
         const userBusiness = result.businesses.find((b: any) => b.owner_id === user.id)
         if (userBusiness) {
           setBusiness(userBusiness)
+          fetchPendingInvitations(userBusiness.id)
+          fetchStaff(userBusiness.id)
         }
       }
-
-      // TODO: Implement staff API endpoint
-      // For now, keep using mock data
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchPendingInvitations = async (businessId?: string) => {
+    try {
+      const id = businessId || business?.id
+      if (!id) return
+
+      const response = await fetch(`/api/staff/invite?businessId=${id}`)
+      if (response.ok) {
+        const result = await response.json()
+        setPendingInvitations(result.invitations.filter((inv: any) => inv.status === 'pending'))
+      }
+    } catch (error) {
+      console.error('Error fetching invitations:', error)
+    }
+  }
+
+  const fetchStaff = async (businessId: string) => {
+    try {
+      // For now, just set empty staff list since we don't have a staff API endpoint yet
+      // The staff will be created when invitations are sent
+      setStaff([])
+    } catch (error) {
+      console.error('Error fetching staff:', error)
     }
   }
 
@@ -105,22 +106,48 @@ export default function StaffPage() {
     setSubmitting(true)
 
     try {
-      // TODO: Implement staff create/update API endpoints
+      // Get user from localStorage
+      const userString = localStorage.getItem('user')
+      const user = userString ? JSON.parse(userString) : null
+
       if (editingStaff) {
-        // Update existing staff in mock data
+        // Update existing staff
         setStaff(prev => prev.map(s => 
           s.id === editingStaff.id 
             ? { ...s, ...formData }
             : s
         ))
       } else {
-        // Add new staff to mock data
+        // Send staff invitation
+        const response = await fetch('/api/staff/invite', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': user?.id || 'dev-user' // TODO: Get from auth context
+          },
+          body: JSON.stringify({
+            businessId: business.id,
+            email: formData.email,
+            role: formData.role,
+            displayName: formData.display_name
+          })
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to send invitation')
+        }
+
+        // Add to staff list (the API already creates the staff record)
         const newStaff: Staff = {
           ...formData,
           id: Date.now().toString(),
           created_at: new Date().toISOString()
         }
         setStaff(prev => [newStaff, ...prev])
+        
+        // Refresh pending invitations
+        fetchPendingInvitations()
       }
 
       setShowModal(false)
@@ -128,6 +155,7 @@ export default function StaffPage() {
       resetForm()
     } catch (error) {
       console.error('Error saving staff:', error)
+      alert(error instanceof Error ? error.message : 'Failed to save staff')
     } finally {
       setSubmitting(false)
     }
@@ -226,18 +254,74 @@ export default function StaffPage() {
             </p>
           </div>
         </div>
-        <Button 
-          variant="success"
-          onClick={() => {
-            resetForm()
-            setEditingStaff(null)
-            setShowModal(true)
-          }}
-        >
-          <i className="fas fa-user-plus me-1"></i>
-          {locale === 'es' ? 'Agregar Miembro del Personal' : 'Add Staff Member'}
-        </Button>
+        <div className="d-flex gap-2">
+          <Button 
+            variant="outline-info"
+            onClick={() => setShowInvitations(!showInvitations)}
+            className="position-relative"
+          >
+            <i className="fas fa-envelope me-1"></i>
+            {locale === 'es' ? 'Invitaciones' : 'Invitations'}
+            {pendingInvitations.length > 0 && (
+              <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning">
+                {pendingInvitations.length}
+              </span>
+            )}
+          </Button>
+          <Button 
+            variant="success"
+            onClick={() => {
+              resetForm()
+              setEditingStaff(null)
+              setShowModal(true)
+            }}
+          >
+            <i className="fas fa-user-plus me-1"></i>
+            {locale === 'es' ? 'Invitar Miembro' : 'Invite Staff'}
+          </Button>
+        </div>
       </div>
+
+      {/* Pending Invitations */}
+      {showInvitations && pendingInvitations.length > 0 && (
+        <div className="mb-4">
+          <h5 className="fw-bold mb-3">
+            <i className="fas fa-clock text-warning me-2"></i>
+            {locale === 'es' ? 'Invitaciones Pendientes' : 'Pending Invitations'}
+          </h5>
+          <Row className="g-3">
+            {pendingInvitations.map(invitation => (
+              <Col key={invitation.id} lg={4} md={6}>
+                <div 
+                  className="p-3 rounded-3 border"
+                  style={{ 
+                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(217, 119, 6, 0.02) 100%)',
+                    border: '1px solid rgba(245, 158, 11, 0.1)'
+                  }}
+                >
+                  <div className="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                      <div className="fw-semibold">{invitation.email}</div>
+                      <small className="text-muted text-capitalize">{invitation.role}</small>
+                    </div>
+                    <span className="badge bg-warning">
+                      {locale === 'es' ? 'Pendiente' : 'Pending'}
+                    </span>
+                  </div>
+                  <div className="small text-muted mb-2">
+                    <i className="fas fa-calendar me-1"></i>
+                    {locale === 'es' ? 'Enviado el' : 'Sent'} {new Date(invitation.created_at).toLocaleDateString()}
+                  </div>
+                  <div className="small text-muted">
+                    <i className="fas fa-clock me-1"></i>
+                    {locale === 'es' ? 'Expira el' : 'Expires'} {new Date(invitation.expires_at).toLocaleDateString()}
+                  </div>
+                </div>
+              </Col>
+            ))}
+          </Row>
+        </div>
+      )}
 
       {staff.length === 0 ? (
         <div className="text-center py-5">
@@ -457,7 +541,7 @@ export default function StaffPage() {
             {!editingStaff && (
               <Alert variant="info" className="mt-3">
                 <i className="fas fa-info-circle me-2"></i>
-                <strong>{locale === 'es' ? 'Nota:' : 'Note:'}</strong> {locale === 'es' ? 'Los miembros del personal necesitarán crear una cuenta para acceder a su panel. Pueden usar la misma dirección de correo que proporciones aquí.' : 'Staff members will need to create an account to access their dashboard. They can use the same email address you provide here.'}
+                <strong>{locale === 'es' ? 'Invitación por Email:' : 'Email Invitation:'}</strong> {locale === 'es' ? 'Se enviará una invitación por email a esta dirección. La persona podrá crear una cuenta o usar una existente con el mismo email. Si ya tiene un negocio en BookIt, podrá alternar entre ambos desde su panel.' : 'An email invitation will be sent to this address. They can create a new account or use an existing account with the same email. If they already have a BookIt business, they\'ll be able to switch between both from their dashboard.'}
               </Alert>
             )}
           </Modal.Body>
@@ -476,7 +560,7 @@ export default function StaffPage() {
               ) : (
                 <>
                   <i className="fas fa-save me-1"></i>
-                  {editingStaff ? (locale === 'es' ? 'Actualizar Miembro del Personal' : 'Update Staff Member') : (locale === 'es' ? 'Agregar Miembro del Personal' : 'Add Staff Member')}
+                  {editingStaff ? (locale === 'es' ? 'Actualizar Miembro del Personal' : 'Update Staff Member') : (locale === 'es' ? 'Enviar Invitación' : 'Send Invitation')}
                 </>
               )}
             </Button>

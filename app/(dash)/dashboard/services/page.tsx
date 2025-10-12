@@ -44,43 +44,7 @@ export default function ServicesPage() {
   })
 
   useEffect(() => {
-    // TEMP: Use mock data for development
-    setBusiness({
-      id: 'dev-business-id',
-      name: 'Dev Hair Salon',
-      slug: 'dev-salon'
-    })
-    setServices([
-      {
-        id: '1',
-        name: 'Haircut',
-        description: 'Professional haircut service',
-        duration_min: 45,
-        price_cents: 3500,
-        deposit_cents: 1000,
-        buffer_before_min: 15,
-        buffer_after_min: 15,
-        max_per_slot: 1,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        business_id: 'dev-business-id'
-      },
-      {
-        id: '2',
-        name: 'Beard Trim',
-        description: 'Beard trimming and styling',
-        duration_min: 20,
-        price_cents: 1500,
-        deposit_cents: 500,
-        buffer_before_min: 10,
-        buffer_after_min: 10,
-        max_per_slot: 1,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        business_id: 'dev-business-id'
-      }
-    ])
-    setLoading(false)
+    fetchData()
   }, [])
 
   const fetchData = async () => {
@@ -102,11 +66,10 @@ export default function ServicesPage() {
         const userBusiness = result.businesses.find((b: any) => b.owner_id === user.id)
         if (userBusiness) {
           setBusiness(userBusiness)
+          // For now, set empty services array since services API isn't implemented yet
+          setServices([])
         }
       }
-
-      // TODO: Implement services API endpoint
-      // For now, keep using mock data
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
@@ -121,16 +84,21 @@ export default function ServicesPage() {
     setSubmitting(true)
 
     try {
-      // TODO: Implement service create/update API endpoints
+      // Get user from localStorage for API request
+      const userString = localStorage.getItem('user')
+      const user = userString ? JSON.parse(userString) : null
+
       if (editingService) {
-        // Update existing service in mock data
+        // TODO: Implement service update API endpoint
+        // For now, update in local state
         setServices(prev => prev.map(s => 
           s.id === editingService.id 
             ? { ...s, ...formData }
             : s
         ))
       } else {
-        // Add new service to mock data
+        // TODO: Implement service creation API endpoint
+        // For now, add to local state with proper business association
         const newService: Service = {
           ...formData,
           id: Date.now().toString(),
@@ -143,6 +111,7 @@ export default function ServicesPage() {
       resetForm()
     } catch (error) {
       console.error('Error saving service:', error)
+      alert(error instanceof Error ? error.message : 'Failed to save service')
     } finally {
       setSubmitting(false)
     }
@@ -180,8 +149,12 @@ export default function ServicesPage() {
 
   const toggleServiceStatus = async (service: Service) => {
     try {
+      // Get user from localStorage for API request
+      const userString = localStorage.getItem('user')
+      const user = userString ? JSON.parse(userString) : null
+
       // TODO: Implement service status update API endpoint
-      // For now, update in mock data
+      // For now, update in local state
       setServices(prev => prev.map(s => 
         s.id === service.id 
           ? { ...s, is_active: !s.is_active }
@@ -189,6 +162,7 @@ export default function ServicesPage() {
       ))
     } catch (error) {
       console.error('Error updating service:', error)
+      alert(error instanceof Error ? error.message : 'Failed to update service status')
     }
   }
 
