@@ -386,12 +386,12 @@ export default function AdminDashboard() {
                         onClick={() => setActiveView(item.key)}
                         onMouseEnter={(e) => {
                           if (activeView !== item.key) {
-                            e.target.style.background = 'rgba(16, 185, 129, 0.1)'
+                            (e.target as HTMLElement).style.background = 'rgba(16, 185, 129, 0.1)'
                           }
                         }}
                         onMouseLeave={(e) => {
                           if (activeView !== item.key) {
-                            e.target.style.background = 'transparent'
+                            (e.target as HTMLElement).style.background = 'transparent'
                           }
                         }}
                       >
@@ -672,7 +672,7 @@ export default function AdminDashboard() {
                           style={{ 
                             '--bs-table-bg': 'transparent',
                             '--bs-table-striped-bg': 'rgba(255, 255, 255, 0.05)'
-                          }}
+                          } as React.CSSProperties}
                         >
                           <thead>
                             <tr>
@@ -754,7 +754,7 @@ export default function AdminDashboard() {
                           style={{ 
                             '--bs-table-bg': 'transparent',
                             '--bs-table-striped-bg': 'rgba(255, 255, 255, 0.05)'
-                          }}
+                          } as React.CSSProperties}
                         >
                           <thead>
                             <tr>
@@ -875,7 +875,7 @@ export default function AdminDashboard() {
                           style={{ 
                             '--bs-table-bg': 'transparent',
                             '--bs-table-striped-bg': 'rgba(255, 255, 255, 0.05)'
-                          }}
+                          } as React.CSSProperties}
                         >
                           <thead>
                             <tr>
@@ -977,7 +977,7 @@ export default function AdminDashboard() {
                           style={{ 
                             '--bs-table-bg': 'transparent',
                             '--bs-table-striped-bg': 'rgba(255, 255, 255, 0.05)'
-                          }}
+                          } as React.CSSProperties}
                         >
                           <thead>
                             <tr>

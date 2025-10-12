@@ -128,6 +128,7 @@ export default function StaffPage() {
           body: JSON.stringify({
             businessId: business.id,
             email: formData.email,
+            phone: formData.phone,
             role: formData.role,
             displayName: formData.display_name
           })
@@ -148,6 +149,11 @@ export default function StaffPage() {
         
         // Refresh pending invitations
         fetchPendingInvitations()
+        
+        // Show success message
+        alert(locale === 'es' 
+          ? 'Invitación enviada exitosamente por email y WhatsApp' 
+          : 'Invitation sent successfully via email and WhatsApp')
       }
 
       setShowModal(false)
@@ -194,6 +200,45 @@ export default function StaffPage() {
       ))
     } catch (error) {
       console.error('Error updating staff:', error)
+    }
+  }
+
+  const handleDeleteInvitation = async (invitationId: string, email: string) => {
+    if (!confirm(locale === 'es' 
+      ? `¿Estás seguro de que quieres eliminar la invitación para ${email}?`
+      : `Are you sure you want to delete the invitation for ${email}?`
+    )) {
+      return
+    }
+
+    try {
+      // Get user from localStorage for API request
+      const userString = localStorage.getItem('user')
+      const user = userString ? JSON.parse(userString) : null
+
+      const response = await fetch(`/api/staff/invite/${invitationId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user?.id || 'dev-user'
+        }
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete invitation')
+      }
+
+      // Refresh pending invitations
+      fetchPendingInvitations()
+      
+      alert(locale === 'es' 
+        ? `Invitación para ${email} eliminada exitosamente`
+        : `Invitation for ${email} deleted successfully`
+      )
+    } catch (error) {
+      console.error('Error deleting invitation:', error)
+      alert(error instanceof Error ? error.message : 'Failed to delete invitation')
     }
   }
 
@@ -304,17 +349,37 @@ export default function StaffPage() {
                       <div className="fw-semibold">{invitation.email}</div>
                       <small className="text-muted text-capitalize">{invitation.role}</small>
                     </div>
-                    <span className="badge bg-warning">
-                      {locale === 'es' ? 'Pendiente' : 'Pending'}
-                    </span>
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="badge bg-warning">
+                        {locale === 'es' ? 'Pendiente' : 'Pending'}
+                      </span>
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        onClick={() => handleDeleteInvitation(invitation.id, invitation.email)}
+                        title={locale === 'es' ? 'Eliminar invitación' : 'Delete invitation'}
+                      >
+                        <i className="fas fa-trash"></i>
+                      </Button>
+                    </div>
                   </div>
                   <div className="small text-muted mb-2">
                     <i className="fas fa-calendar me-1"></i>
                     {locale === 'es' ? 'Enviado el' : 'Sent'} {new Date(invitation.created_at).toLocaleDateString()}
                   </div>
-                  <div className="small text-muted">
+                  <div className="small text-muted mb-2">
                     <i className="fas fa-clock me-1"></i>
                     {locale === 'es' ? 'Expira el' : 'Expires'} {new Date(invitation.expires_at).toLocaleDateString()}
+                  </div>
+                  <div className="small">
+                    <span className="badge bg-success me-1">
+                      <i className="fas fa-envelope me-1"></i>
+                      {locale === 'es' ? 'Email' : 'Email'}
+                    </span>
+                    <span className="badge bg-success">
+                      <i className="fab fa-whatsapp me-1"></i>
+                      {locale === 'es' ? 'WhatsApp' : 'WhatsApp'}
+                    </span>
                   </div>
                 </div>
               </Col>
@@ -507,14 +572,18 @@ export default function StaffPage() {
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>
-                    {locale === 'es' ? 'Teléfono' : 'Phone'}
+                    {locale === 'es' ? 'Teléfono *' : 'Phone *'}
                   </Form.Label>
                   <Form.Control
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                     placeholder="+1 (787) 555-1234"
+                    required
                   />
+                  <Form.Text className="text-muted">
+                    {locale === 'es' ? 'Se enviará invitación por WhatsApp y email' : 'Invitation will be sent via WhatsApp and email'}
+                  </Form.Text>
                 </Form.Group>
               </Col>
               <Col md={12}>

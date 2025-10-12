@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Pool } from 'pg'
 import crypto from 'crypto'
+import { sendStaffInvitationEmail } from '@/lib/email-service'
+import { sendStaffInvitationWhatsApp, validatePhoneNumber, formatPhoneNumber } from '@/lib/whatsapp-service'
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
@@ -9,11 +11,27 @@ const pool = new Pool({
 // POST /api/staff/invite - Send staff invitation
 export async function POST(request: NextRequest) {
   try {
-    const { businessId, email, role = 'staff', displayName } = await request.json()
+    const { businessId, email, phone, role = 'staff', displayName } = await request.json()
 
     if (!businessId || !email) {
       return NextResponse.json(
         { error: 'Business ID and email are required' },
+        { status: 400 }
+      )
+    }
+
+    if (!phone) {
+      return NextResponse.json(
+        { error: 'Phone number is required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate and format phone number
+    const formattedPhone = formatPhoneNumber(phone)
+    if (!validatePhoneNumber(formattedPhone)) {
+      return NextResponse.json(
+        { error: 'Invalid phone number format. Please use international format (e.g., +1234567890)' },
         { status: 400 }
       )
     }
@@ -56,35 +74,41 @@ export async function POST(request: NextRequest) {
       }
 
       // Check if user is already staff or has pending invitation
-      const existingCheck = await client.query(
-        `SELECT 
-           s.id as staff_id,
-           si.id as invitation_id,
-           si.status as invitation_status,
-           u.id as user_id
-         FROM users u
-         LEFT JOIN staff s ON u.id = s.user_id AND s.business_id = $1
-         LEFT JOIN staff_invitations si ON si.email = u.email AND si.business_id = $1
-         WHERE u.email = $2`,
+      const existingStaffCheck = await client.query(
+        `SELECT id FROM staff WHERE business_id = $1 AND email = $2`,
         [businessId, email]
       )
 
-      if (existingCheck.rows.length > 0) {
-        const existing = existingCheck.rows[0]
-        if (existing.staff_id) {
-          await client.query('ROLLBACK')
-          return NextResponse.json(
-            { error: 'User is already a staff member of this business' },
-            { status: 400 }
-          )
-        }
-        if (existing.invitation_id && existing.invitation_status === 'pending') {
+      if (existingStaffCheck.rows.length > 0) {
+        await client.query('ROLLBACK')
+        return NextResponse.json(
+          { error: 'User is already a staff member of this business' },
+          { status: 400 }
+        )
+      }
+
+      // Check for existing invitations
+      const existingInvitationCheck = await client.query(
+        `SELECT id, status, expires_at FROM staff_invitations 
+         WHERE business_id = $1 AND email = $2`,
+        [businessId, email]
+      )
+
+      if (existingInvitationCheck.rows.length > 0) {
+        const existingInvitation = existingInvitationCheck.rows[0]
+        if (existingInvitation.status === 'pending' && new Date(existingInvitation.expires_at) > new Date()) {
           await client.query('ROLLBACK')
           return NextResponse.json(
             { error: 'User already has a pending invitation to this business' },
             { status: 400 }
           )
         }
+        
+        // If invitation exists but is expired or declined, delete it so we can create a new one
+        await client.query(
+          `DELETE FROM staff_invitations WHERE business_id = $1 AND email = $2`,
+          [businessId, email]
+        )
       }
 
       // Generate invitation token
@@ -103,31 +127,54 @@ export async function POST(request: NextRequest) {
 
       // Create staff record (without user_id for now)
       await client.query(
-        `INSERT INTO staff (business_id, display_name, email, role, is_active)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [businessId, displayName || email.split('@')[0], email, role, true]
+        `INSERT INTO staff (business_id, display_name, email, phone, role, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [businessId, displayName || email.split('@')[0], email, formattedPhone, role, true]
       )
 
       await client.query('COMMIT')
 
-      // Send invitation email (you'll need to implement this with your email service)
+      // Send invitation via email and WhatsApp
       const invitationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/staff/accept-invitation?token=${invitationToken}`
       
-      // For now, we'll just log the invitation URL
-      console.log(`Staff invitation for ${email} to ${business.name}: ${invitationUrl}`)
+      console.log(`📧📱 Sending staff invitation for ${email} (${formattedPhone}) to ${business.name}: ${invitationUrl}`)
 
-      // TODO: Send actual email using your email service (SendGrid, Resend, etc.)
-      await sendInvitationEmail({
-        to: email,
-        businessName: business.name,
-        role,
-        invitationUrl,
-        inviterName: 'Business Owner' // You can get this from the user table
+      // Send both email and WhatsApp invitations
+      const sendPromises = [
+        sendStaffInvitationEmail({
+          to: email,
+          businessName: business.name,
+          role,
+          invitationUrl,
+          inviterName: 'Business Owner' // You can get this from the user table
+        }),
+        sendStaffInvitationWhatsApp({
+          to: formattedPhone,
+          businessName: business.name,
+          role,
+          invitationUrl,
+          inviterName: 'Business Owner'
+        })
+      ]
+
+      // Send both messages (don't wait for them to complete)
+      Promise.allSettled(sendPromises).then(results => {
+        results.forEach((result, index) => {
+          const channel = index === 0 ? 'Email' : 'WhatsApp'
+          if (result.status === 'rejected') {
+            console.error(`${channel} sending failed:`, result.reason)
+          } else {
+            console.log(`${channel} invitation sent successfully`)
+          }
+        })
       })
 
       return NextResponse.json({
-        message: 'Invitation sent successfully',
+        message: 'Invitation sent successfully via email and WhatsApp',
         invitationId: invitation.id,
+        email,
+        phone: formattedPhone,
+        role,
         invitationUrl // Remove this in production
       })
 
@@ -197,49 +244,3 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Mock email sending function - replace with your actual email service
-async function sendInvitationEmail({
-  to,
-  businessName,
-  role,
-  invitationUrl,
-  inviterName
-}: {
-  to: string
-  businessName: string
-  role: string
-  invitationUrl: string
-  inviterName: string
-}) {
-  // TODO: Implement with your email service
-  console.log(`
-📧 Staff Invitation Email
-To: ${to}
-Subject: You've been invited to join ${businessName} team
-
-Hello!
-
-${inviterName} has invited you to join ${businessName} as a ${role}.
-
-With BookIt by Zewo, you'll be able to:
-• Manage your appointments and schedule
-• View customer information
-• Handle bookings through WhatsApp
-• Access your staff dashboard
-
-To accept this invitation and create your account (or link to your existing account), click here:
-${invitationUrl}
-
-This invitation will expire in 7 days.
-
-If you already have a BookIt account with this email address, you'll be automatically added to the ${businessName} team when you accept the invitation. You'll be able to switch between your own business and ${businessName} from your dashboard.
-
-Welcome to the team!
-
-Best regards,
-The BookIt by Zewo Team
-  `)
-
-  // Simulate email sending delay
-  await new Promise(resolve => setTimeout(resolve, 100))
-}

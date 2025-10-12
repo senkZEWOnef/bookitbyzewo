@@ -18,6 +18,10 @@ export interface Business {
   location?: string
   timezone: string
   messaging_mode: MessagingMode
+  ath_movil_enabled?: boolean
+  ath_movil_public_token?: string
+  stripe_enabled?: boolean
+  stripe_publishable_key?: string
 }
 
 export interface Staff {

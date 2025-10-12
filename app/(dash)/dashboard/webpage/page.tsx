@@ -470,7 +470,7 @@ export default function WebpagePage() {
                       <Form.Control
                         type="file"
                         accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'hero')}
+                        onChange={(e) => handleFileChange(e as React.ChangeEvent<HTMLInputElement>, 'hero')}
                       />
                       {settings.heroBackgroundImage && (
                         <div className="mt-2">
@@ -553,7 +553,7 @@ export default function WebpagePage() {
                       <Form.Control
                         type="file"
                         accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'rules')}
+                        onChange={(e) => handleFileChange(e as React.ChangeEvent<HTMLInputElement>, 'rules')}
                       />
                       {settings.rulesSection.backgroundImage && (
                         <div className="mt-2">
@@ -738,7 +738,7 @@ export default function WebpagePage() {
                       <Form.Control
                         type="file"
                         accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'footer')}
+                        onChange={(e) => handleFileChange(e as React.ChangeEvent<HTMLInputElement>, 'footer')}
                       />
                       {settings.footerSection.backgroundImage && (
                         <div className="mt-2">

@@ -33,56 +33,35 @@ export default function CalendarPage() {
 
   const fetchData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      // Get user from localStorage
+      const userString = localStorage.getItem('user')
+      if (!userString) {
+        window.location.href = '/login'
+        return
+      }
+      
+      const user = JSON.parse(userString)
 
-      // Get business
-      const { data: business } = await supabase
-        .from('businesses')
-        .select('id, name')
-        .eq('owner_id', user.id)
-        .single()
+      // Get business using Neon API
+      const response = await fetch('/api/debug/businesses')
+      const result = await response.json()
+      
+      if (!response.ok || !result.businesses || result.businesses.length === 0) {
+        return
+      }
+
+      const business = result.businesses.find((b: any) => b.owner_id === user.id)
 
       if (!business) return
 
       setBusinessId(business.id)
       setBusiness(business.name)
 
-      // Get week range
-      const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 }) // Monday
-      const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 })
-
-      // Get appointments for the week
-      const { data: appointmentsData, error: appointmentsError } = await supabase
-        .from('appointments')
-        .select(`
-          *,
-          services (name),
-          staff (display_name)
-        `)
-        .eq('business_id', business.id)
-        .gte('starts_at', weekStart.toISOString())
-        .lte('starts_at', weekEnd.toISOString())
-        .order('starts_at')
-
-      if (appointmentsError) throw appointmentsError
-
-      const formattedAppointments = appointmentsData?.map((apt: any) => ({
-        ...apt,
-        service_name: apt.services.name,
-        staff_name: apt.staff?.display_name
-      })) || []
-
-      setAppointments(formattedAppointments)
-
-      // Get services and staff
-      const [servicesResult, staffResult] = await Promise.all([
-        supabase.from('services').select('*').eq('business_id', business.id),
-        supabase.from('staff').select('*').eq('business_id', business.id)
-      ])
-
-      setServices(servicesResult.data || [])
-      setStaff(staffResult.data || [])
+      // TODO: Implement appointments API endpoints
+      // For now, set empty data since appointments system isn't implemented yet
+      setAppointments([])
+      setServices([])
+      setStaff([])
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load calendar')
@@ -93,14 +72,8 @@ export default function CalendarPage() {
 
   const handleAppointmentUpdate = async (appointmentId: string, updates: Partial<Appointment>) => {
     try {
-      const { error } = await supabase
-        .from('appointments')
-        .update(updates)
-        .eq('id', appointmentId)
-
-      if (error) throw error
-      
-      fetchData() // Refresh data
+      // TODO: Implement appointment update API endpoint
+      // For now, skip the update
       setShowAppointmentModal(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update appointment')

@@ -215,12 +215,12 @@ export default function AcceptInvitationPage() {
                   <i className="fas fa-clock fs-2"></i>
                 </div>
                 <h3 className="fw-bold mb-3">
-                  {invitation.isExpired ? 'Invitation Expired' : 'Invitation Not Available'}
+                  {invitation?.isExpired ? 'Invitation Expired' : 'Invitation Not Available'}
                 </h3>
                 <p className="text-muted mb-4">
-                  {invitation.isExpired 
+                  {invitation?.isExpired 
                     ? 'This invitation has expired. Please ask the business owner to send you a new invitation.'
-                    : `This invitation is ${invitation.status}. Please contact the business owner if you believe this is an error.`
+                    : `This invitation is ${invitation?.status || 'unknown'}. Please contact the business owner if you believe this is an error.`
                   }
                 </p>
                 <Link href="/">

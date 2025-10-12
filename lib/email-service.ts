@@ -1,5 +1,7 @@
-// Email service for sending staff invitations
-// This can be adapted to use different email providers (SendGrid, Resend, etc.)
+// Email service for sending staff invitations using Resend
+import { Resend } from 'resend'
+
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 interface StaffInvitationEmailParams {
   to: string
@@ -18,53 +20,47 @@ export async function sendStaffInvitationEmail({
   inviterName,
   businessDescription
 }: StaffInvitationEmailParams) {
-  // For development, we'll log the email content
-  // In production, replace this with your actual email service
-  
-  const emailTemplate = generateStaffInvitationTemplate({
-    to,
-    businessName,
-    role,
-    invitationUrl,
-    inviterName,
-    businessDescription
-  })
+  try {
+    const emailTemplate = generateStaffInvitationTemplate({
+      to,
+      businessName,
+      role,
+      invitationUrl,
+      inviterName,
+      businessDescription
+    })
 
-  console.log('📧 Staff Invitation Email would be sent:')
-  console.log('To:', to)
-  console.log('Subject:', emailTemplate.subject)
-  console.log('Body:', emailTemplate.html)
+    console.log('📧 Sending staff invitation email to:', to)
 
-  // TODO: Replace with actual email sending service
-  // Example with SendGrid:
-  /*
-  const sgMail = require('@sendgrid/mail')
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY)
+    // Send actual email using Resend
+    if (!process.env.RESEND_API_KEY) {
+      console.warn('⚠️  RESEND_API_KEY not configured, email will be logged only')
+      console.log('📧 Email Template:')
+      console.log('To:', to)
+      console.log('Subject:', emailTemplate.subject)
+      console.log('Body Preview:', emailTemplate.html.substring(0, 200) + '...')
+      return { success: true, message: 'Email logged (Resend not configured)' }
+    }
 
-  const msg = {
-    to: to,
-    from: process.env.FROM_EMAIL,
-    subject: emailTemplate.subject,
-    html: emailTemplate.html,
+    const { data, error } = await resend.emails.send({
+      from: process.env.FROM_EMAIL || 'BookIt by Zewo <noreply@bookitbyzewo.com>',
+      to: [to],
+      subject: emailTemplate.subject,
+      html: emailTemplate.html,
+    })
+
+    if (error) {
+      console.error('❌ Email sending failed:', error)
+      throw new Error(`Failed to send email: ${error.message || error}`)
+    }
+
+    console.log('✅ Staff invitation email sent successfully:', data?.id)
+    return { success: true, message: 'Staff invitation email sent successfully', emailId: data?.id }
+
+  } catch (error) {
+    console.error('❌ Error sending staff invitation email:', error)
+    throw error
   }
-
-  await sgMail.send(msg)
-  */
-
-  // Example with Resend:
-  /*
-  const { Resend } = require('resend')
-  const resend = new Resend(process.env.RESEND_API_KEY)
-
-  await resend.emails.send({
-    from: process.env.FROM_EMAIL,
-    to: to,
-    subject: emailTemplate.subject,
-    html: emailTemplate.html,
-  })
-  */
-
-  return { success: true, message: 'Invitation email sent (logged in development)' }
 }
 
 function generateStaffInvitationTemplate({
