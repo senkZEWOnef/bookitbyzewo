@@ -1,7 +1,12 @@
 // Email service for sending staff invitations using Resend
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const getResendClient = () => {
+  if (!process.env.RESEND_API_KEY) {
+    return null
+  }
+  return new Resend(process.env.RESEND_API_KEY)
+}
 
 interface StaffInvitationEmailParams {
   to: string
@@ -33,7 +38,8 @@ export async function sendStaffInvitationEmail({
     console.log('📧 Sending staff invitation email to:', to)
 
     // Send actual email using Resend
-    if (!process.env.RESEND_API_KEY) {
+    const resend = getResendClient()
+    if (!resend) {
       console.warn('⚠️  RESEND_API_KEY not configured, email will be logged only')
       console.log('📧 Email Template:')
       console.log('To:', to)

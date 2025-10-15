@@ -8,7 +8,8 @@ export const createSupabaseClient = () => {
       signInWithPassword: () => Promise.resolve({ data: null, error: { message: 'Supabase is disabled' } }),
       resetPasswordForEmail: () => Promise.resolve({ error: { message: 'Password reset not available' } }),
       updateUser: () => Promise.resolve({ error: { message: 'User update not available' } }),
-      setSession: () => Promise.resolve({ data: null, error: null })
+      setSession: () => Promise.resolve({ data: null, error: null }),
+      refreshSession: () => Promise.resolve({ data: { user: null }, error: { message: 'Session refresh not available' } })
     },
     from: () => ({
       select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }),
