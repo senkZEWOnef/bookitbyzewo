@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Container, Row, Col, Button, Card, Badge } from 'react-bootstrap'
 import { useLanguage } from '@/lib/language-context'
 
@@ -8,6 +9,7 @@ export const dynamic = 'force-dynamic'
 
 export default function HomePage() {
   const { t } = useLanguage()
+  const router = useRouter()
   return (
     <>
       {/* Hero Section */}
@@ -197,12 +199,15 @@ export default function HomePage() {
       </section>
 
       {/* How It Works */}
-      <section className="section-padding bg-light">
-        <Container>
+      <section className="section-padding bg-mesh text-white position-relative overflow-hidden">
+        <div className="position-absolute top-0 start-0 w-100 h-100" style={{
+          background: 'radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%)'
+        }}></div>
+        <Container className="position-relative">
           <Row className="justify-content-center text-center mb-5">
             <Col lg={8}>
-              <h2 className="display-5 fw-bold mb-4">{t('howit.title')}</h2>
-              <p className="lead text-muted">
+              <h2 className="display-5 fw-bold mb-4 text-white">{t('howit.title')}</h2>
+              <p className="lead text-white opacity-75">
                 {t('howit.subtitle')}
               </p>
             </Col>
@@ -219,8 +224,8 @@ export default function HomePage() {
                     </div>
                   </div>
                   <div>
-                    <h5 className="fw-bold mb-2">{t('howit.step1.title')}</h5>
-                    <p className="text-muted mb-0">
+                    <h5 className="fw-bold mb-2 text-white">{t('howit.step1.title')}</h5>
+                    <p className="text-white opacity-75 mb-0">
                       {t('howit.step1.desc')}
                     </p>
                   </div>
@@ -234,8 +239,8 @@ export default function HomePage() {
                     </div>
                   </div>
                   <div>
-                    <h5 className="fw-bold mb-2">{t('howit.step2.title')}</h5>
-                    <p className="text-muted mb-0">
+                    <h5 className="fw-bold mb-2 text-white">{t('howit.step2.title')}</h5>
+                    <p className="text-white opacity-75 mb-0">
                       {t('howit.step2.desc')}
                     </p>
                   </div>
@@ -255,8 +260,8 @@ export default function HomePage() {
                     </div>
                   </div>
                   <div>
-                    <h5 className="fw-bold mb-2">{t('howit.step3.title')}</h5>
-                    <p className="text-muted mb-0">
+                    <h5 className="fw-bold mb-2 text-white">{t('howit.step3.title')}</h5>
+                    <p className="text-white opacity-75 mb-0">
                       {t('howit.step3.desc')}
                     </p>
                   </div>
@@ -270,7 +275,7 @@ export default function HomePage() {
                   <div className="mb-4">
                     <i className="fab fa-whatsapp text-success" style={{ fontSize: '4rem' }}></i>
                   </div>
-                  <h4 className="fw-bold mb-3">{t('howit.integration.title')}</h4>
+                  <h4 className="fw-bold mb-3 text-dark">{t('howit.integration.title')}</h4>
                   <p className="text-muted mb-4">
                     {t('howit.integration.desc')}
                   </p>
@@ -522,11 +527,53 @@ export default function HomePage() {
                   {t('nav.signup')}
                 </Link>
               </div>
+              <div className="mt-3 d-flex justify-content-md-end justify-content-start gap-3">
+                <a href="#" className="text-white-50" style={{ textDecoration: 'none', fontSize: '1.2rem' }} title="Follow us on Instagram">
+                  <i className="fab fa-instagram"></i>
+                </a>
+                <a href="#" className="text-white-50" style={{ textDecoration: 'none', fontSize: '1.2rem' }} title="Follow us on Facebook">
+                  <i className="fab fa-facebook"></i>
+                </a>
+                <a href="#" className="text-white-50" style={{ textDecoration: 'none', fontSize: '1.2rem' }} title="Follow us on TikTok">
+                  <i className="fab fa-tiktok"></i>
+                </a>
+              </div>
               <div className="mt-3">
                 <small className="text-muted">
                   {t('footer.copyright')}
                 </small>
               </div>
+            </Col>
+          </Row>
+          <Row>
+            <Col className="text-end">
+              <button 
+                onClick={() => router.push('/admin/login')}
+                style={{ 
+                  fontSize: '18px', 
+                  textDecoration: 'none',
+                  background: 'transparent',
+                  color: '#6c757d',
+                  opacity: 0.3,
+                  transition: 'opacity 0.3s',
+                  cursor: 'pointer',
+                  border: 'none',
+                  padding: 0,
+                  marginTop: '1rem'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.3'}
+                title="Admin Access"
+              >
+                <span style={{ 
+                  fontWeight: 'bold', 
+                  fontFamily: 'monospace',
+                  textShadow: '0 0 2px rgba(255,255,255,0.5)',
+                  backgroundColor: 'transparent'
+                }}>
+                  Z
+                </span>
+              </button>
             </Col>
           </Row>
         </Container>

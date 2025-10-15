@@ -8,6 +8,18 @@ export async function GET() {
   try {
     console.log('🔍 Fetching all businesses from database...')
     
+    // First check if table exists
+    try {
+      await query('SELECT 1 FROM businesses LIMIT 1')
+    } catch (tableError) {
+      console.log('🔴 Businesses table might not exist:', tableError)
+      return NextResponse.json({ 
+        businesses: [],
+        count: 0,
+        error: 'Businesses table not found'
+      })
+    }
+    
     const result = await query(
       'SELECT id, name, slug, owner_id, created_at FROM businesses ORDER BY created_at DESC'
     )

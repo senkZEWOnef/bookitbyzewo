@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parseISO, getDay, startOfWeek, endOfWeek, addDays, startOfDay, endOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useLanguage } from '@/lib/language-context'
-// import AvailabilityManager from '@/components/AvailabilityManager'
+import AvailabilityManager from '@/components/AvailabilityManager'
 
 export const dynamic = 'force-dynamic'
 
@@ -1271,7 +1271,6 @@ export default function CalendarPage() {
       </Modal>
 
       {/* Availability Manager Modal */}
-      {/* Commented out until AvailabilityManager is fixed
       {business && (
         <AvailabilityManager
           show={showAvailabilityManager}
@@ -1280,7 +1279,6 @@ export default function CalendarPage() {
           onUpdate={fetchData}
         />
       )}
-      */}
     </div>
   )
 }

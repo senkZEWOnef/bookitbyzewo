@@ -89,6 +89,9 @@ export default function ProfilePictureUpload({ currentPictureUrl, onPictureUpdat
       if (userString) {
         const user = JSON.parse(userString)
         user.avatar_url = base64Data
+        // Also update user_metadata for compatibility
+        if (!user.user_metadata) user.user_metadata = {}
+        user.user_metadata.avatar_url = base64Data
         localStorage.setItem('user', JSON.stringify(user))
       }
 
@@ -96,6 +99,9 @@ export default function ProfilePictureUpload({ currentPictureUrl, onPictureUpdat
       setShowModal(false)
       setPreview(null)
       setSelectedFile(null)
+      
+      // Notify layout to refresh user data
+      window.dispatchEvent(new CustomEvent('profileUpdated'))
       
     } catch (error: any) {
       console.error('Error uploading profile picture:', error)
@@ -132,11 +138,17 @@ export default function ProfilePictureUpload({ currentPictureUrl, onPictureUpdat
       if (userString) {
         const user = JSON.parse(userString)
         user.avatar_url = null
+        // Also update user_metadata for compatibility
+        if (!user.user_metadata) user.user_metadata = {}
+        user.user_metadata.avatar_url = null
         localStorage.setItem('user', JSON.stringify(user))
       }
 
       onPictureUpdate('')
       setShowModal(false)
+      
+      // Notify layout to refresh user data
+      window.dispatchEvent(new CustomEvent('profileUpdated'))
       
     } catch (error: any) {
       console.error('Error removing profile picture:', error)

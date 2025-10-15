@@ -8,8 +8,25 @@ export async function PUT(request: NextRequest) {
   try {
     const { userId, avatar_url, full_name, phone } = await request.json()
 
+    console.log('🟡 Profile update request:', { userId, hasAvatar: !!avatar_url, full_name, phone })
+
     if (!userId) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+    }
+
+    // First check if user exists
+    const userCheck = await query('SELECT id FROM users WHERE id = $1', [userId])
+    if (userCheck.rows.length === 0) {
+      console.log('🔴 User not found:', userId)
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Check if avatar_url column exists by trying to add it if it doesn't
+    try {
+      await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT')
+      await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()')
+    } catch (alterError) {
+      console.log('🟡 Column already exists or permission issue (this is OK)')
     }
 
     // Update user profile in Neon database
@@ -35,6 +52,10 @@ export async function PUT(request: NextRequest) {
       paramCount++
     }
 
+    if (updateFields.length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+    }
+
     updateFields.push(`updated_at = NOW()`)
     values.push(userId)
 
@@ -45,11 +66,17 @@ export async function PUT(request: NextRequest) {
       RETURNING id, email, full_name, phone, avatar_url, updated_at
     `
 
+    console.log('🟡 Executing query:', updateQuery)
+    console.log('🟡 With values:', values)
+
     const result = await query(updateQuery, values)
 
     if (result.rows.length === 0) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      console.log('🔴 No rows updated for user:', userId)
+      return NextResponse.json({ error: 'User not found or no changes made' }, { status: 404 })
     }
+
+    console.log('🟢 Profile updated successfully:', result.rows[0])
 
     return NextResponse.json({ 
       success: true, 

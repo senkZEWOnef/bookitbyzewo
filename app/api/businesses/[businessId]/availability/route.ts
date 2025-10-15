@@ -13,6 +13,40 @@ export async function GET(
 
     console.log('🟡 Fetching availability for business:', businessId)
 
+    // Create tables if they don't exist
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS availability_rules (
+          id SERIAL PRIMARY KEY,
+          business_id UUID NOT NULL,
+          staff_id UUID NULL,
+          weekday INTEGER NOT NULL,
+          start_time TIME NOT NULL,
+          end_time TIME NOT NULL,
+          is_active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `)
+
+      await query(`
+        CREATE TABLE IF NOT EXISTS availability_exceptions (
+          id SERIAL PRIMARY KEY,
+          business_id UUID NOT NULL,
+          staff_id UUID NULL,
+          date DATE NOT NULL,
+          is_closed BOOLEAN DEFAULT FALSE,
+          start_time TIME NULL,
+          end_time TIME NULL,
+          reason TEXT,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `)
+    } catch (createError) {
+      console.log('🟡 Tables already exist or permission issue (this is OK)')
+    }
+
     // Get availability rules
     const rulesResult = await query(
       `SELECT 
@@ -130,5 +164,33 @@ export async function POST(
   } catch (error) {
     console.error('Availability creation error:', error)
     return NextResponse.json({ error: 'Failed to create availability' }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { businessId: string } }
+) {
+  try {
+    const businessId = params.businessId
+    
+    console.log('🟡 Deleting availability rules for business:', businessId)
+
+    // Delete all availability rules for the business
+    await query(
+      'DELETE FROM availability_rules WHERE business_id = $1',
+      [businessId]
+    )
+
+    console.log('🟢 Deleted availability rules for business', businessId)
+
+    return NextResponse.json({ 
+      success: true,
+      message: 'Availability rules deleted successfully'
+    })
+
+  } catch (error) {
+    console.error('Availability deletion error:', error)
+    return NextResponse.json({ error: 'Failed to delete availability rules' }, { status: 500 })
   }
 }

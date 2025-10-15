@@ -3,7 +3,6 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 import './globals.css'
 import { LanguageProvider } from '@/lib/language-context'
 import Navigation from '@/components/Navigation'
-import Footer from '@/components/Footer'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,7 +40,6 @@ export default function RootLayout({
         <LanguageProvider>
           <Navigation />
           {children}
-          <Footer />
         </LanguageProvider>
         <script 
           src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" 

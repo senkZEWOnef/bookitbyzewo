@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Container, Row, Col, Card, Button, Badge, Table } from 'react-bootstrap'
 import { useLanguage } from '@/lib/language-context'
 
@@ -8,6 +9,7 @@ export const dynamic = 'force-dynamic'
 
 export default function PricingPage() {
   const { t } = useLanguage()
+  const router = useRouter()
   const plans = [
     {
       name: t('pricing.plan.solo.name'),
@@ -197,11 +199,11 @@ export default function PricingPage() {
                       <tr>
                         <th className="py-4 px-4 fw-bold">{t('pricing.table.features')}</th>
                         <th className="text-center py-4 px-3 fw-bold">{t('pricing.table.solo')}</th>
-                        <th className="text-center py-4 px-3 fw-bold position-relative">
-                          {t('pricing.table.team')}
-                          <Badge bg="success" className="position-absolute top-0 start-50 translate-middle px-2 py-1 small">
+                        <th className="text-center py-4 px-3 fw-bold position-relative" style={{ paddingTop: '2rem' }}>
+                          <Badge bg="success" className="position-absolute start-50 translate-middle px-2 py-1 small" style={{ top: '0.5rem' }}>
                             {t('pricing.table.popular')}
                           </Badge>
+                          {t('pricing.table.team')}
                         </th>
                         <th className="text-center py-4 px-3 fw-bold">{t('pricing.table.pro')}</th>
                       </tr>
@@ -437,6 +439,83 @@ export default function PricingPage() {
           </Row>
         </Container>
       </section>
+
+      {/* Footer */}
+      <footer className="bg-dark text-white py-5">
+        <Container>
+          <Row className="align-items-center">
+            <Col md={6}>
+              <div className="d-flex align-items-center mb-3 mb-md-0">
+                <i className="fab fa-whatsapp text-success me-3 fs-2"></i>
+                <div>
+                  <h5 className="mb-0 fw-bold">BookIt</h5>
+                  <small className="text-muted fst-italic">by Zewo</small>
+                </div>
+              </div>
+            </Col>
+            <Col md={6} className="text-md-end">
+              <div className="d-flex justify-content-md-end justify-content-start gap-4 flex-wrap">
+                <Link href="/pricing" className="text-white-50 text-decoration-none">
+                  {t('nav.pricing')}
+                </Link>
+                <Link href="/login" className="text-white-50 text-decoration-none">
+                  {t('nav.login')}
+                </Link>
+                <Link href="/signup" className="text-white-50 text-decoration-none">
+                  {t('nav.signup')}
+                </Link>
+              </div>
+              <div className="mt-3 d-flex justify-content-md-end justify-content-start gap-3">
+                <a href="#" className="text-white-50" style={{ textDecoration: 'none', fontSize: '1.2rem' }} title="Follow us on Instagram">
+                  <i className="fab fa-instagram"></i>
+                </a>
+                <a href="#" className="text-white-50" style={{ textDecoration: 'none', fontSize: '1.2rem' }} title="Follow us on Facebook">
+                  <i className="fab fa-facebook"></i>
+                </a>
+                <a href="#" className="text-white-50" style={{ textDecoration: 'none', fontSize: '1.2rem' }} title="Follow us on TikTok">
+                  <i className="fab fa-tiktok"></i>
+                </a>
+              </div>
+              <div className="mt-3">
+                <small className="text-muted">
+                  {t('footer.copyright')}
+                </small>
+              </div>
+            </Col>
+          </Row>
+          <Row>
+            <Col className="text-end">
+              <button 
+                onClick={() => router.push('/admin/login')}
+                style={{ 
+                  fontSize: '18px', 
+                  textDecoration: 'none',
+                  background: 'transparent',
+                  color: '#6c757d',
+                  opacity: 0.3,
+                  transition: 'opacity 0.3s',
+                  cursor: 'pointer',
+                  border: 'none',
+                  padding: 0,
+                  marginTop: '1rem'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.3'}
+                title="Admin Access"
+              >
+                <span style={{ 
+                  fontWeight: 'bold', 
+                  fontFamily: 'monospace',
+                  textShadow: '0 0 2px rgba(255,255,255,0.5)',
+                  backgroundColor: 'transparent'
+                }}>
+                  Z
+                </span>
+              </button>
+            </Col>
+          </Row>
+        </Container>
+      </footer>
     </>
   )
 }

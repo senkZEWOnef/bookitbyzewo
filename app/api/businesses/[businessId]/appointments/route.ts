@@ -16,6 +16,14 @@ export async function GET(
 
     console.log('🟡 Fetching appointments for business:', businessId, 'from', startDate, 'to', endDate)
 
+    // First add missing columns if they don't exist
+    try {
+      await query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS deposit_amount_cents INTEGER DEFAULT 0')
+      await query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS total_amount_cents INTEGER DEFAULT 0')
+    } catch (alterError) {
+      console.log('🟡 Columns already exist or permission issue (this is OK)')
+    }
+
     let queryText = `
       SELECT 
         a.id,
@@ -24,8 +32,8 @@ export async function GET(
         a.customer_email,
         a.starts_at,
         a.status,
-        a.deposit_amount_cents as deposit_amount,
-        a.total_amount_cents as total_amount,
+        COALESCE(a.deposit_amount_cents, 0) as deposit_amount,
+        COALESCE(a.total_amount_cents, 0) as total_amount,
         a.notes,
         s.name as service_name,
         s.duration_minutes as service_duration,

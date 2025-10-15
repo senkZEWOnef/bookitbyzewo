@@ -18,6 +18,7 @@ export default function CalendarPage() {
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [staff, setStaff] = useState<Staff[]>([])
+  const [availability, setAvailability] = useState<any>(null)
   const [currentWeek, setCurrentWeek] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedAppointment, setSelectedAppointment] = useState<CalendarAppointment | null>(null)
@@ -30,6 +31,59 @@ export default function CalendarPage() {
   useEffect(() => {
     fetchData()
   }, [currentWeek])
+
+  const fetchAppointments = async (businessId: string) => {
+    try {
+      const startOfWeekDate = startOfWeek(currentWeek, { weekStartsOn: 1 }) // Monday
+      const endOfWeekDate = endOfWeek(currentWeek, { weekStartsOn: 1 })
+      
+      const response = await fetch(
+        `/api/businesses/${businessId}/appointments?start=${startOfWeekDate.toISOString()}&end=${endOfWeekDate.toISOString()}`
+      )
+      
+      if (response.ok) {
+        const result = await response.json()
+        setAppointments(result.appointments || [])
+      }
+    } catch (error) {
+      console.error('Error fetching appointments:', error)
+    }
+  }
+
+  const fetchServices = async (businessId: string) => {
+    try {
+      const response = await fetch(`/api/businesses/${businessId}/services`)
+      
+      if (response.ok) {
+        const result = await response.json()
+        setServices(result.services || [])
+      }
+    } catch (error) {
+      console.error('Error fetching services:', error)
+    }
+  }
+
+  const fetchStaff = async (businessId: string) => {
+    try {
+      // For now, set empty staff array as staff system might not be fully implemented
+      setStaff([])
+    } catch (error) {
+      console.error('Error fetching staff:', error)
+    }
+  }
+
+  const fetchAvailability = async (businessId: string) => {
+    try {
+      const response = await fetch(`/api/businesses/${businessId}/availability`)
+      
+      if (response.ok) {
+        const result = await response.json()
+        setAvailability(result.availability || null)
+      }
+    } catch (error) {
+      console.error('Error fetching availability:', error)
+    }
+  }
 
   const fetchData = async () => {
     try {
@@ -57,11 +111,13 @@ export default function CalendarPage() {
       setBusinessId(business.id)
       setBusiness(business.name)
 
-      // TODO: Implement appointments API endpoints
-      // For now, set empty data since appointments system isn't implemented yet
-      setAppointments([])
-      setServices([])
-      setStaff([])
+      // Fetch real data from APIs
+      await Promise.all([
+        fetchAppointments(business.id),
+        fetchServices(business.id),
+        fetchStaff(business.id),
+        fetchAvailability(business.id)
+      ])
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load calendar')
@@ -110,6 +166,45 @@ export default function CalendarPage() {
     return appointments.filter(apt => 
       isSameDay(parseISO(apt.starts_at), date)
     )
+  }
+
+  const isDateAvailable = (date: Date) => {
+    if (!availability) return true // Default to available if no rules set
+    
+    const dayOfWeek = date.getDay() // 0 = Sunday, 1 = Monday, etc.
+    const dateString = format(date, 'yyyy-MM-dd')
+    
+    // Check for exceptions first
+    const exception = availability.exceptions?.find((ex: any) => ex.date === dateString)
+    if (exception) {
+      return !exception.is_closed // If exception exists, return opposite of is_closed
+    }
+    
+    // Check weekly availability rules
+    const rule = availability.rules?.find((rule: any) => rule.weekday === dayOfWeek)
+    return rule && rule.start_time && rule.end_time // Available if rule exists with times
+  }
+
+  const getAvailabilityHours = (date: Date) => {
+    if (!availability) return null
+    
+    const dayOfWeek = date.getDay()
+    const dateString = format(date, 'yyyy-MM-dd')
+    
+    // Check for exceptions first
+    const exception = availability.exceptions?.find((ex: any) => ex.date === dateString)
+    if (exception) {
+      if (exception.is_closed) return null
+      return { start: exception.start_time, end: exception.end_time }
+    }
+    
+    // Check weekly availability rules
+    const rule = availability.rules?.find((rule: any) => rule.weekday === dayOfWeek)
+    if (rule && rule.start_time && rule.end_time) {
+      return { start: rule.start_time, end: rule.end_time }
+    }
+    
+    return null
   }
 
   const getTodayAppointments = () => {
@@ -183,6 +278,8 @@ export default function CalendarPage() {
                 {weekDays.map(day => {
                   const dayAppointments = getAppointmentsForDate(day)
                   const isToday = isSameDay(day, new Date())
+                  const isAvailable = isDateAvailable(day)
+                  const availabilityHours = getAvailabilityHours(day)
                   
                   return (
                     <div key={day.toISOString()} className="col border-end" style={{ minHeight: '300px' }}>
@@ -190,9 +287,18 @@ export default function CalendarPage() {
                         <div className="text-center">
                           <div className="fw-bold">{format(day, 'EEE')}</div>
                           <div className="small">{format(day, 'd')}</div>
+                          {availabilityHours ? (
+                            <div className="text-xs text-muted mt-1">
+                              {availabilityHours.start} - {availabilityHours.end}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-muted mt-1">
+                              {isAvailable ? 'Available' : 'Closed'}
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <div className="p-2">
+                      <div className={`p-2 ${!isAvailable ? 'bg-light opacity-50' : ''}`}>
                         {dayAppointments.map(appointment => (
                           <div 
                             key={appointment.id}
@@ -213,6 +319,20 @@ export default function CalendarPage() {
                             </div>
                           </div>
                         ))}
+                        
+                        {!isAvailable && (
+                          <div className="text-center text-muted py-3">
+                            <i className="fas fa-times-circle mb-2"></i>
+                            <div className="small">Closed</div>
+                          </div>
+                        )}
+                        
+                        {isAvailable && dayAppointments.length === 0 && (
+                          <div className="text-center text-muted py-3">
+                            <i className="fas fa-calendar-plus mb-2"></i>
+                            <div className="small">No appointments</div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )

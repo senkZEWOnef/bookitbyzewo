@@ -323,7 +323,7 @@ export default function AdminDashboard() {
           background: 'radial-gradient(circle at 20% 80%, rgba(16, 185, 129, 0.15) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.05) 0%, transparent 50%)'
         }}></div>
       
-        <Container className="position-relative py-4">
+        <Container className="position-relative py-4" style={{ paddingTop: '6rem' }}>
           <Row>
             <Col>
               <div className="d-flex justify-content-between align-items-center py-4 border-bottom" style={{ borderColor: 'rgba(16, 185, 129, 0.2)' }}>

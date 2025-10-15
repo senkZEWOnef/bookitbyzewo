@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { query } from '@/lib/db'
 import { parseISO, addMinutes } from 'date-fns'
-import Stripe from 'stripe'
-
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-08-16'
-})
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -15,14 +9,15 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-  
   try {
+    // Ensure duration_minutes column exists in appointments table
+    await query(`
+      ALTER TABLE appointments 
+      ADD COLUMN IF NOT EXISTS duration_minutes INTEGER DEFAULT 0
+    `).catch(() => {})
+
     const body = await request.json()
-    const { serviceId, staffId, datetime, customerName, customerPhone, customerLocale, paymentData } = body
+    const { serviceId, datetime, customerName, customerPhone, customerEmail, notes } = body
 
     if (!serviceId || !datetime || !customerName || !customerPhone) {
       return NextResponse.json(
@@ -31,235 +26,176 @@ export async function POST(
       )
     }
 
-    // Get business and service details
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('*')
-      .eq('slug', params.slug)
-      .single()
+    // Get business details using Neon
+    const businessResult = await query(
+      'SELECT * FROM businesses WHERE slug = $1',
+      [params.slug]
+    )
 
-    if (!business) {
+    if (businessResult.rows.length === 0) {
       return NextResponse.json(
         { error: 'Business not found' },
         { status: 404 }
       )
     }
 
-    const { data: service } = await supabase
-      .from('services')
-      .select('*')
-      .eq('id', serviceId)
-      .eq('business_id', business.id)
-      .single()
+    const business = businessResult.rows[0]
 
-    if (!service) {
+    // Get service details using Neon
+    const serviceResult = await query(
+      'SELECT * FROM services WHERE id = $1 AND business_id = $2 AND is_active = true',
+      [serviceId, business.id]
+    )
+
+    if (serviceResult.rows.length === 0) {
       return NextResponse.json(
-        { error: 'Service not found' },
+        { error: 'Service not found or inactive' },
         { status: 404 }
       )
     }
 
-    // Calculate appointment end time
-    const startsAt = parseISO(datetime)
-    const endsAt = addMinutes(startsAt, service.duration_min)
+    const service = serviceResult.rows[0]
 
-    // Check if slot is still available
-    let query = supabase
-      .from('appointments')
-      .select('id')
-      .eq('business_id', business.id)
-      .gte('starts_at', startsAt.toISOString())
-      .lte('starts_at', endsAt.toISOString())
-      .in('status', ['confirmed', 'pending'])
-    
-    // Add staff filter if staffId exists
-    if (staffId) {
-      query = query.eq('staff_id', staffId)
-    } else {
-      query = query.is('staff_id', null)
-    }
-    
-    const { data: conflictingAppointments } = await query
+    // Check for time conflicts
+    const startTime = parseISO(datetime)
+    const endTime = addMinutes(startTime, service.duration_minutes)
 
-    if (conflictingAppointments && conflictingAppointments.length > 0) {
+    const conflictResult = await query(`
+      SELECT id FROM appointments 
+      WHERE business_id = $1 
+      AND status NOT IN ('cancelled', 'no_show')
+      AND (
+        (starts_at <= $2 AND starts_at + INTERVAL '1 minute' * duration_minutes > $2) OR
+        (starts_at < $3 AND starts_at + INTERVAL '1 minute' * duration_minutes >= $3) OR
+        (starts_at >= $2 AND starts_at < $3)
+      )
+    `, [business.id, startTime.toISOString(), endTime.toISOString()])
+
+    if (conflictResult.rows.length > 0) {
       return NextResponse.json(
-        { error: 'Time slot is no longer available' },
+        { error: 'Time slot is already booked' },
         { status: 409 }
       )
     }
 
-    // Determine appointment status
-    let appointmentStatus = 'confirmed'
-    if (service.deposit_cents > 0) {
-      appointmentStatus = paymentData ? 'confirmed' : 'pending'
-    }
+    // Create the appointment
+    const appointmentResult = await query(`
+      INSERT INTO appointments (
+        business_id,
+        service_id,
+        customer_name,
+        customer_phone,
+        customer_email,
+        starts_at,
+        ends_at,
+        duration_minutes,
+        status,
+        total_amount_cents,
+        deposit_amount_cents,
+        notes,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+      RETURNING id, starts_at, status
+    `, [
+      business.id,
+      serviceId,
+      customerName,
+      customerPhone,
+      customerEmail || null,
+      startTime.toISOString(),
+      endTime.toISOString(),
+      service.duration_minutes,
+      'confirmed', // Default status
+      service.price_cents || 0,
+      0, // No deposit for now
+      notes || null
+    ])
 
-    // Create appointment
-    const { data: appointment, error: appointmentError } = await supabase
-      .from('appointments')
-      .insert({
-        business_id: business.id,
-        service_id: serviceId,
-        staff_id: staffId || null,
-        starts_at: startsAt.toISOString(),
-        ends_at: endsAt.toISOString(),
+    const appointment = appointmentResult.rows[0]
+
+    return NextResponse.json({
+      success: true,
+      appointment: {
+        id: appointment.id,
+        starts_at: appointment.starts_at,
+        status: appointment.status,
+        business_name: business.name,
+        service_name: service.name,
         customer_name: customerName,
-        customer_phone: customerPhone,
-        customer_locale: customerLocale || 'es-PR',
-        status: appointmentStatus,
-        source: 'public',
-        deposit_amount: service.deposit_cents,
-        total_amount: service.price_cents
-      })
-      .select()
-      .single()
+        duration_minutes: service.duration_minutes
+      }
+    })
 
-    if (appointmentError) {
-      console.error('Appointment creation error:', appointmentError)
+  } catch (error) {
+    console.error('Booking error:', error)
+    return NextResponse.json(
+      { error: 'Failed to create booking' },
+      { status: 500 }
+    )
+  }
+}
+
+// Get appointment details
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { slug: string } }
+) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const appointmentId = searchParams.get('appointmentId')
+
+    if (!appointmentId) {
       return NextResponse.json(
-        { error: 'Failed to create appointment' },
-        { status: 500 }
+        { error: 'Appointment ID is required' },
+        { status: 400 }
       )
     }
 
-    // If ATH Móvil payment was completed, store payment record
-    if (paymentData && service.deposit_cents > 0) {
-      try {
-        await supabase
-          .from('payments')
-          .insert({
-            business_id: business.id,
-            provider: 'ath_movil',
-            external_id: paymentData.referenceNumber || paymentData.transactionId || '',
-            amount_cents: service.deposit_cents,
-            currency: 'USD',
-            status: 'completed',
-            kind: 'deposit',
-            meta: { 
-              appointment_id: appointment.id,
-              ath_payment_data: paymentData 
-            }
-          })
+    // Get appointment with business and service details
+    const result = await query(`
+      SELECT 
+        a.*,
+        b.name as business_name,
+        b.slug as business_slug,
+        s.name as service_name,
+        s.price_cents as service_price
+      FROM appointments a
+      JOIN businesses b ON a.business_id = b.id
+      JOIN services s ON a.service_id = s.id
+      WHERE a.id = $1 AND b.slug = $2
+    `, [appointmentId, params.slug])
 
-        return NextResponse.json({
-          appointmentId: appointment.id,
-          requiresPayment: false,
-          paymentMethod: 'ath_movil'
-        })
-      } catch (paymentError) {
-        console.error('ATH Móvil payment recording error:', paymentError)
-        // Still return success since appointment was created
-        return NextResponse.json({
-          appointmentId: appointment.id,
-          requiresPayment: false,
-          paymentMethod: 'ath_movil',
-          paymentRecordingError: true
-        })
-      }
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Appointment not found' },
+        { status: 404 }
+      )
     }
 
-    // If deposit required and no payment data, handle payment options
-    if (service.deposit_cents > 0 && !paymentData) {
-      // Check if business has Stripe enabled and configured
-      if (business.stripe_enabled && business.stripe_secret_key) {
-        try {
-          const businessStripe = new Stripe(business.stripe_secret_key, {
-            apiVersion: '2023-08-16'
-          })
+    const appointment = result.rows[0]
 
-          const session = await businessStripe.checkout.sessions.create({
-          payment_method_types: ['card'],
-          line_items: [
-            {
-              price_data: {
-                currency: 'usd',
-                product_data: {
-                  name: `Deposit - ${service.name}`,
-                  description: `Appointment with ${business.name}`,
-                },
-                unit_amount: service.deposit_cents,
-              },
-              quantity: 1,
-            },
-          ],
-          mode: 'payment',
-          success_url: `${process.env.NEXT_PUBLIC_APP_URL}/book/${params.slug}/confirm?id=${appointment.id}&payment=stripe`,
-          cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/book/${params.slug}?error=payment_cancelled`,
-          metadata: {
-            appointment_id: appointment.id,
-            business_id: business.id,
-            type: 'deposit'
-          }
-        })
-
-        // Store payment reference
-        await supabase
-          .from('payments')
-          .insert({
-            business_id: business.id,
-            provider: 'stripe',
-            external_id: session.id,
-            amount_cents: service.deposit_cents,
-            currency: 'USD',
-            status: 'pending',
-            kind: 'deposit',
-            meta: { appointment_id: appointment.id }
-          })
-
-          return NextResponse.json({
-            appointmentId: appointment.id,
-            stripeUrl: session.url,
-            requiresPayment: true
-          })
-        } catch (stripeError) {
-          console.error('Stripe error:', stripeError)
-          
-          // If Stripe fails but ATH Móvil is available, suggest that
-          if (business.ath_movil_enabled) {
-            return NextResponse.json({
-              appointmentId: appointment.id,
-              athRequired: true,
-              depositAmount: service.deposit_cents,
-              requiresPayment: true,
-              stripeError: true
-            })
-          } else {
-            // No payment methods available
-            return NextResponse.json({
-              appointmentId: appointment.id,
-              requiresPayment: false,
-              paymentUnavailable: true
-            })
-          }
-        }
-      } else if (business.ath_movil_enabled) {
-        // Only ATH Móvil is available
-        return NextResponse.json({
-          appointmentId: appointment.id,
-          athRequired: true,
-          depositAmount: service.deposit_cents,
-          requiresPayment: true
-        })
-      } else {
-        // No payment methods configured, book without deposit
-        return NextResponse.json({
-          appointmentId: appointment.id,
-          requiresPayment: false,
-          paymentUnavailable: true
-        })
-      }
-    }
-
-    // No deposit required, appointment is confirmed
     return NextResponse.json({
-      appointmentId: appointment.id,
-      requiresPayment: false
+      success: true,
+      appointment: {
+        id: appointment.id,
+        starts_at: appointment.starts_at,
+        status: appointment.status,
+        customer_name: appointment.customer_name,
+        customer_phone: appointment.customer_phone,
+        customer_email: appointment.customer_email,
+        business_name: appointment.business_name,
+        service_name: appointment.service_name,
+        duration_minutes: appointment.duration_minutes,
+        total_amount_cents: appointment.total_amount_cents,
+        notes: appointment.notes
+      }
     })
-    
+
   } catch (error) {
-    console.error('Booking API error:', error)
+    console.error('Get appointment error:', error)
     return NextResponse.json(
-      { error: 'Failed to create booking' },
+      { error: 'Failed to fetch appointment' },
       { status: 500 }
     )
   }

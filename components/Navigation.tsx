@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { Navbar, Nav, Container, Button, NavDropdown } from 'react-bootstrap'
 import { useLanguage } from '@/lib/language-context'
 
@@ -12,6 +12,12 @@ export default function Navigation() {
   const [userProfile, setUserProfile] = useState<any>(null)
   const [loading, setLoading] = useState(false) // Start as false, only load when needed
   const router = useRouter()
+  const pathname = usePathname()
+
+  // Don't render navigation on admin pages
+  if (pathname?.startsWith('/admin')) {
+    return null
+  }
 
   // Disable auth check in navigation for now
   useEffect(() => {
@@ -27,13 +33,13 @@ export default function Navigation() {
   }
 
   return (
-    <Navbar expand="lg" className="position-absolute w-100 top-0 start-0" style={{ 
+    <Navbar expand="lg" className="position-absolute w-100 top-0 start-0 bg-dark" style={{ 
       zIndex: 1000,
-      background: 'rgba(0,0,0,0.1)',
+      background: '#212529 !important',
       backdropFilter: 'blur(10px)'
     }}>
       <Container>
-        <Navbar.Brand as={Link} href="/" className="text-dark fw-bold fs-4">
+        <Navbar.Brand as={Link} href="/" className="text-light fw-bold fs-4">
           <i className="fab fa-whatsapp text-success me-2"></i>
           BookIt
         </Navbar.Brand>
@@ -41,14 +47,14 @@ export default function Navigation() {
         {/* Language Toggle - Centered */}
         <div className="mx-auto">
           <Button
-            variant="light"
+            variant="outline-light"
             size="sm"
             className="px-3 py-2 fw-bold"
             onClick={() => setLanguage(language === 'en' ? 'es' : 'en')}
             style={{ 
               fontSize: '0.9rem', 
               minWidth: '160px',
-              color: '#000',
+              color: '#fff',
               border: '2px solid rgba(255,255,255,0.3)'
             }}
           >
@@ -57,13 +63,13 @@ export default function Navigation() {
         </div>
         
         <Nav className="d-flex align-items-center">
-          <Nav.Link as={Link} href="/pricing" className="text-white-75 me-3" style={{ textDecoration: 'none' }}>
+          <Nav.Link as={Link} href="/pricing" className="text-light me-3" style={{ textDecoration: 'none' }}>
             {t('nav.pricing')}
           </Nav.Link>
           
           {loading ? (
             // Loading state
-            <div className="text-white-75 me-3">
+            <div className="text-light me-3">
               <i className="fas fa-spinner fa-spin"></i>
             </div>
           ) : user ? (
@@ -129,12 +135,12 @@ export default function Navigation() {
           ) : (
             // Logged out state
             <>
-              <Nav.Link as={Link} href="/login" className="text-white-75 me-3" style={{ textDecoration: 'none' }}>
+              <Nav.Link as={Link} href="/login" className="text-light me-3" style={{ textDecoration: 'none' }}>
                 {t('nav.login')}
               </Nav.Link>
               
               <Link href="/signup">
-                <Button variant="light" size="sm" className="px-3 fw-semibold">
+                <Button variant="outline-light" size="sm" className="px-3 fw-semibold">
                   {t('nav.signup')}
                 </Button>
               </Link>

@@ -7,14 +7,16 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from 'react-bootstrap'
+import { createSupabaseClient } from '@/lib/supabase'
 import { useLanguage } from '@/lib/language-context'
-import BusinessSwitcher from '@/components/BusinessSwitcher'
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  console.log('🔴 LAYOUT: DashboardLayout rendering')
+  
   const router = useRouter()
   const pathname = usePathname()
   const { language } = useLanguage()
@@ -23,55 +25,74 @@ export default function DashboardLayout({
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [isMobile, setIsMobile] = useState(false)
-  const [currentBusiness, setCurrentBusiness] = useState<any>(null)
+  
+  console.log('🔴 LAYOUT: Current pathname from usePathname():', pathname)
 
   useEffect(() => {
-    const checkIfMobile = () => {
-      const mobile = window.innerWidth < 768
-      setIsMobile(mobile)
-      // Auto-close sidebar on mobile
-      if (mobile) {
-        setSidebarOpen(false)
-      }
-    }
+    console.log('🔴 LAYOUT: useEffect triggered')
+    const supabase = createSupabaseClient()
     
-    checkIfMobile()
-    window.addEventListener('resize', checkIfMobile)
-    return () => window.removeEventListener('resize', checkIfMobile)
-  }, [])
-
-  useEffect(() => {
-    const loadUserData = () => {
-      const user = localStorage.getItem('user')
-      if (user) {
-        setUser(JSON.parse(user))
+    const getUser = async () => {
+      console.log('🔴 LAYOUT: Getting user...')
+      try {
+        // Add a timeout to prevent infinite loading
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth timeout')), 10000)
+        )
         
-        // Load current business from localStorage
-        const business = localStorage.getItem('currentBusiness')
-        if (business) {
-          setCurrentBusiness(JSON.parse(business))
+        const authPromise = supabase.auth.getUser()
+        const { data: { user }, error: userError } = await Promise.race([authPromise, timeoutPromise]) as any
+        
+        if (userError) {
+          console.error('🔴 LAYOUT: Error getting user:', userError)
+          console.log('🔴 LAYOUT: Attempting to refresh session...')
+          
+          const { data: { user: refreshedUser }, error: refreshError } = await supabase.auth.refreshSession()
+          
+          if (refreshError || !refreshedUser) {
+            console.error('🔴 LAYOUT: Session refresh failed, redirecting to login')
+            router.push('/login')
+            return
+          }
+          
+          console.log('🔴 LAYOUT: Session refreshed successfully')
+          setUser(refreshedUser)
+          setLoading(false)
+          return
         }
-      } else {
+        
+        if (!user) {
+          console.log('🔴 LAYOUT: No user found, redirecting to login')
+          router.push('/login')
+          return
+        }
+        
+        console.log('🔴 LAYOUT: User found:', user.id)
+        console.log('🔴 LAYOUT: Setting user and loading=false')
+        setUser(user)
+        setLoading(false)
+      } catch (error) {
+        console.error('🔴 LAYOUT: Unexpected error in getUser:', error)
+        console.log('🔴 LAYOUT: Redirecting to login due to error')
+        setLoading(false)
         router.push('/login')
       }
-      setLoading(false)
     }
 
-    loadUserData()
-    
-    // Listen for profile updates
-    const handleProfileUpdate = () => {
-      loadUserData()
-    }
-    
-    window.addEventListener('profileUpdated', handleProfileUpdate)
-    return () => window.removeEventListener('profileUpdated', handleProfileUpdate)
-  }, [])
+    getUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
+      if (!session) {
+        router.push('/login')
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router])
 
   const handleSignOut = async () => {
-    localStorage.removeItem('user')
-    localStorage.removeItem('token')
+    const supabase = createSupabaseClient()
+    await supabase.auth.signOut()
     router.push('/')
   }
 
@@ -91,13 +112,6 @@ export default function DashboardLayout({
       label: locale === 'es' ? 'Panel' : 'Dashboard',
       href: '/dashboard',
       active: pathname === '/dashboard',
-      available: true
-    },
-    {
-      icon: 'fas fa-globe',
-      label: locale === 'es' ? 'Página Web' : 'Webpage',
-      href: '/dashboard/webpage',
-      active: pathname === '/dashboard/webpage',
       available: true
     },
     {
@@ -139,42 +153,23 @@ export default function DashboardLayout({
 
   return (
     <div className="min-vh-100" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)' }}>
-      {/* Mobile Backdrop */}
-      {isMobile && sidebarOpen && (
-        <div 
-          className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50"
-          style={{ zIndex: 1040 }}
-          onClick={() => setSidebarOpen(false)}
-        ></div>
-      )}
-
       {/* Sidebar */}
       <div 
-        className={`position-fixed top-0 vh-100 transition-all ${
-          isMobile 
-            ? (sidebarOpen ? 'start-0' : 'start-100') 
-            : 'start-0'
-        }`}
+        className={`position-fixed top-0 start-0 vh-100 transition-all duration-300 ${sidebarOpen ? 'w-280' : 'w-80'}`}
         style={{
-          width: isMobile ? '280px' : (sidebarOpen ? '280px' : '80px'),
+          width: sidebarOpen ? '280px' : '80px',
           background: 'linear-gradient(180deg, #10b981 0%, #059669 100%)',
           boxShadow: '4px 0 20px rgba(0,0,0,0.1)',
           zIndex: 1050,
-          transition: 'all 0.3s ease',
-          transform: isMobile && !sidebarOpen ? 'translateX(-100%)' : 'translateX(0)'
+          transition: 'all 0.3s ease'
         }}
       >
         {/* Logo/Brand */}
         <div className="p-4 border-bottom border-white border-opacity-10">
           <div className="d-flex align-items-center text-white">
             <div 
-              className="rounded-circle d-flex align-items-center justify-content-center me-3"
-              style={{ 
-                width: '40px', 
-                height: '40px',
-                background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
-                border: '2px solid rgba(255,255,255,0.2)'
-              }}
+              className="rounded-circle bg-white bg-opacity-20 d-flex align-items-center justify-content-center me-3"
+              style={{ width: '40px', height: '40px' }}
             >
               <i className="fab fa-whatsapp fs-4 text-white"></i>
             </div>
@@ -233,26 +228,10 @@ export default function DashboardLayout({
         <div className="position-absolute bottom-0 w-100 p-3 border-top border-white border-opacity-10">
           <div className="d-flex align-items-center text-white">
             <div 
-              className="rounded-circle bg-white bg-opacity-20 d-flex align-items-center justify-content-center me-3 overflow-hidden"
+              className="rounded-circle bg-white bg-opacity-20 d-flex align-items-center justify-content-center me-3"
               style={{ width: '40px', height: '40px' }}
             >
-              {(user?.avatar_url || user?.user_metadata?.avatar_url) ? (
-                <img 
-                  src={user?.avatar_url || user?.user_metadata?.avatar_url} 
-                  alt="Profile" 
-                  className="w-100 h-100 object-fit-cover"
-                />
-              ) : (
-                <div className="text-white fw-bold" style={{ fontSize: '14px' }}>
-                  {(user?.full_name || user?.user_metadata?.full_name || user?.email || 'U')
-                    .split(' ')
-                    .map((n: string) => n[0])
-                    .join('')
-                    .toUpperCase()
-                    .slice(0, 2)
-                  }
-                </div>
-              )}
+              <i className="fas fa-user text-white"></i>
             </div>
             {sidebarOpen && (
               <div className="flex-grow-1">
@@ -276,35 +255,32 @@ export default function DashboardLayout({
           </div>
         </div>
 
-        {/* Sidebar Toggle - Desktop */}
-        {!isMobile && (
-          <button
-            className="position-absolute btn btn-link text-white p-2"
-            style={{ 
-              top: '50%', 
-              right: '-20px', 
-              transform: 'translateY(-50%)',
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              border: 'none',
-              borderRadius: '50%',
-              width: '40px',
-              height: '40px',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.15)'
-            }}
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            <i className={`fas ${sidebarOpen ? 'fa-chevron-left' : 'fa-chevron-right'}`}></i>
-          </button>
-        )}
+        {/* Sidebar Toggle */}
+        <button
+          className="position-absolute btn btn-link text-white p-2"
+          style={{ 
+            top: '50%', 
+            right: '-20px', 
+            transform: 'translateY(-50%)',
+            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            border: 'none',
+            borderRadius: '50%',
+            width: '40px',
+            height: '40px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.15)'
+          }}
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+        >
+          <i className={`fas ${sidebarOpen ? 'fa-chevron-left' : 'fa-chevron-right'}`}></i>
+        </button>
       </div>
 
       {/* Main Content */}
       <div 
         className="transition-all duration-300"
         style={{
-          marginLeft: isMobile ? '0' : (sidebarOpen ? '280px' : '80px'),
-          transition: 'all 0.3s ease',
-          minHeight: '100vh'
+          marginLeft: sidebarOpen ? '280px' : '80px',
+          transition: 'all 0.3s ease'
         }}
       >
         {/* Top Header Bar */}
@@ -313,63 +289,29 @@ export default function DashboardLayout({
           style={{ zIndex: 1040 }}
         >
           <div className="d-flex justify-content-between align-items-center">
-            <div className="d-flex align-items-center">
-              {/* Mobile Menu Button */}
-              {isMobile && (
-                <button
-                  className="btn btn-outline-secondary me-3 d-md-none"
-                  onClick={() => setSidebarOpen(!sidebarOpen)}
-                  style={{ border: 'none', padding: '8px 12px' }}
-                >
-                  <i className="fas fa-bars"></i>
-                </button>
-              )}
-              
-              <div>
-                <h4 className={`mb-0 fw-bold text-gray-800 ${isMobile ? 'fs-5' : ''}`}>
-                  {navigationItems.find(item => item.active)?.label || (locale === 'es' ? 'Panel' : 'Dashboard')}
-                </h4>
-                <small className="text-muted d-none d-sm-block">
-                  {locale === 'es' ? 'Bienvenido de vuelta, ' : 'Welcome back, '}{user?.user_metadata?.full_name || user?.email?.split('@')[0] || (locale === 'es' ? 'Usuario' : 'User')}
-                </small>
-              </div>
+            <div>
+              <h4 className="mb-0 fw-bold text-gray-800">
+                {navigationItems.find(item => item.active)?.label || (locale === 'es' ? 'Panel' : 'Dashboard')}
+              </h4>
+              <small className="text-muted">
+                {locale === 'es' ? 'Bienvenido de vuelta, ' : 'Welcome back, '}{user?.user_metadata?.full_name || user?.email?.split('@')[0] || (locale === 'es' ? 'Usuario' : 'User')}
+              </small>
             </div>
-            <div className="d-flex align-items-center gap-2">
-              {/* Business Switcher */}
-              <BusinessSwitcher 
-                currentBusiness={currentBusiness}
-                onBusinessChange={setCurrentBusiness}
-              />
-              
-              <Button variant="outline-primary" size="sm" className="d-none d-sm-inline-block">
+            <div className="d-flex align-items-center gap-3">
+              <Button variant="outline-primary" size="sm">
                 <i className="fas fa-bell me-1"></i>
-                <span className="d-none d-lg-inline">
-                  {locale === 'es' ? 'Notificaciones' : 'Notifications'}
-                </span>
+                {locale === 'es' ? 'Notificaciones' : 'Notifications'}
               </Button>
-              
-              {/* Mobile notification icon only */}
-              <Button variant="outline-primary" size="sm" className="d-sm-none">
-                <i className="fas fa-bell"></i>
-              </Button>
-              
-              <Button variant="success" size="sm" className="d-none d-sm-inline-block">
+              <Button variant="success" size="sm">
                 <i className="fas fa-plus me-1"></i>
-                <span className="d-none d-lg-inline">
-                  {locale === 'es' ? 'Acción Rápida' : 'Quick Action'}
-                </span>
-              </Button>
-              
-              {/* Mobile quick action icon only */}
-              <Button variant="success" size="sm" className="d-sm-none">
-                <i className="fas fa-plus"></i>
+                {locale === 'es' ? 'Acción Rápida' : 'Quick Action'}
               </Button>
             </div>
           </div>
         </div>
 
         {/* Page Content */}
-        <main className="p-4" style={{ minHeight: 'calc(100vh - 80px)', paddingTop: '1.5rem' }}>
+        <main className="p-4" style={{ minHeight: 'calc(100vh - 80px)' }}>
           {children}
         </main>
       </div>
