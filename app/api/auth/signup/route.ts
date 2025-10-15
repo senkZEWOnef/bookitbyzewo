@@ -47,6 +47,31 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Signup error:', error)
-    return NextResponse.json({ error: 'Failed to create account' }, { status: 500 })
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      constraint: error.constraint,
+      table: error.table
+    })
+    
+    // Provide more specific error messages
+    if (error.code === '42P01') {
+      return NextResponse.json({ 
+        error: 'Database table does not exist. Please contact support.',
+        details: 'users table not found'
+      }, { status: 500 })
+    }
+    
+    if (error.code === '23505') {
+      return NextResponse.json({ 
+        error: 'An account with this email already exists' 
+      }, { status: 400 })
+    }
+    
+    return NextResponse.json({ 
+      error: 'Failed to create account',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 })
   }
 }
