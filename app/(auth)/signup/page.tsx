@@ -40,6 +40,13 @@ export default function SignupPage() {
     }
 
     try {
+      console.log('🔄 Attempting signup with data:', {
+        email: formData.email.trim(),
+        full_name: formData.fullName,
+        phone: formData.phone || 'not provided',
+        password_length: formData.password.length
+      })
+
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -52,11 +59,22 @@ export default function SignupPage() {
       })
 
       const result = await response.json()
+      console.log('📡 Signup response:', { 
+        status: response.status, 
+        ok: response.ok, 
+        result 
+      })
 
       if (response.ok) {
+        console.log('✅ Signup successful, redirecting to login')
         router.push('/login?message=Account created successfully! Please login.')
       } else {
-        setError(result.error || 'Failed to create account')
+        console.error('❌ Signup failed:', result)
+        // Show more detailed error information
+        const errorMessage = result.details 
+          ? `${result.error} (${result.details})`
+          : result.error || 'Failed to create account'
+        setError(errorMessage)
       }
     } catch (error) {
       setError('Network error. Please try again.')
