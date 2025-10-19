@@ -9,30 +9,30 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-  
   try {
     const appointmentId = params.id.replace('.ics', '')
     
-    const { data: appointment, error } = await supabase
-      .from('appointments')
-      .select(`
-        *,
-        services (name, description),
-        businesses (name, location)
-      `)
-      .eq('id', appointmentId)
-      .single()
+    const result = await query(`
+      SELECT 
+        a.*,
+        s.name as service_name,
+        s.description as service_description,
+        b.name as business_name,
+        b.location as business_location
+      FROM appointments a
+      LEFT JOIN services s ON a.service_id = s.id
+      LEFT JOIN businesses b ON a.business_id = b.id
+      WHERE a.id = $1
+    `, [appointmentId])
 
-    if (error || !appointment) {
+    if (result.rows.length === 0) {
       return NextResponse.json(
         { error: 'Appointment not found' },
         { status: 404 }
       )
     }
+
+    const appointment = result.rows[0]
 
     // Format dates for ICS (YYYYMMDDTHHMMSSZ format)
     const formatICSDate = (date: string) => {

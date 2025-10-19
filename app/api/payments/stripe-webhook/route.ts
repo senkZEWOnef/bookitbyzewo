@@ -36,12 +36,12 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed':
         const session = event.data.object as Stripe.Checkout.Session
-        await handleSuccessfulPayment(session, supabase)
+        await handleSuccessfulPayment(session)
         break
         
       case 'payment_intent.payment_failed':
         const paymentIntent = event.data.object as Stripe.PaymentIntent
-        await handleFailedPayment(paymentIntent, supabase)
+        await handleFailedPayment(paymentIntent)
         break
         
       default:
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleSuccessfulPayment(session: Stripe.Checkout.Session, supabase: any) {
+async function handleSuccessfulPayment(session: Stripe.Checkout.Session) {
   const appointmentId = session.metadata?.appointment_id
   const businessId = session.metadata?.business_id
 
@@ -69,17 +69,20 @@ async function handleSuccessfulPayment(session: Stripe.Checkout.Session, supabas
 
   try {
     // Update payment record
-    await supabase
-      .from('payments')
-      .update({ status: 'completed' })
-      .eq('external_id', session.id)
-      .eq('provider', 'stripe')
+    await query(
+      `UPDATE payments 
+       SET status = 'completed', updated_at = NOW() 
+       WHERE external_id = $1 AND provider = 'stripe'`,
+      [session.id]
+    )
 
     // Update appointment status
-    await supabase
-      .from('appointments')
-      .update({ status: 'confirmed' })
-      .eq('id', appointmentId)
+    await query(
+      `UPDATE appointments 
+       SET status = 'confirmed', updated_at = NOW() 
+       WHERE id = $1`,
+      [appointmentId]
+    )
 
     console.log(`Payment completed for appointment ${appointmentId}`)
   } catch (error) {
@@ -87,7 +90,7 @@ async function handleSuccessfulPayment(session: Stripe.Checkout.Session, supabas
   }
 }
 
-async function handleFailedPayment(paymentIntent: Stripe.PaymentIntent, supabase: any) {
+async function handleFailedPayment(paymentIntent: Stripe.PaymentIntent) {
   const appointmentId = paymentIntent.metadata?.appointment_id
 
   if (!appointmentId) {
@@ -97,11 +100,12 @@ async function handleFailedPayment(paymentIntent: Stripe.PaymentIntent, supabase
 
   try {
     // Update payment record
-    await supabase
-      .from('payments')
-      .update({ status: 'failed' })
-      .eq('external_id', paymentIntent.id)
-      .eq('provider', 'stripe')
+    await query(
+      `UPDATE payments 
+       SET status = 'failed', updated_at = NOW() 
+       WHERE external_id = $1 AND provider = 'stripe'`,
+      [paymentIntent.id]
+    )
 
     console.log(`Payment failed for appointment ${appointmentId}`)
   } catch (error) {

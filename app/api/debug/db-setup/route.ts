@@ -44,11 +44,19 @@ export async function GET(request: NextRequest) {
         email VARCHAR(255),
         timezone VARCHAR(100) DEFAULT 'America/New_York',
         messaging_mode VARCHAR(50) DEFAULT 'whatsapp',
+        stripe_secret_key VARCHAR(255),
+        stripe_publishable_key VARCHAR(255),
+        stripe_enabled BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `)
     console.log('✅ Businesses table created/verified')
+
+    // Add missing columns to businesses table
+    await query(`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS stripe_secret_key VARCHAR(255)`).catch(() => {})
+    await query(`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS stripe_publishable_key VARCHAR(255)`).catch(() => {})
+    await query(`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS stripe_enabled BOOLEAN DEFAULT false`).catch(() => {})
 
     // Create services table
     await query(`
@@ -82,6 +90,7 @@ export async function GET(request: NextRequest) {
         status VARCHAR(50) DEFAULT 'pending',
         total_amount_cents INTEGER DEFAULT 0,
         deposit_amount_cents INTEGER DEFAULT 0,
+        deposit_payment_id VARCHAR(255),
         notes TEXT,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
@@ -93,6 +102,26 @@ export async function GET(request: NextRequest) {
     await query(`ALTER TABLE appointments ADD COLUMN IF NOT EXISTS duration_minutes INTEGER DEFAULT 0`).catch(() => {})
     await query(`ALTER TABLE appointments ADD COLUMN IF NOT EXISTS total_amount_cents INTEGER DEFAULT 0`).catch(() => {})
     await query(`ALTER TABLE appointments ADD COLUMN IF NOT EXISTS deposit_amount_cents INTEGER DEFAULT 0`).catch(() => {})
+    await query(`ALTER TABLE appointments ADD COLUMN IF NOT EXISTS deposit_payment_id VARCHAR(255)`).catch(() => {})
+
+    // Create payments table
+    await query(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+        provider VARCHAR(50) NOT NULL,
+        external_id VARCHAR(255) NOT NULL,
+        amount_cents INTEGER NOT NULL,
+        currency VARCHAR(10) DEFAULT 'USD',
+        status VARCHAR(50) DEFAULT 'pending',
+        kind VARCHAR(50) DEFAULT 'deposit',
+        meta JSONB,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(provider, external_id)
+      )
+    `)
+    console.log('✅ Payments table created/verified')
 
     // Create availability_rules table
     await query(`
@@ -167,6 +196,9 @@ export async function GET(request: NextRequest) {
     await query(`CREATE INDEX IF NOT EXISTS idx_services_business_id ON services(business_id)`).catch(() => {})
     await query(`CREATE INDEX IF NOT EXISTS idx_appointments_business_id ON appointments(business_id)`).catch(() => {})
     await query(`CREATE INDEX IF NOT EXISTS idx_appointments_starts_at ON appointments(starts_at)`).catch(() => {})
+    await query(`CREATE INDEX IF NOT EXISTS idx_payments_business_id ON payments(business_id)`).catch(() => {})
+    await query(`CREATE INDEX IF NOT EXISTS idx_payments_external_id ON payments(external_id)`).catch(() => {})
+    await query(`CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status)`).catch(() => {})
     console.log('✅ Database indexes created/verified')
 
     // Test user creation capability
