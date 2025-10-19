@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Pool } from 'pg'
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
-})
+import { query } from '@/lib/db'
 
 // DELETE /api/staff/invite/[id] - Delete a pending staff invitation
 export async function DELETE(
@@ -23,75 +19,58 @@ export async function DELETE(
       )
     }
 
-    const client = await pool.connect()
+    // Get invitation details and verify permissions
+    const invitationCheck = await query(
+      `SELECT si.id, si.email, si.status, si.business_id, b.name as business_name, ub.role as user_role
+       FROM staff_invitations si
+       JOIN businesses b ON si.business_id = b.id
+       LEFT JOIN user_businesses ub ON b.id = ub.business_id AND ub.user_id = $1
+       WHERE si.id = $2`,
+      [inviterId, invitationId]
+    )
 
-    try {
-      await client.query('BEGIN')
-
-      // Get invitation details and verify permissions
-      const invitationCheck = await client.query(
-        `SELECT si.id, si.email, si.status, si.business_id, b.name as business_name, ub.role as user_role
-         FROM staff_invitations si
-         JOIN businesses b ON si.business_id = b.id
-         LEFT JOIN user_businesses ub ON b.id = ub.business_id AND ub.user_id = $1
-         WHERE si.id = $2`,
-        [inviterId, invitationId]
+    if (invitationCheck.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Invitation not found' },
+        { status: 404 }
       )
-
-      if (invitationCheck.rows.length === 0) {
-        await client.query('ROLLBACK')
-        return NextResponse.json(
-          { error: 'Invitation not found' },
-          { status: 404 }
-        )
-      }
-
-      const invitation = invitationCheck.rows[0]
-      
-      // Check if user has permission to delete (owner or admin)
-      if (!invitation.user_role || !['owner', 'admin'].includes(invitation.user_role)) {
-        await client.query('ROLLBACK')
-        return NextResponse.json(
-          { error: 'You do not have permission to delete this invitation' },
-          { status: 403 }
-        )
-      }
-
-      // Only allow deletion of pending invitations
-      if (invitation.status !== 'pending') {
-        await client.query('ROLLBACK')
-        return NextResponse.json(
-          { error: `Cannot delete ${invitation.status} invitation` },
-          { status: 400 }
-        )
-      }
-
-      // Delete the invitation
-      await client.query(
-        'DELETE FROM staff_invitations WHERE id = $1',
-        [invitationId]
-      )
-
-      // Also delete any associated staff record without user_id (invitation-only record)
-      await client.query(
-        `DELETE FROM staff 
-         WHERE business_id = $1 AND email = $2 AND user_id IS NULL`,
-        [invitation.business_id, invitation.email]
-      )
-
-      await client.query('COMMIT')
-
-      return NextResponse.json({
-        message: 'Invitation deleted successfully',
-        deletedEmail: invitation.email
-      })
-
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
     }
+
+    const invitation = invitationCheck.rows[0]
+    
+    // Check if user has permission to delete (owner or admin)
+    if (!invitation.user_role || !['owner', 'admin'].includes(invitation.user_role)) {
+      return NextResponse.json(
+        { error: 'You do not have permission to delete this invitation' },
+        { status: 403 }
+      )
+    }
+
+    // Only allow deletion of pending invitations
+    if (invitation.status !== 'pending') {
+      return NextResponse.json(
+        { error: `Cannot delete ${invitation.status} invitation` },
+        { status: 400 }
+      )
+    }
+
+    // Delete the invitation
+    await query(
+      'DELETE FROM staff_invitations WHERE id = $1',
+      [invitationId]
+    )
+
+    // Also delete any associated staff record without user_id (invitation-only record)
+    await query(
+      `DELETE FROM staff 
+       WHERE business_id = $1 AND email = $2 AND user_id IS NULL`,
+      [invitation.business_id, invitation.email]
+    )
+
+    return NextResponse.json({
+      message: 'Invitation deleted successfully',
+      deletedEmail: invitation.email
+    })
 
   } catch (error) {
     console.error('Error deleting staff invitation:', error)

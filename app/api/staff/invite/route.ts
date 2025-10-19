@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Pool } from 'pg'
+import { query } from '@/lib/db'
 import crypto from 'crypto'
 import { sendStaffInvitationEmail } from '@/lib/email-service'
 import { sendStaffInvitationWhatsApp, validatePhoneNumber, formatPhoneNumber } from '@/lib/whatsapp-service'
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
-})
 
 // POST /api/staff/invite - Send staff invitation
 export async function POST(request: NextRequest) {
