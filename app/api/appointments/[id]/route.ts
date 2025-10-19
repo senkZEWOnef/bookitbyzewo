@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { query } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -8,23 +8,25 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
   
   try {
-    const { data: appointment, error } = await supabase
-      .from('appointments')
-      .select(`
-        *,
-        services (name, price_cents, deposit_cents),
-        businesses (name, location)
-      `)
-      .eq('id', params.id)
-      .single()
+    const appointmentResult = await query(`
+      SELECT 
+        a.*,
+        s.name as service_name,
+        s.price_cents,
+        s.deposit_cents,
+        b.name as business_name,
+        b.location as business_location
+      FROM appointments a
+      JOIN services s ON a.service_id = s.id
+      JOIN businesses b ON a.business_id = b.id
+      WHERE a.id = $1
+    `, [params.id])
+    
+    const appointment = appointmentResult.rows[0]
 
-    if (error || !appointment) {
+    if (!appointment) {
       return NextResponse.json(
         { error: 'Appointment not found' },
         { status: 404 }
@@ -34,15 +36,15 @@ export async function GET(
     // Format response
     const formattedAppointment = {
       id: appointment.id,
-      service_name: appointment.services.name,
+      service_name: appointment.service_name,
       starts_at: appointment.starts_at,
       customer_name: appointment.customer_name,
       customer_phone: appointment.customer_phone,
       customer_locale: appointment.customer_locale,
-      business_name: appointment.businesses.name,
-      business_location: appointment.businesses.location,
-      deposit_amount: appointment.services.deposit_cents,
-      total_amount: appointment.services.price_cents,
+      business_name: appointment.business_name,
+      business_location: appointment.business_location,
+      deposit_amount: appointment.deposit_cents,
+      total_amount: appointment.price_cents,
       status: appointment.status
     }
 

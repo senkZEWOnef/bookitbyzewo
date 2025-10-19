@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { query } from '@/lib/db'
 import { format, parseISO } from 'date-fns'
 
 export const runtime = 'nodejs'
@@ -54,19 +54,19 @@ UID:appointment-${appointment.id}@bookitbyzewo.com
 DTSTART:${startDate}
 DTEND:${endDate}
 DTSTAMP:${createdDate}
-SUMMARY:${appointment.services.name} - ${appointment.businesses.name}
-DESCRIPTION:Appointment for ${appointment.services.name}${appointment.services.description ? '\\n\\n' + appointment.services.description : ''}\\n\\nCustomer: ${appointment.customer_name}\\n\\nPowered by BookIt by Zewo
-LOCATION:${appointment.businesses.location || appointment.businesses.name}
+SUMMARY:${appointment.service_name} - ${appointment.business_name}
+DESCRIPTION:Appointment for ${appointment.service_name}${appointment.service_description ? '\\n\\n' + appointment.service_description : ''}\\n\\nCustomer: ${appointment.customer_name}\\n\\nPowered by BookIt by Zewo
+LOCATION:${appointment.business_location || appointment.business_name}
 STATUS:CONFIRMED
 SEQUENCE:0
 BEGIN:VALARM
 TRIGGER:-PT24H
-DESCRIPTION:Reminder: ${appointment.services.name} appointment tomorrow
+DESCRIPTION:Reminder: ${appointment.service_name} appointment tomorrow
 ACTION:DISPLAY
 END:VALARM
 BEGIN:VALARM
 TRIGGER:-PT2H
-DESCRIPTION:Reminder: ${appointment.services.name} appointment in 2 hours
+DESCRIPTION:Reminder: ${appointment.service_name} appointment in 2 hours
 ACTION:DISPLAY
 END:VALARM
 END:VEVENT

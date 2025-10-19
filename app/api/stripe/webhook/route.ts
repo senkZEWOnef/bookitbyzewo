@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { query } from '@/lib/db'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -13,10 +13,6 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
   
   try {
     const body = await request.text()
@@ -44,35 +40,35 @@ export async function POST(request: NextRequest) {
         }
 
         // Update payment status
-        const { error: paymentError } = await supabase
-          .from('payments')
-          .update({
-            status: 'succeeded',
-            meta: { 
-              stripe_session_id: session.id,
-              payment_intent_id: session.payment_intent 
-            }
-          })
-          .eq('external_id', session.id)
-
-        if (paymentError) {
+        try {
+          await query(
+            'UPDATE payments SET status = $1, meta = $2 WHERE external_id = $3',
+            [
+              'succeeded',
+              JSON.stringify({
+                stripe_session_id: session.id,
+                payment_intent_id: session.payment_intent
+              }),
+              session.id
+            ]
+          )
+        } catch (paymentError) {
           console.error('Failed to update payment:', paymentError)
           break
         }
 
-        // Update appointment status to confirmed
-        const { error: appointmentError } = await supabase
-          .from('appointments')
-          .update({ 
-            status: 'confirmed',
-            deposit_payment_id: session.id
-          })
-          .eq('id', appointmentId)
 
-        if (appointmentError) {
+        // Update appointment status to confirmed
+        try {
+          await query(
+            'UPDATE appointments SET status = $1, deposit_payment_id = $2 WHERE id = $3',
+            ['confirmed', session.id, appointmentId]
+          )
+        } catch (appointmentError) {
           console.error('Failed to update appointment:', appointmentError)
           break
         }
+
 
         console.log('Payment confirmed for appointment:', appointmentId)
         break
@@ -84,15 +80,19 @@ export async function POST(request: NextRequest) {
 
         if (appointmentId) {
           // Mark payment as failed and appointment as canceled
-          await supabase
-            .from('payments')
-            .update({ status: 'failed' })
-            .eq('external_id', session.id)
+          try {
+            await query(
+              'UPDATE payments SET status = $1 WHERE external_id = $2',
+              ['failed', session.id]
+            )
 
-          await supabase
-            .from('appointments')
-            .update({ status: 'canceled' })
-            .eq('id', appointmentId)
+            await query(
+              'UPDATE appointments SET status = $1 WHERE id = $2',
+              ['canceled', appointmentId]
+            )
+          } catch (error) {
+            console.error('Failed to update payment/appointment on expiry:', error)
+          }
 
           console.log('Payment expired for appointment:', appointmentId)
         }
@@ -103,25 +103,30 @@ export async function POST(request: NextRequest) {
         const paymentIntent = event.data.object as Stripe.PaymentIntent
         
         // Find the related payment and appointment
-        const { data: payment } = await supabase
-          .from('payments')
-          .select('meta')
-          .eq('external_id', paymentIntent.id)
-          .single()
+        try {
+          const paymentResult = await query(
+            'SELECT meta FROM payments WHERE external_id = $1',
+            [paymentIntent.id]
+          )
+          const payment = paymentResult.rows[0]
 
-        if (payment?.meta?.appointment_id) {
-          await supabase
-            .from('payments')
-            .update({ status: 'failed' })
-            .eq('external_id', paymentIntent.id)
+          if (payment?.meta?.appointment_id) {
+            await query(
+              'UPDATE payments SET status = $1 WHERE external_id = $2',
+              ['failed', paymentIntent.id]
+            )
 
-          await supabase
-            .from('appointments')
-            .update({ status: 'canceled' })
-            .eq('id', payment.meta.appointment_id)
+            await query(
+              'UPDATE appointments SET status = $1 WHERE id = $2',
+              ['canceled', payment.meta.appointment_id]
+            )
 
-          console.log('Payment failed for appointment:', payment.meta.appointment_id)
+            console.log('Payment failed for appointment:', payment.meta.appointment_id)
+          }
+        } catch (error) {
+          console.error('Failed to handle payment failure:', error)
         }
+
         break
       }
 

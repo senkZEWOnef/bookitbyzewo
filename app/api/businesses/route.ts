@@ -4,6 +4,36 @@ import { query } from '@/lib/db'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get('userId')
+
+    if (!userId) {
+      return NextResponse.json({ error: 'User ID required' }, { status: 400 })
+    }
+
+    console.log('🟡 Fetching businesses for user:', userId)
+
+    // Get businesses for the user
+    const result = await query(
+      'SELECT id, name, slug, location, timezone, created_at FROM businesses WHERE owner_id = $1 ORDER BY created_at DESC',
+      [userId]
+    )
+
+    console.log('🟢 Found', result.rows.length, 'businesses for user')
+
+    return NextResponse.json({ 
+      success: true, 
+      businesses: result.rows 
+    })
+
+  } catch (error) {
+    console.error('Businesses fetch error:', error)
+    return NextResponse.json({ error: 'Failed to fetch businesses' }, { status: 500 })
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { name, slug, location, timezone, businessType, userId } = await request.json()

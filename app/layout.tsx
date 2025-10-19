@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import 'bootstrap/dist/css/bootstrap.min.css'
 import './globals.css'
 import { LanguageProvider } from '@/lib/language-context'
 import Navigation from '@/components/Navigation'

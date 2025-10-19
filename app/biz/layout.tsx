@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import 'bootstrap/dist/css/bootstrap.min.css'
 
 export const dynamic = 'force-dynamic'
 

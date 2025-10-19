@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { query } from '@/lib/db'
 import { parseISO, addMinutes } from 'date-fns'
 
 export const runtime = 'nodejs'
@@ -9,10 +9,6 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
   
   try {
     const body = await request.json()
@@ -26,16 +22,15 @@ export async function PATCH(
     }
 
     // Get existing appointment
-    const { data: appointment, error: fetchError } = await supabase
-      .from('appointments')
-      .select(`
-        *,
-        services (duration_min)
-      `)
-      .eq('id', params.id)
-      .single()
+    const appointmentResult = await query(`
+      SELECT a.*, s.duration_minutes
+      FROM appointments a
+      JOIN services s ON a.service_id = s.id
+      WHERE a.id = $1
+    `, [params.id])
+    const appointment = appointmentResult.rows[0]
 
-    if (fetchError || !appointment) {
+    if (!appointment) {
       return NextResponse.json(
         { error: 'Appointment not found' },
         { status: 404 }
@@ -51,28 +46,30 @@ export async function PATCH(
 
     // Calculate new end time
     const newStartsAt = parseISO(datetime)
-    const newEndsAt = addMinutes(newStartsAt, appointment.services.duration_min)
+    const newEndsAt = addMinutes(newStartsAt, appointment.duration_minutes)
 
     // Check if new slot is available
-    let query = supabase
-      .from('appointments')
-      .select('id')
-      .eq('business_id', appointment.business_id)
-      .gte('starts_at', newStartsAt.toISOString())
-      .lte('starts_at', newEndsAt.toISOString())
-      .in('status', ['confirmed', 'pending'])
-      .neq('id', params.id) // Exclude current appointment
+    let conflictQuery = `
+      SELECT id FROM appointments 
+      WHERE business_id = $1 
+      AND starts_at >= $2 
+      AND starts_at <= $3 
+      AND status IN ('confirmed', 'pending')
+      AND id != $4
+    `
+    const queryParams = [appointment.business_id, newStartsAt.toISOString(), newEndsAt.toISOString(), params.id]
     
-    // Add staff filter if staff_id exists
     if (appointment.staff_id) {
-      query = query.eq('staff_id', appointment.staff_id)
+      conflictQuery += ' AND staff_id = $5'
+      queryParams.push(appointment.staff_id)
     } else {
-      query = query.is('staff_id', null)
+      conflictQuery += ' AND staff_id IS NULL'
     }
     
-    const { data: conflictingAppointments } = await query
+    const conflictResult = await query(conflictQuery, queryParams)
+    const conflictingAppointments = conflictResult.rows
 
-    if (conflictingAppointments && conflictingAppointments.length > 0) {
+    if (conflictingAppointments.length > 0) {
       return NextResponse.json(
         { error: 'New time slot is not available' },
         { status: 409 }
@@ -80,21 +77,11 @@ export async function PATCH(
     }
 
     // Update appointment
-    const { error: updateError } = await supabase
-      .from('appointments')
-      .update({
-        starts_at: newStartsAt.toISOString(),
-        ends_at: newEndsAt.toISOString()
-      })
-      .eq('id', params.id)
+    await query(
+      'UPDATE appointments SET starts_at = $1, ends_at = $2 WHERE id = $3',
+      [newStartsAt.toISOString(), newEndsAt.toISOString(), params.id]
+    )
 
-    if (updateError) {
-      console.error('Appointment update error:', updateError)
-      return NextResponse.json(
-        { error: 'Failed to reschedule appointment' },
-        { status: 500 }
-      )
-    }
 
     // TODO: Send WhatsApp notification about reschedule
 

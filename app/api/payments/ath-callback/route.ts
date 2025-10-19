@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { query } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
 
   try {
     const body = await request.json()
@@ -22,11 +18,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Find the appointment
-    const { data: appointment } = await supabase
-      .from('appointments')
-      .select('*, businesses(id, name)')
-      .eq('id', appointmentId)
-      .single()
+    const appointmentResult = await query(`
+      SELECT a.*, b.id as business_id, b.name as business_name
+      FROM appointments a
+      JOIN businesses b ON a.business_id = b.id
+      WHERE a.id = $1
+    `, [appointmentId])
+    const appointment = appointmentResult.rows[0]
 
     if (!appointment) {
       return NextResponse.json(
@@ -36,53 +34,54 @@ export async function POST(request: NextRequest) {
     }
 
     // Update or create payment record
-    const { data: existingPayment } = await supabase
-      .from('payments')
-      .select('id')
-      .eq('external_id', referenceNumber)
-      .eq('provider', 'ath_movil')
-      .single()
+    const existingPaymentResult = await query(
+      'SELECT id FROM payments WHERE external_id = $1 AND provider = $2',
+      [referenceNumber, 'ath_movil']
+    )
+    const existingPayment = existingPaymentResult.rows[0]
 
     const paymentStatus = status === 'completed' ? 'completed' : 'failed'
 
     if (existingPayment) {
       // Update existing payment
-      await supabase
-        .from('payments')
-        .update({
-          status: paymentStatus,
-          meta: {
+      await query(
+        'UPDATE payments SET status = $1, meta = $2 WHERE id = $3',
+        [
+          paymentStatus,
+          JSON.stringify({
             appointment_id: appointmentId,
             ath_payment_data: paymentData,
             updated_at: new Date().toISOString()
-          }
-        })
-        .eq('id', existingPayment.id)
+          }),
+          existingPayment.id
+        ]
+      )
     } else {
       // Create new payment record
-      await supabase
-        .from('payments')
-        .insert({
-          business_id: appointment.businesses.id,
-          provider: 'ath_movil',
-          external_id: referenceNumber,
-          amount_cents: Math.round(amount * 100),
-          currency: 'USD',
-          status: paymentStatus,
-          kind: 'deposit',
-          meta: {
+      await query(
+        'INSERT INTO payments (business_id, provider, external_id, amount_cents, currency, status, kind, meta) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        [
+          appointment.business_id,
+          'ath_movil',
+          referenceNumber,
+          Math.round(amount * 100),
+          'USD',
+          paymentStatus,
+          'deposit',
+          JSON.stringify({
             appointment_id: appointmentId,
             ath_payment_data: paymentData
-          }
-        })
+          })
+        ]
+      )
     }
 
     // Update appointment status if payment completed
     if (status === 'completed') {
-      await supabase
-        .from('appointments')
-        .update({ status: 'confirmed' })
-        .eq('id', appointmentId)
+      await query(
+        'UPDATE appointments SET status = $1 WHERE id = $2',
+        ['confirmed', appointmentId]
+      )
     }
 
     return NextResponse.json({
@@ -102,10 +101,6 @@ export async function POST(request: NextRequest) {
 
 // Handle GET requests for payment status checks
 export async function GET(request: NextRequest) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
 
   const { searchParams } = new URL(request.url)
   const appointmentId = searchParams.get('appointmentId')
@@ -119,17 +114,29 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    let query = supabase
-      .from('payments')
-      .select('*, appointments(id, status, customer_name)')
+    let paymentQuery: string
+    let queryParams: any[]
 
     if (referenceNumber) {
-      query = query.eq('external_id', referenceNumber).eq('provider', 'ath_movil')
-    } else if (appointmentId) {
-      query = query.eq('meta->appointment_id', appointmentId).eq('provider', 'ath_movil')
+      paymentQuery = `
+        SELECT p.*, a.id as appointment_id, a.status as appointment_status, a.customer_name
+        FROM payments p
+        LEFT JOIN appointments a ON (p.meta->>'appointment_id')::uuid = a.id
+        WHERE p.external_id = $1 AND p.provider = $2
+      `
+      queryParams = [referenceNumber, 'ath_movil']
+    } else {
+      paymentQuery = `
+        SELECT p.*, a.id as appointment_id, a.status as appointment_status, a.customer_name
+        FROM payments p
+        LEFT JOIN appointments a ON (p.meta->>'appointment_id')::uuid = a.id
+        WHERE (p.meta->>'appointment_id')::uuid = $1 AND p.provider = $2
+      `
+      queryParams = [appointmentId, 'ath_movil']
     }
 
-    const { data: payment } = await query.single()
+    const paymentResult = await query(paymentQuery, queryParams)
+    const payment = paymentResult.rows[0]
 
     if (!payment) {
       return NextResponse.json(
@@ -145,8 +152,8 @@ export async function GET(request: NextRequest) {
         amount: payment.amount_cents / 100,
         referenceNumber: payment.external_id,
         appointmentId: payment.meta?.appointment_id,
-        appointmentStatus: payment.appointments?.status,
-        customerName: payment.appointments?.customer_name
+        appointmentStatus: payment.appointment_status,
+        customerName: payment.customer_name
       }
     })
 

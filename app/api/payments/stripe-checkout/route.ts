@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { query } from '@/lib/db'
 import Stripe from 'stripe'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
 
   try {
     const body = await request.json()
@@ -31,11 +27,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Get business to retrieve Stripe credentials
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('id, name, stripe_secret_key, stripe_enabled')
-      .eq('slug', businessSlug)
-      .single()
+    const businessResult = await query(
+      'SELECT id, name, stripe_secret_key, stripe_enabled FROM businesses WHERE slug = $1',
+      [businessSlug]
+    )
+    const business = businessResult.rows[0]
 
     if (!business) {
       return NextResponse.json(
@@ -93,22 +89,23 @@ export async function POST(request: NextRequest) {
     })
 
     // Store payment reference
-    await supabase
-      .from('payments')
-      .insert({
-        business_id: business.id,
-        provider: 'stripe',
-        external_id: session.id,
-        amount_cents: amount,
-        currency: 'USD',
-        status: 'pending',
-        kind: 'deposit',
-        meta: { 
+    await query(
+      'INSERT INTO payments (business_id, provider, external_id, amount_cents, currency, status, kind, meta) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+      [
+        business.id,
+        'stripe',
+        session.id,
+        amount,
+        'USD',
+        'pending',
+        'deposit',
+        JSON.stringify({
           appointment_id: appointmentId,
           session_id: session.id,
           client_name: clientName
-        }
-      })
+        })
+      ]
+    )
 
     return NextResponse.json({
       sessionId: session.id

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { format, parseISO, addMinutes, startOfDay, endOfDay } from 'date-fns'
-import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz'
-import { generateTimeSlots, isSlotAvailable } from '@/lib/time'
+import { query } from '@/lib/db'
+import { format, parseISO, addMinutes, startOfDay, endOfDay, getDay } from 'date-fns'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -11,16 +9,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-  
   try {
     const { searchParams } = new URL(request.url)
     const date = searchParams.get('date')
     const serviceId = searchParams.get('serviceId')
-    const staffId = searchParams.get('staffId')
 
     if (!date || !serviceId) {
       return NextResponse.json(
@@ -29,143 +21,149 @@ export async function GET(
       )
     }
 
-    // Get business and service details
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('*')
-      .eq('slug', params.slug)
-      .single()
+    // Get business details using Neon
+    const businessResult = await query(
+      'SELECT * FROM businesses WHERE slug = $1',
+      [params.slug]
+    )
 
-    if (!business) {
+    if (businessResult.rows.length === 0) {
       return NextResponse.json(
         { error: 'Business not found' },
         { status: 404 }
       )
     }
 
-    const { data: service } = await supabase
-      .from('services')
-      .select('*')
-      .eq('id', serviceId)
-      .eq('business_id', business.id)
-      .single()
+    const business = businessResult.rows[0]
 
-    if (!service) {
+    // Get service details using Neon
+    const serviceResult = await query(
+      'SELECT * FROM services WHERE id = $1 AND business_id = $2 AND is_active = true',
+      [serviceId, business.id]
+    )
+
+    if (serviceResult.rows.length === 0) {
       return NextResponse.json(
         { error: 'Service not found' },
         { status: 404 }
       )
     }
 
-    // Get availability rules for the specific weekday
-    const targetDate = parseISO(date)
-    const weekday = targetDate.getDay() // 0 = Sunday
-    
-    let availabilityQuery = supabase
-      .from('availability_rules')
-      .select('*')
-      .eq('business_id', business.id)
-      .eq('weekday', weekday)
-    
-    if (staffId) {
-      availabilityQuery = availabilityQuery.eq('staff_id', staffId)
-    } else {
-      availabilityQuery = availabilityQuery.is('staff_id', null)
-    }
-    
-    const { data: availabilityRules } = await availabilityQuery
+    const service = serviceResult.rows[0]
+    const requestedDate = parseISO(date)
+    const dayOfWeek = getDay(requestedDate) // 0 = Sunday, 1 = Monday, etc.
 
-    if (!availabilityRules || availabilityRules.length === 0) {
-      return NextResponse.json({ slots: [] })
+    // Get availability rules for this day
+    const availabilityResult = await query(
+      'SELECT * FROM availability_rules WHERE business_id = $1 AND weekday = $2 AND is_active = true',
+      [business.id, dayOfWeek]
+    )
+
+    if (availabilityResult.rows.length === 0) {
+      return NextResponse.json({
+        success: true,
+        slots: [],
+        message: 'No availability for this day'
+      })
     }
 
-    // Get availability exceptions for this date
-    let exceptionsQuery = supabase
-      .from('availability_exceptions')
-      .select('*')
-      .eq('business_id', business.id)
-      .eq('date', date)
-    
-    if (staffId) {
-      exceptionsQuery = exceptionsQuery.eq('staff_id', staffId)
-    } else {
-      exceptionsQuery = exceptionsQuery.is('staff_id', null)
-    }
-    
-    const { data: exceptions } = await exceptionsQuery
+    const availability = availabilityResult.rows[0]
 
-    // Check if the day is marked as closed
-    const isClosed = exceptions?.some(exc => exc.is_closed)
-    if (isClosed) {
-      return NextResponse.json({ slots: [] })
-    }
+    // Check for exceptions on this specific date
+    const exceptionResult = await query(
+      'SELECT * FROM availability_exceptions WHERE business_id = $1 AND date = $2',
+      [business.id, format(requestedDate, 'yyyy-MM-dd')]
+    )
 
-    // Get existing appointments for this date and staff
-    const dayStart = zonedTimeToUtc(startOfDay(targetDate), business.timezone)
-    const dayEnd = zonedTimeToUtc(endOfDay(targetDate), business.timezone)
-
-    let appointmentsQuery = supabase
-      .from('appointments')
-      .select('starts_at, ends_at')
-      .eq('business_id', business.id)
-      .gte('starts_at', dayStart.toISOString())
-      .lte('starts_at', dayEnd.toISOString())
-      .in('status', ['confirmed', 'pending'])
-    
-    if (staffId) {
-      appointmentsQuery = appointmentsQuery.eq('staff_id', staffId)
-    } else {
-      appointmentsQuery = appointmentsQuery.is('staff_id', null)
+    if (exceptionResult.rows.length > 0 && exceptionResult.rows[0].is_closed) {
+      return NextResponse.json({
+        success: true,
+        slots: [],
+        message: 'Closed on this day'
+      })
     }
-    
-    const { data: existingAppointments } = await appointmentsQuery
 
     // Generate time slots
-    const slots: { datetime: string; available: boolean }[] = []
-    
-    for (const rule of availabilityRules) {
-      const timeSlots = generateTimeSlots(
-        rule.start_time,
-        rule.end_time,
-        service.duration_min,
-        15 // 15-minute granularity
-      )
+    const slots = generateTimeSlots(
+      availability.start_time,
+      availability.end_time,
+      service.duration_minutes,
+      30 // 30-minute intervals
+    )
 
-      for (const timeSlot of timeSlots) {
-        // Create the full datetime in business timezone
-        const slotDateTime = new Date(`${date}T${timeSlot}:00`)
-        const slotDateTimeUTC = zonedTimeToUtc(slotDateTime, business.timezone)
+    // Get existing appointments for this date
+    const dayStart = startOfDay(requestedDate)
+    const dayEnd = endOfDay(requestedDate)
 
-        // Skip past slots
-        if (slotDateTimeUTC <= new Date()) {
-          continue
-        }
+    const appointmentsResult = await query(`
+      SELECT starts_at, duration_minutes 
+      FROM appointments 
+      WHERE business_id = $1 
+      AND starts_at >= $2 
+      AND starts_at <= $3 
+      AND status NOT IN ('cancelled', 'no_show')
+    `, [business.id, dayStart.toISOString(), dayEnd.toISOString()])
 
-        // Check availability against existing appointments
-        const available = isSlotAvailable(
-          slotDateTimeUTC,
-          service.duration_min,
-          service.buffer_before_min,
-          service.buffer_after_min,
-          existingAppointments || []
+    const existingAppointments = appointmentsResult.rows
+
+    // Filter available slots
+    const availableSlots = slots.filter(slot => {
+      const slotStart = parseISO(`${format(requestedDate, 'yyyy-MM-dd')}T${slot}:00`)
+      const slotEnd = addMinutes(slotStart, service.duration_minutes)
+
+      // Check if slot conflicts with existing appointments
+      const hasConflict = existingAppointments.some(apt => {
+        const aptStart = parseISO(apt.starts_at)
+        const aptEnd = addMinutes(aptStart, apt.duration_minutes)
+        
+        return (
+          (slotStart >= aptStart && slotStart < aptEnd) ||
+          (slotEnd > aptStart && slotEnd <= aptEnd) ||
+          (slotStart <= aptStart && slotEnd >= aptEnd)
         )
+      })
 
-        slots.push({
-          datetime: slotDateTimeUTC.toISOString(),
-          available
-        })
+      return !hasConflict
+    })
+
+    return NextResponse.json({
+      success: true,
+      slots: availableSlots,
+      business: {
+        name: business.name,
+        timezone: business.timezone
+      },
+      service: {
+        name: service.name,
+        duration: service.duration_minutes,
+        price: service.price_cents
       }
-    }
+    })
 
-    // Sort slots by time
-    slots.sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
-
-    return NextResponse.json({ slots })
   } catch (error) {
     console.error('Slots API error:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch time slots' },
+      { error: 'Failed to fetch available slots' },
       { status: 500 }
     )
   }
+}
+
+// Helper function to generate time slots
+function generateTimeSlots(startTime: string, endTime: string, serviceDuration: number, interval: number = 30): string[] {
+  const slots: string[] = []
+  const [startHour, startMin] = startTime.split(':').map(Number)
+  const [endHour, endMin] = endTime.split(':').map(Number)
+  
+  const startMinutes = startHour * 60 + startMin
+  const endMinutes = endHour * 60 + endMin
+  
+  for (let time = startMinutes; time + serviceDuration <= endMinutes; time += interval) {
+    const hours = Math.floor(time / 60)
+    const minutes = time % 60
+    const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+    slots.push(timeString)
+  }
+  
+  return slots
 }
