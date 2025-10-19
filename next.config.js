@@ -4,7 +4,7 @@ const nextConfig = {
   trailingSlash: false,
   generateBuildId: () => 'build',
   experimental: {
-    serverComponentsExternalPackages: ['@supabase/supabase-js']
+    serverComponentsExternalPackages: ['pg']
   },
   env: {
     DISABLE_STATIC_GENERATION: 'true'
