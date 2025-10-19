@@ -61,8 +61,7 @@ export default function LoginPage() {
       return
     }
 
-    // Test endpoint - temporarily changed
-    const response = await fetch('/api/debug/test-login', {
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email.trim(), password })
