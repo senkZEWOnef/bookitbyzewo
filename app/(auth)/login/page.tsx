@@ -61,8 +61,8 @@ export default function LoginPage() {
       return
     }
 
-    // AWS auth - clean and simple
-    const response = await fetch('/api/auth/login', {
+    // Test endpoint - temporarily changed
+    const response = await fetch('/api/debug/test-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email.trim(), password })
