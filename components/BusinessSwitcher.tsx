@@ -72,8 +72,10 @@ export default function BusinessSwitcher({
           onBusinessChange(business)
         }
 
-        // Reload the page to refresh the dashboard with new business context
-        window.location.reload()
+        // Dispatch a custom event to notify components to refresh
+        window.dispatchEvent(new CustomEvent('businessSwitched', { 
+          detail: { business } 
+        }))
       }
     } catch (error) {
       console.error('Error switching business:', error)

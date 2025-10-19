@@ -51,6 +51,21 @@ export default function DashboardPage() {
   useEffect(() => {
     console.log('🚀 DASHBOARD COMPONENT: useEffect triggered, fetching real data')
     fetchDashboardData()
+
+    // Listen for business switch events
+    const handleBusinessSwitch = (event: CustomEvent) => {
+      console.log('🔄 DASHBOARD: Business switched, refreshing data')
+      // Reset loading state and fetch new data
+      fetchingRef.current = false // Reset to allow new fetch
+      setLoading(true)
+      setError('')
+      fetchDashboardData()
+    }
+
+    window.addEventListener('businessSwitched', handleBusinessSwitch as EventListener)
+    return () => {
+      window.removeEventListener('businessSwitched', handleBusinessSwitch as EventListener)
+    }
   }, [])
 
   useEffect(() => {
@@ -67,7 +82,7 @@ export default function DashboardPage() {
     fetchingRef.current = true
     
     try {
-      // Get user from localStorage like webpage editor does
+      // Get user from localStorage
       const userString = localStorage.getItem('user')
       if (!userString) {
         window.location.href = '/login'
@@ -77,36 +92,37 @@ export default function DashboardPage() {
       const user = JSON.parse(userString)
       console.log('✅ DASHBOARD: User found:', user.id)
 
-      // Fetch user's businesses from API
-      const response = await fetch('/api/debug/businesses')
-      const result = await response.json()
-      
-      if (response.ok && result.businesses && result.businesses.length > 0) {
-        // Find business owned by this user
-        const userBusiness = result.businesses.find((b: any) => b.owner_id === user.id)
-        
-        if (userBusiness) {
-          setBusiness(userBusiness)
-          // Set some basic stats for now
-          setStats({
-            todayAppointments: 0,
-            tomorrowAppointments: 0,
-            pendingPayments: 0,
-            totalRevenue: 0
-          })
-          setRecentAppointments([])
-        } else {
-          setBusiness(null)
-          setStats({
-            todayAppointments: 0,
-            tomorrowAppointments: 0,
-            pendingPayments: 0,
-            totalRevenue: 0
-          })
-          setRecentAppointments([])
-        }
+      // Check if there's a current business selected in localStorage
+      const currentBusinessString = localStorage.getItem('currentBusiness')
+      let targetBusiness = null
+
+      if (currentBusinessString) {
+        // Use the selected business
+        targetBusiness = JSON.parse(currentBusinessString)
+        console.log('✅ DASHBOARD: Using selected business:', targetBusiness.name)
+        setBusiness(targetBusiness)
       } else {
-        setBusiness(null)
+        // Fetch user's businesses from API and use the first one
+        const response = await fetch(`/api/user/businesses?userId=${user.id}`)
+        const result = await response.json()
+        
+        if (response.ok && result.businesses && result.businesses.length > 0) {
+          // Use the first business (preferring owned businesses)
+          targetBusiness = result.businesses[0]
+          setBusiness(targetBusiness)
+          
+          // Store it as the current business
+          localStorage.setItem('currentBusiness', JSON.stringify(targetBusiness))
+          console.log('✅ DASHBOARD: Using first available business:', targetBusiness.name)
+        } else {
+          console.log('❌ DASHBOARD: No businesses found for user')
+          setError('No businesses found. Please create a business first.')
+          return
+        }
+      }
+
+      // Load stats and appointments for the selected business
+      if (targetBusiness) {
         setStats({
           todayAppointments: 0,
           tomorrowAppointments: 0,
@@ -114,6 +130,7 @@ export default function DashboardPage() {
           totalRevenue: 0
         })
         setRecentAppointments([])
+        console.log('✅ DASHBOARD: Dashboard data loaded for business:', targetBusiness.name)
       }
       
     } catch (err) {

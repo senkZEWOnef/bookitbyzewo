@@ -77,6 +77,14 @@ export default function DemoPage() {
     },
     {
       id: 6,
+      titleKey: 'demo.website.title',
+      descKey: 'demo.website.desc',
+      icon: 'fas fa-globe',
+      bgColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      component: 'website'
+    },
+    {
+      id: 7,
       titleKey: 'demo.booking.title',
       descKey: 'demo.booking.desc',
       icon: 'fab fa-whatsapp',
@@ -84,7 +92,7 @@ export default function DemoPage() {
       component: 'booking'
     },
     {
-      id: 7,
+      id: 8,
       titleKey: 'demo.complete.title',
       descKey: 'demo.complete.desc',
       icon: 'fas fa-rocket',
@@ -124,6 +132,8 @@ export default function DemoPage() {
         return <ServicesDemo t={t} demoData={demoData} />
       case 'staff':
         return <StaffDemo t={t} demoData={demoData} />
+      case 'website':
+        return <WebsiteDemo t={t} demoData={demoData} />
       case 'booking':
         return <BookingDemo t={t} demoData={demoData} />
       default:
@@ -133,7 +143,7 @@ export default function DemoPage() {
 
   return (
     <>
-      <div className="bg-mesh text-white position-relative overflow-hidden" style={{ minHeight: '100vh' }}>
+      <div className="bg-mesh text-white position-relative overflow-hidden" style={{ minHeight: '100vh', paddingTop: '80px' }}>
         <div className="position-absolute top-0 start-0 w-100 h-100" style={{
           background: 'radial-gradient(circle at 20% 80%, rgba(16, 185, 129, 0.15) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.05) 0%, transparent 50%)'
         }}></div>
@@ -691,5 +701,129 @@ function BookingDemo({ t, demoData }: any) {
         </Card>
       </Col>
     </Row>
+  )
+}
+
+function WebsiteDemo({ t, demoData }: any) {
+  return (
+    <div>
+      {/* URL Display */}
+      <div className="text-center mb-4">
+        <div className="d-inline-block bg-dark rounded px-3 py-2">
+          <i className="fas fa-globe text-success me-2"></i>
+          <span className="text-white-50 small">{t('demo.website.url')}</span>
+        </div>
+      </div>
+
+      {/* Website Preview */}
+      <div className="row g-4">
+        <div className="col-lg-8">
+          {/* Mock Website Preview */}
+          <Card className="border-0" style={{ background: 'rgba(255, 255, 255, 0.95)', borderRadius: '16px' }}>
+            <Card.Body className="p-0">
+              {/* Header */}
+              <div className="text-center p-4" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+                <h3 className="text-white fw-bold mb-2">María's Beauty Salon</h3>
+                <p className="text-white-50 mb-0">Professional Hair & Beauty Services</p>
+              </div>
+              
+              {/* Services Grid */}
+              <div className="p-4">
+                <h5 className="fw-bold mb-3">Select a Service</h5>
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <div className="border rounded p-3 cursor-pointer" style={{ borderColor: '#e0e0e0' }}>
+                      <div className="d-flex justify-content-between align-items-center">
+                        <div>
+                          <h6 className="fw-bold mb-1">Haircut & Style</h6>
+                          <small className="text-muted">60 minutes</small>
+                        </div>
+                        <div className="text-end">
+                          <div className="fw-bold text-success">$45</div>
+                          <small className="text-muted">$15 deposit</small>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="border rounded p-3" style={{ borderColor: '#e0e0e0' }}>
+                      <div className="d-flex justify-content-between align-items-center">
+                        <div>
+                          <h6 className="fw-bold mb-1">Hair Color</h6>
+                          <small className="text-muted">120 minutes</small>
+                        </div>
+                        <div className="text-end">
+                          <div className="fw-bold text-success">$85</div>
+                          <small className="text-muted">$25 deposit</small>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Time Slots */}
+                <h6 className="fw-bold mt-4 mb-3">Available Times - Today</h6>
+                <div className="d-flex gap-2 flex-wrap">
+                  <Button variant="outline-success" size="sm">9:00 AM</Button>
+                  <Button variant="outline-success" size="sm">11:00 AM</Button>
+                  <Button variant="success" size="sm">2:00 PM</Button>
+                  <Button variant="outline-success" size="sm">4:00 PM</Button>
+                </div>
+                
+                {/* Book Button */}
+                <div className="mt-4">
+                  <Button variant="success" className="w-100 py-2 fw-bold">
+                    <i className="fab fa-whatsapp me-2"></i>
+                    Book Now - Pay $15 Deposit
+                  </Button>
+                </div>
+              </div>
+            </Card.Body>
+          </Card>
+        </div>
+        
+        <div className="col-lg-4">
+          {/* Features List */}
+          <h6 className="text-white fw-bold mb-3">Key Features:</h6>
+          <ul className="list-unstyled">
+            <li className="text-white-50 mb-3">
+              <i className="fas fa-palette text-success me-2"></i>
+              {t('demo.website.features.custom')}
+            </li>
+            <li className="text-white-50 mb-3">
+              <i className="fas fa-mobile-alt text-success me-2"></i>
+              {t('demo.website.features.mobile')}
+            </li>
+            <li className="text-white-50 mb-3">
+              <i className="fas fa-clock text-success me-2"></i>
+              {t('demo.website.features.instant')}
+            </li>
+            <li className="text-white-50 mb-3">
+              <i className="fas fa-shield-alt text-success me-2"></i>
+              {t('demo.website.features.deposits')}
+            </li>
+          </ul>
+          
+          {/* Share Options */}
+          <div className="mt-4">
+            <h6 className="text-white fw-bold mb-3">Share Your Link:</h6>
+            <div className="d-grid gap-2">
+              <Button variant="outline-light" size="sm">
+                <i className="fab fa-whatsapp me-2"></i>
+                Share on WhatsApp
+              </Button>
+              <Button variant="outline-light" size="sm">
+                <i className="fab fa-instagram me-2"></i>
+                Add to Instagram Bio
+              </Button>
+              <Button variant="outline-light" size="sm">
+                <i className="fas fa-qrcode me-2"></i>
+                Generate QR Code
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
