@@ -28,26 +28,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Create coupons table if it doesn't exist
-    await query(`
-      CREATE TABLE IF NOT EXISTS coupon_codes (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        code VARCHAR(20) UNIQUE NOT NULL,
-        discount_type VARCHAR(20) NOT NULL CHECK (discount_type IN ('percentage', 'free_trial')),
-        discount_value INTEGER NOT NULL DEFAULT 0,
-        free_trial_months INTEGER NOT NULL DEFAULT 0,
-        max_uses INTEGER NOT NULL DEFAULT 1,
-        used_count INTEGER NOT NULL DEFAULT 0,
-        expires_at TIMESTAMP NOT NULL,
-        is_active BOOLEAN NOT NULL DEFAULT true,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      )
-    `)
-
     // Get all coupons using Neon
     const result = await query(`
-      SELECT * FROM coupon_codes 
+      SELECT id, code, discount_type, discount_value, free_trial_months, 
+             applicable_plan, max_uses, used_count, expires_at, is_active, 
+             created_at, updated_at
+      FROM coupon_codes 
       ORDER BY created_at DESC
     `)
 

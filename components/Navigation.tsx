@@ -14,17 +14,17 @@ export default function Navigation() {
   const router = useRouter()
   const pathname = usePathname()
 
-  // Don't render navigation on admin pages
-  if (pathname?.startsWith('/admin')) {
-    return null
-  }
-
   // Disable auth check in navigation for now
   useEffect(() => {
     setLoading(false)
     setUser(null)
     setUserProfile(null)
   }, [])
+
+  // Don't render navigation on admin pages
+  if (pathname?.startsWith('/admin')) {
+    return null
+  }
 
   const handleSignOut = async () => {
     localStorage.removeItem('user')

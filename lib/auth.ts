@@ -37,7 +37,7 @@ export async function createUser(email: string, password: string, fullName?: str
 
 export async function loginUser(email: string, password: string) {
   const result = await query(
-    'SELECT id, email, password, full_name FROM users WHERE email = $1',
+    'SELECT id, email, password, full_name, plan, plan_status, trial_ends_at FROM users WHERE email = $1',
     [email]
   )
   
@@ -57,7 +57,10 @@ export async function loginUser(email: string, password: string) {
     user: {
       id: user.id,
       email: user.email,
-      full_name: user.full_name
+      full_name: user.full_name,
+      plan: user.plan,
+      plan_status: user.plan_status,
+      trial_ends_at: user.trial_ends_at
     },
     token
   }

@@ -22,11 +22,22 @@ export async function GET(request: NextRequest) {
         full_name VARCHAR(255),
         phone VARCHAR(50),
         avatar_url TEXT,
+        plan VARCHAR(50) DEFAULT 'solo',
+        plan_status VARCHAR(50) DEFAULT 'trial',
+        trial_ends_at TIMESTAMP DEFAULT (NOW() + INTERVAL '30 days'),
+        subscription_id VARCHAR(255),
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `)
     console.log('✅ Users table created/verified')
+
+    // Add missing plan columns to existing users table
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan VARCHAR(50) DEFAULT 'solo'`).catch(() => {})
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_status VARCHAR(50) DEFAULT 'trial'`).catch(() => {})
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP DEFAULT (NOW() + INTERVAL '30 days')`).catch(() => {})
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_id VARCHAR(255)`).catch(() => {})
+    console.log('✅ Users table plan columns added/verified')
 
     // Add missing columns to users table
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT`).catch(() => {})
@@ -189,6 +200,22 @@ export async function GET(request: NextRequest) {
       )
     `)
     console.log('✅ Staff invitations table created/verified')
+
+    // Create business_staff table for plan restrictions
+    await query(`
+      CREATE TABLE IF NOT EXISTS business_staff (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+        email VARCHAR(255) NOT NULL,
+        full_name VARCHAR(255) NOT NULL,
+        role VARCHAR(50) DEFAULT 'staff',
+        status VARCHAR(50) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(business_id, email)
+      )
+    `)
+    console.log('✅ Business staff table created/verified')
 
     // Create indexes
     await query(`CREATE INDEX IF NOT EXISTS idx_businesses_owner_id ON businesses(owner_id)`).catch(() => {})

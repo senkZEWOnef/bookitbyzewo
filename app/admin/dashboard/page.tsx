@@ -20,6 +20,7 @@ interface AnalyticsData {
   total_businesses: number
   total_appointments: number
   active_subscriptions: number
+  trial_users: number
   failed_payments: number
   recent_signups: number
   revenue_this_month: number
@@ -79,9 +80,7 @@ export default function AdminDashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loadingData, setLoadingData] = useState(false)
   const [newCoupon, setNewCoupon] = useState({
-    discount_type: 'percentage',
-    discount_value: 25,
-    free_trial_months: 0,
+    free_trial_months: 1,
     max_uses: 1,
     expires_days: 30
   })
@@ -235,9 +234,7 @@ export default function AdminDashboard() {
         loadCoupons()
         // Reset form
         setNewCoupon({
-          discount_type: 'percentage',
-          discount_value: 25,
-          free_trial_months: 0,
+          free_trial_months: 1,
           max_uses: 1,
           expires_days: 30
         })
@@ -251,7 +248,7 @@ export default function AdminDashboard() {
 
   const logout = () => {
     localStorage.removeItem('admin_token')
-    router.push('/admin/login')
+    router.push('/')
   }
 
   const handleBusinessAction = async (action: string, businessId: string) => {
@@ -331,18 +328,32 @@ export default function AdminDashboard() {
                   <i className="fab fa-whatsapp text-success me-3" style={{ fontSize: '2rem' }}></i>
                   <h2 className="text-white mb-0 fw-bold">BookIt Admin Panel</h2>
                 </div>
-                <Button 
-                  variant="outline-light" 
-                  onClick={logout}
-                  className="px-4 py-2 fw-medium"
-                  style={{ 
-                    border: '2px solid rgba(255, 255, 255, 0.3)',
-                    borderRadius: '12px'
-                  }}
-                >
-                  <i className="fas fa-sign-out-alt me-2"></i>
-                  Logout
-                </Button>
+                <div className="d-flex gap-3">
+                  <Button 
+                    variant="outline-success" 
+                    onClick={() => window.open('/', '_blank')}
+                    className="px-4 py-2 fw-medium"
+                    style={{ 
+                      border: '2px solid rgba(16, 185, 129, 0.5)',
+                      borderRadius: '12px'
+                    }}
+                  >
+                    <i className="fas fa-external-link-alt me-2"></i>
+                    View Website
+                  </Button>
+                  <Button 
+                    variant="outline-light" 
+                    onClick={logout}
+                    className="px-4 py-2 fw-medium"
+                    style={{ 
+                      border: '2px solid rgba(255, 255, 255, 0.3)',
+                      borderRadius: '12px'
+                    }}
+                  >
+                    <i className="fas fa-sign-out-alt me-2"></i>
+                    Logout
+                  </Button>
+                </div>
               </div>
             </Col>
           </Row>
@@ -470,7 +481,20 @@ export default function AdminDashboard() {
                               >
                                 <i className="fas fa-star text-warning mb-2" style={{ fontSize: '1.5rem' }}></i>
                                 <h3 className="text-warning fw-bold mb-1">{analytics.active_subscriptions}</h3>
-                                <p className="text-white-50 mb-0 small">Active Subscriptions</p>
+                                <p className="text-white-50 mb-0 small">Paid Users</p>
+                              </div>
+                            </Col>
+                            <Col md={4}>
+                              <div 
+                                className="text-center p-4 rounded-3"
+                                style={{ 
+                                  background: 'rgba(168, 85, 247, 0.1)',
+                                  border: '1px solid rgba(168, 85, 247, 0.2)'
+                                }}
+                              >
+                                <i className="fas fa-clock text-primary mb-2" style={{ fontSize: '1.5rem' }}></i>
+                                <h3 className="text-primary fw-bold mb-1">{analytics.trial_users}</h3>
+                                <p className="text-white-50 mb-0 small">Trial Users</p>
                               </div>
                             </Col>
                             <Col md={4}>
@@ -539,16 +563,17 @@ export default function AdminDashboard() {
                       >
                         <h5 className="text-white mb-0 fw-bold d-flex align-items-center">
                           <i className="fas fa-plus-circle text-success me-2"></i>
-                          Generate New Coupon
+                          Generate Solo Plan Trial Coupon
                         </h5>
+                        <p className="text-white-50 mb-0 small">Coupons only work for Solo plan trials</p>
                       </Card.Header>
                       <Card.Body>
                         <Form>
                           <Form.Group className="mb-3">
-                            <Form.Label className="text-white fw-medium">Discount Type</Form.Label>
+                            <Form.Label className="text-white fw-medium">Free Trial Duration (Solo Plan Only)</Form.Label>
                             <Form.Select
-                              value={newCoupon.discount_type}
-                              onChange={(e) => setNewCoupon(prev => ({ ...prev, discount_type: e.target.value }))}
+                              value={newCoupon.free_trial_months}
+                              onChange={(e) => setNewCoupon(prev => ({ ...prev, free_trial_months: parseInt(e.target.value) }))}
                               style={{ 
                                 background: 'rgba(255, 255, 255, 0.1)', 
                                 border: '1px solid rgba(255, 255, 255, 0.2)', 
@@ -556,49 +581,11 @@ export default function AdminDashboard() {
                                 borderRadius: '8px'
                               }}
                             >
-                              <option value="percentage">Percentage Discount</option>
-                              <option value="free_trial">Free Trial</option>
+                              <option value={1}>1 Month Free Trial</option>
+                              <option value={2}>2 Months Free Trial</option>
+                              <option value={3}>3 Months Free Trial</option>
                             </Form.Select>
                           </Form.Group>
-
-                          {newCoupon.discount_type === 'percentage' ? (
-                            <Form.Group className="mb-3">
-                              <Form.Label className="text-white fw-medium">Discount Percentage</Form.Label>
-                              <Form.Select
-                                value={newCoupon.discount_value}
-                                onChange={(e) => setNewCoupon(prev => ({ ...prev, discount_value: parseInt(e.target.value) }))}
-                                style={{ 
-                                  background: 'rgba(255, 255, 255, 0.1)', 
-                                  border: '1px solid rgba(255, 255, 255, 0.2)', 
-                                  color: '#fff',
-                                  borderRadius: '8px'
-                                }}
-                              >
-                                <option value={25}>25% Off</option>
-                                <option value={50}>50% Off</option>
-                                <option value={75}>75% Off</option>
-                              </Form.Select>
-                            </Form.Group>
-                          ) : (
-                            <Form.Group className="mb-3">
-                              <Form.Label className="text-white fw-medium">Free Trial Months</Form.Label>
-                              <Form.Select
-                                value={newCoupon.free_trial_months}
-                                onChange={(e) => setNewCoupon(prev => ({ ...prev, free_trial_months: parseInt(e.target.value) }))}
-                                style={{ 
-                                  background: 'rgba(255, 255, 255, 0.1)', 
-                                  border: '1px solid rgba(255, 255, 255, 0.2)', 
-                                  color: '#fff',
-                                  borderRadius: '8px'
-                                }}
-                              >
-                                <option value={1}>1 Month</option>
-                                <option value={3}>3 Months</option>
-                                <option value={6}>6 Months</option>
-                                <option value={12}>12 Months</option>
-                              </Form.Select>
-                            </Form.Group>
-                          )}
 
                           <Form.Group className="mb-3">
                             <Form.Label className="text-white fw-medium">Max Uses</Form.Label>
@@ -677,8 +664,8 @@ export default function AdminDashboard() {
                           <thead>
                             <tr>
                               <th className="text-white fw-medium border-0">Code</th>
-                              <th className="text-white fw-medium border-0">Type</th>
-                              <th className="text-white fw-medium border-0">Value</th>
+                              <th className="text-white fw-medium border-0">Plan</th>
+                              <th className="text-white fw-medium border-0">Trial Duration</th>
                               <th className="text-white fw-medium border-0">Used</th>
                               <th className="text-white fw-medium border-0">Status</th>
                             </tr>
@@ -694,14 +681,21 @@ export default function AdminDashboard() {
                                     {coupon.code}
                                   </code>
                                 </td>
-                                <td className="border-0 text-white">
-                                  {coupon.discount_type === 'percentage' ? 'Discount' : 'Free Trial'}
+                                <td className="border-0">
+                                  <Badge 
+                                    className="fw-medium px-2 py-1"
+                                    style={{
+                                      background: 'rgba(59, 130, 246, 0.2)',
+                                      color: '#3b82f6',
+                                      border: '1px solid #3b82f6',
+                                      fontSize: '0.75rem'
+                                    }}
+                                  >
+                                    Solo Only
+                                  </Badge>
                                 </td>
                                 <td className="border-0 text-white fw-medium">
-                                  {coupon.discount_type === 'percentage' 
-                                    ? `${coupon.discount_value}%` 
-                                    : `${coupon.free_trial_months}m`
-                                  }
+                                  {coupon.free_trial_months} month{coupon.free_trial_months > 1 ? 's' : ''} free
                                 </td>
                                 <td className="border-0 text-white">{coupon.used_count}/{coupon.max_uses}</td>
                                 <td className="border-0">

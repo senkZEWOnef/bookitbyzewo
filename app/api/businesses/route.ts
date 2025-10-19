@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { validatePlanLimit, getPlanLimits } from '@/lib/plans'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -43,6 +44,55 @@ export async function POST(request: NextRequest) {
     if (!name || !slug || !userId) {
       console.log('🔴 Missing required fields:', { name: !!name, slug: !!slug, userId: !!userId })
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    // Get user's plan information
+    console.log('🟡 Checking user plan limits...')
+    const userResult = await query(
+      'SELECT plan, plan_status, trial_ends_at FROM users WHERE id = $1',
+      [userId]
+    )
+
+    if (userResult.rows.length === 0) {
+      console.log('🔴 User not found:', userId)
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    const user = userResult.rows[0]
+    console.log('🟡 User plan info:', { plan: user.plan, plan_status: user.plan_status })
+
+    // Check how many businesses this user already has
+    const existingBusinesses = await query(
+      'SELECT COUNT(*) as count FROM businesses WHERE owner_id = $1',
+      [userId]
+    )
+
+    const currentBusinessCount = parseInt(existingBusinesses.rows[0].count)
+    console.log('🟡 User currently has', currentBusinessCount, 'businesses')
+
+    // Validate against plan limits
+    const planLimits = getPlanLimits(user.plan)
+    
+    // For Solo plan: only 1 business allowed
+    if (user.plan === 'solo' && currentBusinessCount >= 1) {
+      console.log('🔴 Solo plan business limit exceeded')
+      return NextResponse.json({ 
+        error: 'Your Solo plan allows only 1 business. Upgrade to Team ($39/mo) to create additional businesses.',
+        planLimit: true,
+        currentPlan: 'solo',
+        suggestedPlan: 'team'
+      }, { status: 403 })
+    }
+
+    // For other plans, use the location limit as business limit for now
+    if (currentBusinessCount >= planLimits.maxLocations && planLimits.maxLocations < 999) {
+      console.log('🔴 Plan business limit exceeded for plan:', user.plan)
+      return NextResponse.json({ 
+        error: `Your ${user.plan.charAt(0).toUpperCase() + user.plan.slice(1)} plan allows up to ${planLimits.maxLocations} business${planLimits.maxLocations === 1 ? '' : 'es'}. Upgrade to Pro plan for unlimited businesses.`,
+        planLimit: true,
+        currentPlan: user.plan,
+        suggestedPlan: 'pro'
+      }, { status: 403 })
     }
 
     // Check if slug is already taken

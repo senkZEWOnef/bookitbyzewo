@@ -28,20 +28,31 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Create user
+    // Create user with Solo plan and 30-day trial
     const result = await query(
-      'INSERT INTO users (email, password, full_name, phone) VALUES ($1, $2, $3, $4) RETURNING id, email, full_name',
-      [email, hashedPassword, full_name, phone || null]
+      'INSERT INTO users (email, password, full_name, phone, plan, plan_status, trial_ends_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, email, full_name, plan, plan_status, trial_ends_at',
+      [
+        email, 
+        hashedPassword, 
+        full_name, 
+        phone || null,
+        'solo',
+        'trial',
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+      ]
     )
 
     const newUser = result.rows[0]
 
     return NextResponse.json({
-      message: 'User created successfully',
+      message: 'User created successfully with Solo plan trial',
       user: {
         id: newUser.id,
         email: newUser.email,
-        full_name: newUser.full_name
+        full_name: newUser.full_name,
+        plan: newUser.plan,
+        plan_status: newUser.plan_status,
+        trial_ends_at: newUser.trial_ends_at
       }
     })
 
