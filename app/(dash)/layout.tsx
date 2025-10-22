@@ -22,17 +22,19 @@ export default function DashboardLayout({
   
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [currentBusiness, setCurrentBusiness] = useState<any>(null)
 
   useEffect(() => {
     const checkIfMobile = () => {
-      const mobile = window.innerWidth < 768
+      const mobile = window.innerWidth < 992 // Changed from 768 to 992 for better mobile detection
       setIsMobile(mobile)
-      // Auto-close sidebar on mobile
+      // Auto-close sidebar on mobile and tablet
       if (mobile) {
         setSidebarOpen(false)
+      } else {
+        setSidebarOpen(true) // Auto-open on desktop
       }
     }
     
@@ -152,16 +154,18 @@ export default function DashboardLayout({
       <div 
         className={`position-fixed top-0 vh-100 transition-all ${
           isMobile 
-            ? (sidebarOpen ? 'start-0' : 'start-100') 
+            ? (sidebarOpen ? 'start-0' : '') 
             : 'start-0'
         }`}
         style={{
-          width: isMobile ? '280px' : (sidebarOpen ? '280px' : '80px'),
+          width: isMobile ? '100vw' : (sidebarOpen ? '280px' : '80px'),
+          maxWidth: isMobile ? '320px' : 'none',
           background: 'linear-gradient(180deg, #10b981 0%, #059669 100%)',
           boxShadow: '4px 0 20px rgba(0,0,0,0.1)',
           zIndex: 1050,
           transition: 'all 0.3s ease',
-          transform: isMobile && !sidebarOpen ? 'translateX(-100%)' : 'translateX(0)'
+          transform: isMobile && !sidebarOpen ? 'translateX(-100%)' : 'translateX(0)',
+          left: isMobile && !sidebarOpen ? '-100%' : '0'
         }}
       >
         {/* Logo/Brand */}
@@ -200,6 +204,11 @@ export default function DashboardLayout({
                     style={{
                       transition: 'all 0.2s ease',
                       cursor: 'pointer'
+                    }}
+                    onClick={() => {
+                      if (isMobile) {
+                        setSidebarOpen(false)
+                      }
                     }}
                     onMouseEnter={(e) => {
                       if (!item.active) {
@@ -300,28 +309,42 @@ export default function DashboardLayout({
 
       {/* Main Content */}
       <div 
-        className="transition-all duration-300"
+        className="transition-all"
         style={{
           marginLeft: isMobile ? '0' : (sidebarOpen ? '280px' : '80px'),
           transition: 'all 0.3s ease',
-          minHeight: '100vh'
+          minHeight: '100vh',
+          width: isMobile ? '100vw' : 'auto'
         }}
       >
         {/* Top Header Bar */}
         <div 
-          className="bg-white shadow-sm border-bottom p-3 sticky-top"
-          style={{ zIndex: 1040 }}
+          className="bg-white shadow-sm border-bottom sticky-top"
+          style={{ 
+            zIndex: 1040,
+            padding: isMobile ? '12px 16px' : '16px 24px'
+          }}
         >
-          <div className="d-flex justify-content-between align-items-center">
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div className="d-flex align-items-center">
               {/* Mobile Menu Button */}
               {isMobile && (
                 <button
-                  className="btn btn-outline-secondary me-3 d-md-none"
+                  className="btn me-3"
                   onClick={() => setSidebarOpen(!sidebarOpen)}
-                  style={{ border: 'none', padding: '8px 12px' }}
+                  style={{ 
+                    border: 'none',
+                    padding: '8px 12px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '8px',
+                    minWidth: '44px',
+                    minHeight: '44px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
                 >
-                  <i className="fas fa-bars"></i>
+                  <i className={`fas ${sidebarOpen ? 'fa-times' : 'fa-bars'}`} style={{ fontSize: '18px' }}></i>
                 </button>
               )}
               
@@ -334,42 +357,67 @@ export default function DashboardLayout({
                 </small>
               </div>
             </div>
-            <div className="d-flex align-items-center gap-2">
+            <div className="d-flex align-items-center gap-2 flex-wrap">
               {/* Business Switcher */}
-              <BusinessSwitcher 
-                currentBusiness={currentBusiness}
-                onBusinessChange={setCurrentBusiness}
-              />
+              <div className={isMobile ? 'order-3 w-100 mt-2' : ''}>
+                <BusinessSwitcher 
+                  currentBusiness={currentBusiness}
+                  onBusinessChange={setCurrentBusiness}
+                />
+              </div>
               
-              <Button variant="outline-primary" size="sm" className="d-none d-sm-inline-block">
-                <i className="fas fa-bell me-1"></i>
-                <span className="d-none d-lg-inline">
-                  {locale === 'es' ? 'Notificaciones' : 'Notifications'}
-                </span>
-              </Button>
+              {/* Desktop Buttons */}
+              {!isMobile && (
+                <>
+                  <Button variant="outline-primary" size="sm">
+                    <i className="fas fa-bell me-1"></i>
+                    <span className="d-none d-lg-inline">
+                      {locale === 'es' ? 'Notificaciones' : 'Notifications'}
+                    </span>
+                  </Button>
+                  
+                  <Button variant="success" size="sm">
+                    <i className="fas fa-plus me-1"></i>
+                    <span className="d-none d-lg-inline">
+                      {locale === 'es' ? 'Acción Rápida' : 'Quick Action'}
+                    </span>
+                  </Button>
+                </>
+              )}
               
-              {/* Mobile notification icon only */}
-              <Button variant="outline-primary" size="sm" className="d-sm-none">
-                <i className="fas fa-bell"></i>
-              </Button>
-              
-              <Button variant="success" size="sm" className="d-none d-sm-inline-block">
-                <i className="fas fa-plus me-1"></i>
-                <span className="d-none d-lg-inline">
-                  {locale === 'es' ? 'Acción Rápida' : 'Quick Action'}
-                </span>
-              </Button>
-              
-              {/* Mobile quick action icon only */}
-              <Button variant="success" size="sm" className="d-sm-none">
-                <i className="fas fa-plus"></i>
-              </Button>
+              {/* Mobile Action Buttons */}
+              {isMobile && (
+                <div className="d-flex gap-1 order-2">
+                  <Button 
+                    variant="outline-primary" 
+                    size="sm"
+                    style={{ minWidth: '44px', minHeight: '44px' }}
+                  >
+                    <i className="fas fa-bell"></i>
+                  </Button>
+                  
+                  <Button 
+                    variant="success" 
+                    size="sm"
+                    style={{ minWidth: '44px', minHeight: '44px' }}
+                  >
+                    <i className="fas fa-plus"></i>
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Page Content */}
-        <main className="p-4" style={{ minHeight: 'calc(100vh - 80px)', paddingTop: '1.5rem' }}>
+        <main 
+          className={isMobile ? 'p-3' : 'p-4'} 
+          style={{ 
+            minHeight: 'calc(100vh - 80px)', 
+            paddingTop: isMobile ? '1rem' : '1.5rem',
+            paddingBottom: isMobile ? '2rem' : '1.5rem'
+          }}
+        >
           {children}
         </main>
       </div>

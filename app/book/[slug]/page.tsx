@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Container, Row, Col, Card, Form, Button, Alert, Spinner, Badge } from 'react-bootstrap'
 import ServiceCard from '@/components/ServiceCard'
+import MonthlyCalendar from '@/components/MonthlyCalendar'
 import TimeSlotPicker from '@/components/TimeSlotPicker'
 import ATHMovilPayment from '@/components/ATHMovilPayment'
 import StripePayment from '@/components/StripePayment'
@@ -34,6 +35,7 @@ export default function BookingPage() {
   const [services, setServices] = useState<Service[]>([])
   const [selectedService, setSelectedService] = useState<Service | null>(null)
   const [selectedStaff, setSelectedStaff] = useState<string>('')
+  const [selectedDate, setSelectedDate] = useState<string>('')
   const [selectedSlot, setSelectedSlot] = useState<string>('')
   const [customerData, setCustomerData] = useState({
     name: '',
@@ -79,13 +81,18 @@ export default function BookingPage() {
     setStep('time')
   }
 
+  const handleDateSelect = (date: string) => {
+    setSelectedDate(date)
+    setSelectedSlot('') // Reset slot when date changes
+  }
+
   const handleSlotSelect = (datetime: string) => {
     setSelectedSlot(datetime)
   }
 
   const handleContinueToDetails = () => {
     if (!selectedSlot) {
-      setError(locale === 'es' ? 'Selecciona un horario' : 'Please select a time slot')
+      setError(locale === 'es' ? 'Selecciona una fecha y hora' : 'Please select a date and time')
       return
     }
     setStep('details')
@@ -307,7 +314,7 @@ export default function BookingPage() {
                 <div>
                   <div className="d-flex justify-content-between align-items-center mb-4">
                     <h5 className="mb-0">
-                      {locale === 'es' ? 'Selecciona horario' : 'Choose time'}
+                      {locale === 'es' ? 'Selecciona fecha y hora' : 'Choose date and time'}
                     </h5>
                     <Button 
                       variant="link" 
@@ -328,14 +335,45 @@ export default function BookingPage() {
                     </div>
                   </div>
 
-                  <TimeSlotPicker
-                    businessSlug={businessSlug}
-                    serviceId={selectedService.id}
-                    staffId={selectedStaff}
-                    onSelectSlot={handleSlotSelect}
-                    selectedSlot={selectedSlot}
-                    locale={locale}
-                  />
+                  {/* Calendar for date selection */}
+                  <div className="mb-4">
+                    <h6 className="mb-3">
+                      {locale === 'es' ? 'Paso 1: Selecciona una fecha' : 'Step 1: Select a date'}
+                    </h6>
+                    <MonthlyCalendar
+                      businessId={business?.id || ''}
+                      staffId={selectedStaff}
+                      onDateSelect={handleDateSelect}
+                      readOnly={false}
+                      publicView={true}
+                    />
+                  </div>
+
+                  {/* Time slots for selected date */}
+                  {selectedDate && (
+                    <div className="mb-4">
+                      <h6 className="mb-3">
+                        {locale === 'es' ? 'Paso 2: Selecciona una hora' : 'Step 2: Select a time'}
+                        <span className="text-muted ms-2">
+                          ({new Date(selectedDate).toLocaleDateString(locale === 'es' ? 'es-PR' : 'en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })})
+                        </span>
+                      </h6>
+                      <TimeSlotPicker
+                        businessSlug={businessSlug}
+                        serviceId={selectedService.id}
+                        staffId={selectedStaff}
+                        onSelectSlot={handleSlotSelect}
+                        selectedSlot={selectedSlot}
+                        locale={locale}
+                        selectedDate={selectedDate}
+                      />
+                    </div>
+                  )}
 
                   {selectedSlot && (
                     <div className="text-end mt-4">

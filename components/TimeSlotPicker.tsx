@@ -17,6 +17,7 @@ interface TimeSlotPickerProps {
   onSelectSlot: (datetime: string) => void
   selectedSlot?: string
   locale: 'en' | 'es'
+  selectedDate?: string
 }
 
 export default function TimeSlotPicker({ 
@@ -25,9 +26,10 @@ export default function TimeSlotPicker({
   staffId, 
   onSelectSlot, 
   selectedSlot,
-  locale 
+  locale,
+  selectedDate: propSelectedDate
 }: TimeSlotPickerProps) {
-  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'))
+  const [selectedDate, setSelectedDate] = useState<string>(propSelectedDate || format(new Date(), 'yyyy-MM-dd'))
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -70,6 +72,12 @@ export default function TimeSlotPicker({
   }
 
   useEffect(() => {
+    if (propSelectedDate) {
+      setSelectedDate(propSelectedDate)
+    }
+  }, [propSelectedDate])
+
+  useEffect(() => {
     if (serviceId) {
       fetchTimeSlots()
     }
@@ -81,36 +89,33 @@ export default function TimeSlotPicker({
 
   return (
     <div>
-      {/* Date Picker */}
-      <div className="mb-4">
-        <h6 className="mb-3">
-          {locale === 'es' ? 'Selecciona una fecha' : 'Choose a date'}
-        </h6>
-        <Row className="g-2">
-          {availableDates.map(({ date, display }) => (
-            <Col key={date} xs={6} md={4} lg={3}>
-              <Button
-                variant={selectedDate === date ? 'success' : 'outline-secondary'}
-                size="sm"
-                className="w-100"
-                onClick={() => setSelectedDate(date)}
-              >
-                {display}
-              </Button>
-            </Col>
-          ))}
-        </Row>
-      </div>
+      {/* Date Picker - only show if no date was provided from parent */}
+      {!propSelectedDate && (
+        <div className="mb-4">
+          <h6 className="mb-3">
+            {locale === 'es' ? 'Selecciona una fecha' : 'Choose a date'}
+          </h6>
+          <Row className="g-2">
+            {availableDates.map(({ date, display }) => (
+              <Col key={date} xs={6} md={4} lg={3}>
+                <Button
+                  variant={selectedDate === date ? 'success' : 'outline-secondary'}
+                  size="sm"
+                  className="w-100"
+                  onClick={() => setSelectedDate(date)}
+                >
+                  {display}
+                </Button>
+              </Col>
+            ))}
+          </Row>
+        </div>
+      )}
 
       {/* Time Slots */}
       <div>
         <h6 className="mb-3">
-          {locale === 'es' ? 'Hora disponible' : 'Available times'}
-          {selectedDate && (
-            <span className="text-muted ms-2">
-              ({availableDates.find(d => d.date === selectedDate)?.fullDisplay})
-            </span>
-          )}
+          {locale === 'es' ? 'Horarios disponibles' : 'Available times'}
         </h6>
 
         {loading ? (

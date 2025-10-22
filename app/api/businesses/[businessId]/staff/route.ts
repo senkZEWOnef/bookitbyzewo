@@ -14,7 +14,7 @@ export async function GET(
 
     // Get staff members for this business
     const result = await query(
-      'SELECT id, email, full_name, role, status, created_at FROM business_staff WHERE business_id = $1 ORDER BY created_at ASC',
+      'SELECT id, display_name as full_name, email, role, CASE WHEN is_active THEN \'active\' ELSE \'inactive\' END as status, created_at FROM staff WHERE business_id = $1 ORDER BY created_at ASC',
       [businessId]
     )
 

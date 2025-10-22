@@ -1,127 +1,47 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Row, Col, Button, Badge, Alert, Dropdown, Form, Modal, Card } from 'react-bootstrap'
-import Link from 'next/link'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parseISO, getDay, startOfWeek, endOfWeek, addDays, startOfDay, endOfDay } from 'date-fns'
-import { es } from 'date-fns/locale'
-import { useLanguage } from '@/lib/language-context'
-import AvailabilityManager from '@/components/AvailabilityManager'
+import { Container, Row, Col, Card, Button, Nav, Tab, Alert, Spinner, Badge } from 'react-bootstrap'
+import MonthlyCalendar from '@/components/MonthlyCalendar'
+import RecurringAppointments from '@/components/RecurringAppointments'
 
 export const dynamic = 'force-dynamic'
 
-interface Appointment {
+interface Service {
   id: string
-  customer_name: string
-  customer_phone: string
-  starts_at: string
-  status: string
-  service_name: string
-  deposit_amount?: number
-  total_amount?: number
-  payment_status?: 'pending' | 'completed' | 'failed' | null
-  payment_provider?: string | null
+  name: string
+  duration_min: number
+  price_cents: number
 }
 
-interface AvailabilityRule {
+interface Staff {
   id: string
-  weekday: number
-  start_time: string
-  end_time: string
+  display_name: string
 }
 
-interface AvailabilityException {
+interface Business {
   id: string
-  date: string
-  is_closed: boolean
-  start_time?: string
-  end_time?: string
-  reason?: string
-}
-
-interface CalendarSettings {
-  viewType: 'month' | 'week' | 'day'
-  showWeekends: boolean
-  startWeek: 'sunday' | 'monday'
-  timeFormat: '12h' | '24h'
-  showAppointmentDetails: boolean
-  colorTheme: 'default' | 'colorful' | 'minimal'
-  statusColors: {
-    confirmed: string
-    pending: string
-    canceled: string
-    completed: string
-    no_show: string
-  }
-  displayOptions: {
-    showCustomerNames: boolean
-    showServiceNames: boolean
-    showPhoneNumbers: boolean
-    showDuration: boolean
-    showPricing: boolean
-  }
-  filterOptions: {
-    statusFilter: string[]
-    serviceFilter: string[]
-    dateRange: {
-      start: string
-      end: string
-    }
-  }
+  name: string
 }
 
 export default function CalendarPage() {
-  const { language } = useLanguage()
-  const locale = language === 'es' ? 'es' : 'en'
-  const dateLocale = language === 'es' ? es : undefined
-  
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [business, setBusiness] = useState<Business | null>(null)
+  const [services, setServices] = useState<Service[]>([])
+  const [staff, setStaff] = useState<Staff[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedDate, setSelectedDate] = useState(new Date())
-  const [business, setBusiness] = useState<any>(null)
-  const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>([])
-  const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([])
-  const [showAvailabilityManager, setShowAvailabilityManager] = useState(false)
-  const [showCalendarSettings, setShowCalendarSettings] = useState(false)
-  const [calendarSettings, setCalendarSettings] = useState<CalendarSettings>({
-    viewType: 'month',
-    showWeekends: true,
-    startWeek: 'sunday',
-    timeFormat: '12h',
-    showAppointmentDetails: true,
-    colorTheme: 'default',
-    statusColors: {
-      confirmed: '#198754',
-      pending: '#ffc107',
-      canceled: '#dc3545',
-      completed: '#0dcaf0',
-      no_show: '#6c757d'
-    },
-    displayOptions: {
-      showCustomerNames: true,
-      showServiceNames: true,
-      showPhoneNumbers: false,
-      showDuration: true,
-      showPricing: false
-    },
-    filterOptions: {
-      statusFilter: ['confirmed', 'pending'],
-      serviceFilter: [],
-      dateRange: {
-        start: '',
-        end: ''
-      }
-    }
-  })
-  const [searchQuery, setSearchQuery] = useState('')
+  const [error, setError] = useState('')
+  const [activeTab, setActiveTab] = useState('calendar')
+  const [upcomingAppointments, setUpcomingAppointments] = useState<any[]>([])
 
   useEffect(() => {
-    fetchData()
-  }, [currentDate])
+    fetchBusinessData()
+  }, [])
 
-  const fetchData = async () => {
+  const fetchBusinessData = async () => {
     try {
+      setLoading(true)
+      setError('')
+
       // Get user from localStorage
       const userString = localStorage.getItem('user')
       if (!userString) {
@@ -130,1155 +50,257 @@ export default function CalendarPage() {
       }
       
       const user = JSON.parse(userString)
-
-      // Get business using Neon API
-      const response = await fetch('/api/debug/businesses')
-      const result = await response.json()
       
-      if (response.ok && result.businesses && result.businesses.length > 0) {
-        const userBusiness = result.businesses.find((b: any) => b.owner_id === user.id)
+      // Fetch user's businesses
+      const businessResponse = await fetch('/api/debug/businesses')
+      const businessResult = await businessResponse.json()
+      
+      if (businessResponse.ok && businessResult.businesses && businessResult.businesses.length > 0) {
+        const userBusiness = businessResult.businesses.find((b: any) => b.owner_id === user.id)
+        
         if (userBusiness) {
           setBusiness(userBusiness)
-
-          // Get appointments for current month
-          const monthStart = startOfMonth(currentDate)
-          const monthEnd = endOfMonth(currentDate)
           
-          try {
-            const appointmentsResponse = await fetch(
-              `/api/businesses/${userBusiness.id}/appointments?start=${monthStart.toISOString()}&end=${monthEnd.toISOString()}`
-            )
-            if (appointmentsResponse.ok) {
-              const appointmentsResult = await appointmentsResponse.json()
-              setAppointments(appointmentsResult.appointments || [])
-              console.log('📅 Loaded', appointmentsResult.appointments?.length || 0, 'appointments')
-            }
-          } catch (err) {
-            console.error('Error fetching appointments:', err)
-            setAppointments([])
+          // Get business services and staff
+          const [servicesResponse, staffResponse] = await Promise.all([
+            fetch(`/api/businesses/${userBusiness.id}/services`),
+            fetch(`/api/businesses/${userBusiness.id}/staff`)
+          ])
+
+          if (servicesResponse.ok) {
+            const servicesData = await servicesResponse.json()
+            setServices(servicesData.services || [])
           }
 
-          // Get availability rules and exceptions
-          try {
-            const availabilityResponse = await fetch(`/api/businesses/${userBusiness.id}/availability`)
-            if (availabilityResponse.ok) {
-              const availabilityResult = await availabilityResponse.json()
-              const rules = availabilityResult.availability?.rules || []
-              const exceptions = availabilityResult.availability?.exceptions || []
-              
-              setAvailabilityRules(rules)
-              setAvailabilityExceptions(exceptions)
-              console.log('📅 Loaded', rules.length, 'availability rules')
-
-              // If no availability rules exist, automatically create default schedule
-              if (rules.length === 0) {
-                console.log('📅 No availability rules found, creating default schedule...')
-                try {
-                  const setupResponse = await fetch(`/api/businesses/${userBusiness.id}/setup-default-schedule`, {
-                    method: 'POST'
-                  })
-                  if (setupResponse.ok) {
-                    console.log('📅 Default schedule created, refreshing availability...')
-                    // Refresh availability data
-                    const refreshResponse = await fetch(`/api/businesses/${userBusiness.id}/availability`)
-                    if (refreshResponse.ok) {
-                      const refreshResult = await refreshResponse.json()
-                      setAvailabilityRules(refreshResult.availability?.rules || [])
-                    }
-                  }
-                } catch (setupErr) {
-                  console.error('Error setting up default schedule:', setupErr)
-                }
-              }
-            }
-          } catch (err) {
-            console.error('Error fetching availability:', err)
-            setAvailabilityRules([])
-            setAvailabilityExceptions([])
+          if (staffResponse.ok) {
+            const staffData = await staffResponse.json()
+            setStaff(staffData.staff || [])
           }
+        } else {
+          throw new Error('No business found for user')
         }
+      } else {
+        throw new Error('Failed to fetch businesses')
       }
-    } catch (error) {
-      console.error('Error fetching data:', error)
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)
     }
   }
 
-  const getCalendarDays = () => {
-    const monthStart = startOfMonth(currentDate)
-    const monthEnd = endOfMonth(currentDate)
+  const generateRecurringAppointments = async () => {
+    if (!business) return
     
-    // Get the start of the first week and end of the last week to fill the calendar grid properly
-    const weekStartsOn = calendarSettings.startWeek === 'monday' ? 1 : 0
-    const calendarStart = startOfWeek(monthStart, { weekStartsOn })
-    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn })
-    
-    return eachDayOfInterval({
-      start: calendarStart,
-      end: calendarEnd
-    })
-  }
-
-  const getViewDays = () => {
-    let days: Date[]
-    
-    if (calendarSettings.viewType === 'month') {
-      days = getCalendarDays()
-    } else if (calendarSettings.viewType === 'week') {
-      const weekStartsOn = calendarSettings.startWeek === 'monday' ? 1 : 0
-      const weekStart = startOfWeek(selectedDate, { weekStartsOn })
-      const weekEnd = endOfWeek(selectedDate, { weekStartsOn })
-      days = eachDayOfInterval({ start: weekStart, end: weekEnd })
-    } else { // day view
-      days = [selectedDate]
-    }
-    
-    // Filter out weekends if showWeekends is false
-    if (!calendarSettings.showWeekends && calendarSettings.viewType === 'month') {
-      days = days.filter(day => {
-        const dayOfWeek = getDay(day)
-        return dayOfWeek !== 0 && dayOfWeek !== 6 // Remove Sunday (0) and Saturday (6)
+    try {
+      const response = await fetch('/api/calendar/generate-appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId: business.id })
       })
-    }
-    
-    return days
-  }
-
-  const viewDays = getViewDays()
-
-  const getAppointmentsForDay = (day: Date) => {
-    return getFilteredAppointments().filter(apt => isSameDay(parseISO(apt.starts_at), day))
-  }
-
-  const getFilteredAppointments = () => {
-    let filtered = appointments
-
-    // Status filter
-    if (calendarSettings.filterOptions.statusFilter.length > 0) {
-      filtered = filtered.filter(apt => calendarSettings.filterOptions.statusFilter.includes(apt.status))
-    }
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(apt => 
-        apt.customer_name.toLowerCase().includes(query) ||
-        apt.customer_phone.includes(query) ||
-        apt.service_name.toLowerCase().includes(query)
-      )
-    }
-
-    // Date range filter
-    if (calendarSettings.filterOptions.dateRange.start && calendarSettings.filterOptions.dateRange.end) {
-      const startDate = new Date(calendarSettings.filterOptions.dateRange.start)
-      const endDate = new Date(calendarSettings.filterOptions.dateRange.end)
-      filtered = filtered.filter(apt => {
-        const aptDate = parseISO(apt.starts_at)
-        return aptDate >= startDate && aptDate <= endDate
-      })
-    }
-
-    return filtered
-  }
-
-  const updateCalendarSettings = (updates: Partial<CalendarSettings>) => {
-    setCalendarSettings(prev => ({ ...prev, ...updates }))
-  }
-
-  const exportCalendar = (format: 'pdf' | 'csv' | 'ical') => {
-    // Mock export functionality
-    const appointments = getFilteredAppointments()
-    console.log(`Exporting ${appointments.length} appointments as ${format.toUpperCase()}`)
-    // In a real app, this would generate and download the file
-    alert(`Export functionality would generate ${format.toUpperCase()} file with ${appointments.length} appointments`)
-  }
-
-  const getDayAvailability = (day: Date) => {
-    const dayString = format(day, 'yyyy-MM-dd')
-    
-    // Check for exceptions first
-    const exception = availabilityExceptions.find(ex => ex.date === dayString)
-    if (exception) {
-      return {
-        isOpen: !exception.is_closed,
-        hours: exception.is_closed ? null : {
-          start: exception.start_time,
-          end: exception.end_time
-        },
-        reason: exception.reason
+      
+      if (response.ok) {
+        // Refresh upcoming appointments
+        const appointmentsResponse = await fetch(`/api/calendar/generate-appointments?businessId=${business.id}&limit=10`)
+        if (appointmentsResponse.ok) {
+          const appointmentsResult = await appointmentsResponse.json()
+          setUpcomingAppointments(appointmentsResult.appointments || [])
+        }
       }
+    } catch (error) {
+      console.error('Error generating appointments:', error)
     }
-
-    // Check regular weekly hours
-    const dayOfWeek = getDay(day)
-    const rule = availabilityRules.find(rule => rule.weekday === dayOfWeek)
-    
-    return {
-      isOpen: !!rule,
-      hours: rule ? {
-        start: rule.start_time,
-        end: rule.end_time
-      } : null,
-      reason: null
-    }
-  }
-
-  const getAvailabilityIndicator = (day: Date) => {
-    const availability = getDayAvailability(day)
-    const dayAppointments = getAppointmentsForDay(day)
-    
-    if (!availability.isOpen) {
-      return {
-        color: '#dc3545', // red
-        icon: 'fas fa-times-circle',
-        text: locale === 'es' ? 'Cerrado' : 'Closed'
-      }
-    }
-
-    if (availability.reason === 'vacation') {
-      return {
-        color: '#fd7e14', // orange
-        icon: 'fas fa-umbrella-beach',
-        text: locale === 'es' ? 'Vacaciones' : 'Vacation'
-      }
-    }
-
-    if (availability.reason === 'sick') {
-      return {
-        color: '#dc3545', // red
-        icon: 'fas fa-user-md',
-        text: locale === 'es' ? 'Enfermedad' : 'Sick'
-      }
-    }
-
-    if (availability.reason === 'holiday') {
-      return {
-        color: '#6f42c1', // purple
-        icon: 'fas fa-star',
-        text: locale === 'es' ? 'Feriado' : 'Holiday'
-      }
-    }
-
-    // Open with appointments
-    if (dayAppointments.length > 0) {
-      return {
-        color: '#198754', // green
-        icon: 'fas fa-calendar-check',
-        text: `${dayAppointments.length} ${locale === 'es' ? 'citas' : 'appointments'}`
-      }
-    }
-
-    // Open, no appointments
-    return {
-      color: '#20c997', // teal
-      icon: 'fas fa-calendar-plus',
-      text: locale === 'es' ? 'Disponible' : 'Available'
-    }
-  }
-
-  const getStatusBadge = (status: string) => {
-    const statusLabels = {
-      confirmed: locale === 'es' ? 'Confirmada' : 'Confirmed',
-      pending: locale === 'es' ? 'Pendiente' : 'Pending',
-      canceled: locale === 'es' ? 'Cancelada' : 'Canceled',
-      completed: locale === 'es' ? 'Completada' : 'Completed',
-      no_show: locale === 'es' ? 'No se presentó' : 'No Show'
-    }
-    
-    const getStatusColor = (status: string) => {
-      return calendarSettings.statusColors[status as keyof typeof calendarSettings.statusColors] || '#6c757d'
-    }
-    
-    const color = getStatusColor(status)
-    const label = statusLabels[status as keyof typeof statusLabels] || status
-    
-    return (
-      <Badge 
-        className="me-1" 
-        style={{ 
-          backgroundColor: color,
-          color: '#fff',
-          border: 'none'
-        }}
-      >
-        {label}
-      </Badge>
-    )
-  }
-
-  const getPaymentBadge = (appointment: Appointment) => {
-    if (!appointment.deposit_amount || appointment.deposit_amount === 0) {
-      return null
-    }
-
-    const amount = (appointment.deposit_amount / 100).toFixed(2)
-    
-    let variant: string
-    let icon: string
-    let label: string
-    let provider = ''
-
-    // Add provider indicator
-    if (appointment.payment_provider === 'ath_movil') {
-      provider = ' (ATH)'
-    } else if (appointment.payment_provider === 'stripe') {
-      provider = ' (Card)'
-    }
-
-    switch (appointment.payment_status) {
-      case 'completed':
-        variant = 'success'
-        icon = 'fas fa-check-circle'
-        label = locale === 'es' ? `Pagado $${amount}${provider}` : `Paid $${amount}${provider}`
-        break
-      case 'pending':
-        variant = 'warning'
-        icon = 'fas fa-clock'
-        label = locale === 'es' ? `Pendiente $${amount}${provider}` : `Pending $${amount}${provider}`
-        break
-      case 'failed':
-        variant = 'danger'
-        icon = 'fas fa-times-circle'
-        label = locale === 'es' ? `Falló $${amount}${provider}` : `Failed $${amount}${provider}`
-        break
-      default:
-        variant = 'secondary'
-        icon = 'fas fa-dollar-sign'
-        label = locale === 'es' ? `Depósito $${amount}` : `Deposit $${amount}`
-    }
-
-    return (
-      <Badge 
-        bg={variant} 
-        className="me-1" 
-        style={{ fontSize: '0.65rem' }}
-      >
-        <i className={`${icon} me-1`}></i>
-        {label}
-      </Badge>
-    )
   }
 
   if (loading) {
     return (
-      <div className="text-center py-5">
-        <div className="spinner-border text-success" role="status">
-          <span className="visually-hidden">Loading...</span>
+      <Container fluid>
+        <div className="text-center py-5">
+          <Spinner animation="border" size="lg" />
+          <p className="mt-3 text-muted">Loading calendar...</p>
         </div>
-      </div>
+      </Container>
+    )
+  }
+
+  if (error) {
+    return (
+      <Container fluid>
+        <Alert variant="danger">
+          <h4>Error Loading Calendar</h4>
+          <p>{error}</p>
+          <Button variant="outline-danger" onClick={fetchBusinessData}>
+            Try Again
+          </Button>
+        </Alert>
+      </Container>
     )
   }
 
   if (!business) {
     return (
-      <div className="text-center py-5">
+      <Container fluid>
         <Alert variant="warning">
-          <i className="fas fa-exclamation-triangle me-2"></i>
-          {locale === 'es' ? 'Por favor crea un negocio primero para ver tu calendario.' : 'Please create a business first to view your calendar.'}
-        </Alert>
-        <Link href="/dashboard/onboarding">
-          <Button variant="success">
-            {locale === 'es' ? 'Crear Negocio' : 'Create Business'}
+          <h4>No Business Found</h4>
+          <p>You need to create a business first before managing your calendar.</p>
+          <Button variant="primary" href="/dashboard/onboarding">
+            Set Up Business
           </Button>
-        </Link>
-      </div>
+        </Alert>
+      </Container>
     )
   }
 
   return (
-    <div>
-      {/* Header */}
+    <Container fluid>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <div className="d-flex align-items-center gap-3">
-          <div 
-            className="rounded-3 bg-gradient p-3 text-white d-flex align-items-center"
-            style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}
-          >
-            <i className="fas fa-calendar-alt fs-4"></i>
-          </div>
-          <div>
-            <h2 className="mb-0 fw-bold text-gray-900">
-              {locale === 'es' ? 'Calendario' : 'Calendar'}
-            </h2>
-            <p className="text-muted mb-0">
-              {locale === 'es' ? 'Gestiona tus citas' : 'Manage your appointments'}
-            </p>
-          </div>
+        <div>
+          <h1>
+            <i className="fas fa-calendar-alt me-2"></i>
+            Calendar Management
+          </h1>
+          <p className="text-muted mb-0">
+            Manage your availability, recurring appointments, and reminders
+          </p>
         </div>
-        <div className="d-flex gap-1 gap-md-2 flex-wrap justify-content-end justify-content-md-start">
-          {/* Search */}
-          <Form.Control
-            type="text"
-            placeholder={locale === 'es' ? 'Buscar citas...' : 'Search appointments...'}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="d-none d-lg-block"
-            style={{ width: '200px' }}
-          />
-
-          {/* Mobile Search Button */}
+        <div className="d-flex gap-2">
           <Button 
-            variant="outline-secondary"
-            size="sm"
-            className="d-lg-none"
-            onClick={() => {
-              // Toggle mobile search - in a real app this would open a search modal
-              const query = prompt(locale === 'es' ? 'Buscar citas:' : 'Search appointments:')
-              if (query !== null) setSearchQuery(query)
-            }}
+            variant="outline-success" 
+            onClick={generateRecurringAppointments}
+            title="Generate upcoming recurring appointments"
           >
-            <i className="fas fa-search"></i>
-          </Button>
-
-          {/* View Type Selector */}
-          <Dropdown>
-            <Dropdown.Toggle variant="outline-secondary" size="sm">
-              <i className={`fas ${
-                calendarSettings.viewType === 'month' ? 'fa-calendar' : 
-                calendarSettings.viewType === 'week' ? 'fa-calendar-week' : 
-                'fa-calendar-day'
-              } me-1`}></i>
-              {calendarSettings.viewType === 'month' ? (locale === 'es' ? 'Mes' : 'Month') :
-               calendarSettings.viewType === 'week' ? (locale === 'es' ? 'Semana' : 'Week') :
-               (locale === 'es' ? 'Día' : 'Day')}
-            </Dropdown.Toggle>
-            <Dropdown.Menu>
-              <Dropdown.Item onClick={() => updateCalendarSettings({ viewType: 'month' })}>
-                <i className="fas fa-calendar me-2"></i>
-                {locale === 'es' ? 'Vista Mensual' : 'Month View'}
-              </Dropdown.Item>
-              <Dropdown.Item onClick={() => updateCalendarSettings({ viewType: 'week' })}>
-                <i className="fas fa-calendar-week me-2"></i>
-                {locale === 'es' ? 'Vista Semanal' : 'Week View'}
-              </Dropdown.Item>
-              <Dropdown.Item onClick={() => updateCalendarSettings({ viewType: 'day' })}>
-                <i className="fas fa-calendar-day me-2"></i>
-                {locale === 'es' ? 'Vista Diaria' : 'Day View'}
-              </Dropdown.Item>
-            </Dropdown.Menu>
-          </Dropdown>
-
-          {/* Filter Dropdown */}
-          <Dropdown>
-            <Dropdown.Toggle variant="outline-info" size="sm">
-              <i className="fas fa-filter me-1"></i>
-              {locale === 'es' ? 'Filtros' : 'Filters'}
-              {(calendarSettings.filterOptions.statusFilter.length > 0 || searchQuery.trim()) && (
-                <Badge bg="info" className="ms-1">{calendarSettings.filterOptions.statusFilter.length + (searchQuery.trim() ? 1 : 0)}</Badge>
-              )}
-            </Dropdown.Toggle>
-            <Dropdown.Menu className="p-3" style={{ minWidth: '300px' }}>
-              <Form.Group className="mb-3">
-                <Form.Label className="small fw-bold">{locale === 'es' ? 'Estado de Citas' : 'Appointment Status'}</Form.Label>
-                {['confirmed', 'pending', 'canceled', 'completed', 'no_show'].map(status => (
-                  <Form.Check
-                    key={status}
-                    type="checkbox"
-                    id={`status-${status}`}
-                    label={status === 'confirmed' ? (locale === 'es' ? 'Confirmada' : 'Confirmed') :
-                           status === 'pending' ? (locale === 'es' ? 'Pendiente' : 'Pending') :
-                           status === 'canceled' ? (locale === 'es' ? 'Cancelada' : 'Canceled') :
-                           status === 'completed' ? (locale === 'es' ? 'Completada' : 'Completed') :
-                           (locale === 'es' ? 'No se presentó' : 'No Show')}
-                    checked={calendarSettings.filterOptions.statusFilter.includes(status)}
-                    onChange={(e) => {
-                      const statusFilter = e.target.checked 
-                        ? [...calendarSettings.filterOptions.statusFilter, status]
-                        : calendarSettings.filterOptions.statusFilter.filter(s => s !== status)
-                      updateCalendarSettings({ 
-                        filterOptions: { ...calendarSettings.filterOptions, statusFilter }
-                      })
-                    }}
-                  />
-                ))}
-              </Form.Group>
-
-              <Form.Group className="mb-3">
-                <Form.Label className="small fw-bold">{locale === 'es' ? 'Rango de Fechas' : 'Date Range'}</Form.Label>
-                <div className="d-flex gap-2">
-                  <Form.Control
-                    type="date"
-                    size="sm"
-                    value={calendarSettings.filterOptions.dateRange.start}
-                    onChange={(e) => updateCalendarSettings({
-                      filterOptions: {
-                        ...calendarSettings.filterOptions,
-                        dateRange: { ...calendarSettings.filterOptions.dateRange, start: e.target.value }
-                      }
-                    })}
-                  />
-                  <Form.Control
-                    type="date"
-                    size="sm"
-                    value={calendarSettings.filterOptions.dateRange.end}
-                    onChange={(e) => updateCalendarSettings({
-                      filterOptions: {
-                        ...calendarSettings.filterOptions,
-                        dateRange: { ...calendarSettings.filterOptions.dateRange, end: e.target.value }
-                      }
-                    })}
-                  />
-                </div>
-              </Form.Group>
-
-              <div className="d-flex gap-2">
-                <Button
-                  variant="outline-secondary"
-                  size="sm"
-                  onClick={() => updateCalendarSettings({
-                    filterOptions: {
-                      statusFilter: [],
-                      serviceFilter: [],
-                      dateRange: { start: '', end: '' }
-                    }
-                  })}
-                >
-                  {locale === 'es' ? 'Limpiar' : 'Clear'}
-                </Button>
-              </div>
-            </Dropdown.Menu>
-          </Dropdown>
-
-          {/* Export Options */}
-          <Dropdown>
-            <Dropdown.Toggle variant="outline-success" size="sm">
-              <i className="fas fa-download me-1"></i>
-              {locale === 'es' ? 'Exportar' : 'Export'}
-            </Dropdown.Toggle>
-            <Dropdown.Menu>
-              <Dropdown.Item onClick={() => exportCalendar('pdf')}>
-                <i className="fas fa-file-pdf me-2 text-danger"></i>
-                {locale === 'es' ? 'Exportar PDF' : 'Export PDF'}
-              </Dropdown.Item>
-              <Dropdown.Item onClick={() => exportCalendar('csv')}>
-                <i className="fas fa-file-csv me-2 text-success"></i>
-                {locale === 'es' ? 'Exportar CSV' : 'Export CSV'}
-              </Dropdown.Item>
-              <Dropdown.Item onClick={() => exportCalendar('ical')}>
-                <i className="fas fa-calendar me-2 text-primary"></i>
-                {locale === 'es' ? 'Exportar iCal' : 'Export iCal'}
-              </Dropdown.Item>
-            </Dropdown.Menu>
-          </Dropdown>
-
-          {/* Settings */}
-          <Button 
-            variant="outline-secondary"
-            size="sm"
-            onClick={() => setShowCalendarSettings(true)}
-          >
-            <i className="fas fa-cog me-1"></i>
-            {locale === 'es' ? 'Configurar' : 'Settings'}
-          </Button>
-
-          <Button 
-            variant={availabilityRules.length === 0 ? "warning" : "outline-secondary"}
-            size="sm"
-            onClick={() => setShowAvailabilityManager(true)}
-            className={availabilityRules.length === 0 ? "animate__animated animate__pulse animate__infinite" : ""}
-          >
-            <i className="fas fa-clock me-1"></i>
-            {availabilityRules.length === 0 
-              ? (locale === 'es' ? 'Configurar Horarios' : 'Set Hours') 
-              : (locale === 'es' ? 'Horarios' : 'Hours')
-            }
-          </Button>
-
-          <Button variant="primary" size="sm">
-            <i className="fas fa-plus me-1"></i>
-            {locale === 'es' ? 'Nueva Cita' : 'New Appointment'}
+            <i className="fas fa-sync me-1"></i>
+            Sync Recurring
           </Button>
         </div>
       </div>
 
-      {availabilityRules.length === 0 && (
-        <Alert variant="warning" className="mb-4">
-          <i className="fas fa-exclamation-triangle me-2"></i>
-          <strong>{locale === 'es' ? '¡Configura tu horario!' : 'Set up your schedule!'}</strong>
-          {' '}
-          {locale === 'es' 
-            ? 'Todos los días aparecen como "Cerrado" porque no has configurado tus horarios de trabajo. Haz clic en "Configurar Horarios" para establecer cuándo estás disponible.'
-            : 'All days show as "Closed" because you haven\'t set your working hours. Click "Set Hours" to configure when you\'re available.'
-          }
-        </Alert>
-      )}
+      <Tab.Container activeKey={activeTab} onSelect={(k) => setActiveTab(k || 'calendar')}>
+        <Nav variant="tabs" className="mb-4">
+          <Nav.Item>
+            <Nav.Link eventKey="calendar">
+              <i className="fas fa-calendar me-2"></i>
+              Calendar
+            </Nav.Link>
+          </Nav.Item>
+          <Nav.Item>
+            <Nav.Link eventKey="recurring">
+              <i className="fas fa-repeat me-2"></i>
+              Recurring Appointments
+            </Nav.Link>
+          </Nav.Item>
+          <Nav.Item>
+            <Nav.Link eventKey="upcoming">
+              <i className="fas fa-clock me-2"></i>
+              Upcoming Appointments
+            </Nav.Link>
+          </Nav.Item>
+        </Nav>
 
-      <Row className="g-4">
-        {/* Calendar */}
-        <Col xl={8} lg={12} className="order-2 order-xl-1">
-          <div className="glass-card p-2 p-md-4 rounded-4">
-            {/* Calendar Header */}
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <h4 className="fw-bold mb-0">
-                {calendarSettings.viewType === 'month' ? 
-                  format(currentDate, 'MMMM yyyy', { locale: dateLocale }) :
-                 calendarSettings.viewType === 'week' ?
-                  `${format(startOfWeek(selectedDate, { weekStartsOn: calendarSettings.startWeek === 'monday' ? 1 : 0 }), 'MMM d', { locale: dateLocale })} - ${format(endOfWeek(selectedDate, { weekStartsOn: calendarSettings.startWeek === 'monday' ? 1 : 0 }), 'MMM d, yyyy', { locale: dateLocale })}` :
-                  format(selectedDate, 'EEEE, MMMM d, yyyy', { locale: dateLocale })
-                }
-              </h4>
-              <div className="d-flex gap-2">
-                <Button 
-                  variant="outline-secondary" 
-                  size="sm"
-                  onClick={() => {
-                    if (calendarSettings.viewType === 'month') {
-                      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))
-                    } else if (calendarSettings.viewType === 'week') {
-                      setSelectedDate(addDays(selectedDate, -7))
-                      setCurrentDate(addDays(selectedDate, -7))
-                    } else { // day
-                      setSelectedDate(addDays(selectedDate, -1))
-                      setCurrentDate(addDays(selectedDate, -1))
-                    }
-                  }}
-                >
-                  <i className="fas fa-chevron-left"></i>
-                </Button>
-                <Button 
-                  variant="outline-secondary" 
-                  size="sm"
-                  onClick={() => {
-                    const today = new Date()
-                    setCurrentDate(today)
-                    setSelectedDate(today)
-                  }}
-                >
-                  {locale === 'es' ? 'Hoy' : 'Today'}
-                </Button>
-                <Button 
-                  variant="outline-secondary" 
-                  size="sm"
-                  onClick={() => {
-                    if (calendarSettings.viewType === 'month') {
-                      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))
-                    } else if (calendarSettings.viewType === 'week') {
-                      setSelectedDate(addDays(selectedDate, 7))
-                      setCurrentDate(addDays(selectedDate, 7))
-                    } else { // day
-                      setSelectedDate(addDays(selectedDate, 1))
-                      setCurrentDate(addDays(selectedDate, 1))
-                    }
-                  }}
-                >
-                  <i className="fas fa-chevron-right"></i>
-                </Button>
-              </div>
-            </div>
-
-            {/* Calendar Header */}
-            {calendarSettings.viewType === 'month' && (
-              <div 
-                className="calendar-header mb-2" 
-                style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: calendarSettings.showWeekends ? 'repeat(7, 1fr)' : 'repeat(5, 1fr)',
-                  gap: '1px', 
-                  textAlign: 'center' 
-                }}
-              >
-                {(() => {
-                  const days = locale === 'es' ? ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-                  const startIdx = calendarSettings.startWeek === 'monday' ? 1 : 0
-                  let reorderedDays = [...days.slice(startIdx), ...days.slice(0, startIdx)]
-                  
-                  // Filter out weekends if showWeekends is false
-                  if (!calendarSettings.showWeekends) {
-                    reorderedDays = reorderedDays.filter((_, index) => {
-                      // In reordered array, weekends are at positions 5 (Saturday) and 6 (Sunday) when starting from Monday
-                      // or positions 0 (Sunday) and 6 (Saturday) when starting from Sunday
-                      if (calendarSettings.startWeek === 'monday') {
-                        return index !== 5 && index !== 6 // Remove Saturday and Sunday
-                      } else {
-                        return index !== 0 && index !== 6 // Remove Sunday and Saturday
-                      }
-                    })
-                  }
-                  
-                  return reorderedDays.map(day => (
-                    <div key={day} className="calendar-header-day fw-bold text-muted py-2" style={{ fontSize: '0.85rem' }}>
-                      {day}
-                    </div>
-                  ))
-                })()}
-              </div>
-            )}
-            
-            {calendarSettings.viewType === 'week' && (
-              <div className="calendar-header mb-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px', textAlign: 'center' }}>
-                {viewDays.map(day => (
-                  <div key={day.toString()} className="calendar-header-day fw-bold text-muted py-2" style={{ fontSize: '0.85rem' }}>
-                    <div>{format(day, 'EEE', { locale: dateLocale })}</div>
-                    <div className="fw-normal">{format(day, 'd')}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Calendar Grid */}
-            <div 
-              className="calendar-grid"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: calendarSettings.viewType === 'month' ? 
-                  (calendarSettings.showWeekends ? 'repeat(7, 1fr)' : 'repeat(5, 1fr)') :
-                  calendarSettings.viewType === 'week' ? 'repeat(7, 1fr)' : '1fr',
-                gap: '1px',
-                backgroundColor: '#e5e7eb',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                overflow: 'hidden'
-              }}
-            >
-              {viewDays.map(day => {
-                const dayAppointments = getAppointmentsForDay(day)
-                const availability = getDayAvailability(day)
-                const indicator = getAvailabilityIndicator(day)
-                const isSelected = isSameDay(day, selectedDate)
-                const isCurrentDay = isToday(day)
-                const isCurrentMonth = format(day, 'M') === format(currentDate, 'M')
-                
-                return (
-                  <div
-                    key={day.toString()}
-                    className="calendar-day"
-                    onClick={() => setSelectedDate(day)}
-                    style={{
-                      backgroundColor: isSelected ? '#3b82f6' : 
-                                     isCurrentDay ? '#10b981' : '#ffffff',
-                      color: isSelected || isCurrentDay ? '#ffffff' : 
-                             isCurrentMonth ? '#000000' : '#9ca3af',
-                      minHeight: calendarSettings.viewType === 'month' ? '70px' :
-                        calendarSettings.viewType === 'week' ? '150px' : '300px',
-                      padding: '4px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      opacity: !availability.isOpen ? 0.6 : 1,
-                      position: 'relative',
-                      border: isSelected ? '2px solid #1d4ed8' : 
-                              isCurrentDay ? '2px solid #059669' : 'none',
-                      fontSize: '0.8rem'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isSelected && !isCurrentDay) {
-                        e.currentTarget.style.backgroundColor = '#f3f4f6'
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSelected && !isCurrentDay) {
-                        e.currentTarget.style.backgroundColor = '#ffffff'
-                      }
-                    }}
-                  >
-                    <div className="calendar-day-number fw-bold mb-1">
-                      {format(day, 'd')}
-                      {calendarSettings.viewType === 'day' && (
-                        <div className="small fw-normal">
-                          {format(day, 'EEEE, MMMM d, yyyy', { locale: dateLocale })}
+        <Tab.Content>
+          <Tab.Pane eventKey="calendar">
+            <Row>
+              <Col lg={12}>
+                <Card>
+                  <Card.Header>
+                    <div className="d-flex justify-content-between align-items-center">
+                      <h5 className="mb-0">
+                        <i className="fas fa-calendar me-2"></i>
+                        Calendar Management
+                      </h5>
+                      <div className="d-flex gap-2">
+                        <div className="small text-muted">
+                          <i className="fas fa-info-circle me-1"></i>
+                          Click ✓/✗ to toggle day off, view appointments, and manage availability
                         </div>
-                      )}
-                    </div>
-                    
-                    {/* Availability/Appointment Indicator */}
-                    <div className="calendar-appointments-indicator">
-                      <div 
-                        className="d-flex align-items-center justify-content-start mb-1"
-                        style={{ 
-                          fontSize: '0.7rem'
-                        }}
-                      >
-                        <i className={`${indicator.icon} me-1`} style={{ color: isSelected || isCurrentDay ? 'rgba(255,255,255,0.9)' : indicator.color }}></i>
-                        {dayAppointments.length > 0 && (
-                          <span style={{ color: isSelected || isCurrentDay ? 'rgba(255,255,255,0.9)' : indicator.color }}>
-                            {dayAppointments.length}
-                          </span>
-                        )}
-                      </div>
-                      
-                      {/* Show appointment details in week/day view */}
-                      {(calendarSettings.viewType === 'week' || calendarSettings.viewType === 'day') && dayAppointments.length > 0 && (
-                        <div className="appointments-list">
-                          {dayAppointments.slice(0, calendarSettings.viewType === 'day' ? 10 : 3).map(apt => (
-                            <div 
-                              key={apt.id} 
-                              className="appointment-item small mb-1 p-1 rounded"
-                              style={{
-                                backgroundColor: calendarSettings.statusColors[apt.status as keyof typeof calendarSettings.statusColors] || '#6c757d',
-                                color: '#fff',
-                                fontSize: '0.65rem'
-                              }}
-                            >
-                              <div className="fw-bold">{format(parseISO(apt.starts_at), calendarSettings.timeFormat === '12h' ? 'h:mm a' : 'HH:mm')}</div>
-                              {calendarSettings.displayOptions.showCustomerNames && (
-                                <div className="text-truncate">{apt.customer_name}</div>
-                              )}
-                              {calendarSettings.displayOptions.showServiceNames && (
-                                <div className="text-truncate">{apt.service_name}</div>
-                              )}
-                            </div>
-                          ))}
-                          {dayAppointments.length > (calendarSettings.viewType === 'day' ? 10 : 3) && (
-                            <div className="small text-muted">
-                              +{dayAppointments.length - (calendarSettings.viewType === 'day' ? 10 : 3)} more
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      {availability.hours && calendarSettings.viewType === 'month' && (
-                        <small 
-                          className="text-muted"
-                          style={{ 
-                            fontSize: '0.6rem',
-                            color: isSelected || isCurrentDay ? 'rgba(255,255,255,0.7)' : '#6b7280'
-                          }}
-                        >
-                          {availability.hours.start}-{availability.hours.end}
-                        </small>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </Col>
-
-        {/* Selected Day Details */}
-        <Col xl={4} lg={12} className="order-1 order-xl-2">
-          <div className="glass-card p-3 p-md-4 rounded-4">
-            <h5 className="fw-bold mb-3">
-              {format(selectedDate, 'EEEE, MMMM d', { locale: dateLocale })}
-              {isToday(selectedDate) && (
-                <Badge bg="success" className="ms-2">
-                  {locale === 'es' ? 'Hoy' : 'Today'}
-                </Badge>
-              )}
-            </h5>
-
-            {/* Day Availability Info */}
-            {(() => {
-              const dayAvailability = getDayAvailability(selectedDate)
-              const indicator = getAvailabilityIndicator(selectedDate)
-              
-              return (
-                <div className="mb-3 p-3 rounded-3" style={{ backgroundColor: `${indicator.color}15`, border: `1px solid ${indicator.color}30` }}>
-                  <div className="d-flex align-items-center mb-2">
-                    <i className={`${indicator.icon} me-2`} style={{ color: indicator.color }}></i>
-                    <span className="fw-semibold" style={{ color: indicator.color }}>
-                      {indicator.text}
-                    </span>
-                  </div>
-                  {dayAvailability.hours && (
-                    <small className="text-muted">
-                      <i className="fas fa-clock me-1"></i>
-                      {locale === 'es' ? 'Horario: ' : 'Hours: '}
-                      {dayAvailability.hours.start} - {dayAvailability.hours.end}
-                    </small>
-                  )}
-                </div>
-              )
-            })()}
-
-            {getAppointmentsForDay(selectedDate).length === 0 ? (
-              <div className="text-center py-4">
-                <i className="fas fa-calendar-plus fs-2 text-muted mb-3"></i>
-                <p className="text-muted">
-                  {locale === 'es' ? 'No hay citas programadas' : 'No appointments scheduled'}
-                </p>
-                <Button variant="outline-success" size="sm">
-                  <i className="fas fa-plus me-1"></i>
-                  {locale === 'es' ? 'Agregar Cita' : 'Add Appointment'}
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {getAppointmentsForDay(selectedDate).map(appointment => (
-                  <div 
-                    key={appointment.id} 
-                    className="p-3 rounded-3 border"
-                    style={{ 
-                      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(5, 150, 105, 0.02) 100%)',
-                      border: '1px solid rgba(16, 185, 129, 0.1)'
-                    }}
-                  >
-                    <div className="d-flex justify-content-between align-items-start mb-2">
-                      <div>
-                        <div className="fw-semibold">{appointment.customer_name}</div>
-                        <small className="text-muted">{appointment.customer_phone}</small>
-                      </div>
-                      <div className="d-flex flex-wrap">
-                        {getStatusBadge(appointment.status)}
-                        {getPaymentBadge(appointment)}
                       </div>
                     </div>
-                    <div className="small text-muted mb-1">
-                      <i className="fas fa-clock me-1"></i>
-                      {format(parseISO(appointment.starts_at), 'h:mm a')}
-                    </div>
-                    <div className="small text-muted">
-                      <i className="fas fa-cogs me-1"></i>
-                      {appointment.service_name}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </Col>
-      </Row>
-
-      {/* Calendar Settings Modal */}
-      <Modal show={showCalendarSettings} onHide={() => setShowCalendarSettings(false)} size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <i className="fas fa-cog me-2"></i>
-            {locale === 'es' ? 'Configuración del Calendario' : 'Calendar Settings'}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Row>
-            {/* Display Settings */}
-            <Col md={6}>
-              <Card className="mb-3">
-                <Card.Header>
-                  <h6 className="mb-0">
-                    <i className="fas fa-eye me-2"></i>
-                    {locale === 'es' ? 'Opciones de Vista' : 'Display Options'}
-                  </h6>
-                </Card.Header>
-                <Card.Body>
-                  <Form.Group className="mb-3">
-                    <Form.Check
-                      type="checkbox"
-                      id="showWeekends"
-                      label={locale === 'es' ? 'Mostrar fines de semana' : 'Show weekends'}
-                      checked={calendarSettings.showWeekends}
-                      onChange={(e) => updateCalendarSettings({ showWeekends: e.target.checked })}
+                  </Card.Header>
+                  <Card.Body>
+                    <MonthlyCalendar 
+                      businessId={business.id}
+                      staffId={staff.length > 0 ? staff[0].id : undefined}
                     />
-                  </Form.Group>
+                  </Card.Body>
+                </Card>
+              </Col>
+            </Row>
+          </Tab.Pane>
 
-                  <Form.Group className="mb-3">
-                    <Form.Label>{locale === 'es' ? 'Iniciar semana en' : 'Start week on'}</Form.Label>
-                    <Form.Select
-                      value={calendarSettings.startWeek}
-                      onChange={(e) => updateCalendarSettings({ startWeek: e.target.value as 'sunday' | 'monday' })}
-                    >
-                      <option value="sunday">{locale === 'es' ? 'Domingo' : 'Sunday'}</option>
-                      <option value="monday">{locale === 'es' ? 'Lunes' : 'Monday'}</option>
-                    </Form.Select>
-                  </Form.Group>
+          <Tab.Pane eventKey="recurring">
+            <RecurringAppointments
+              businessId={business.id}
+              services={services}
+              staff={staff}
+            />
+          </Tab.Pane>
 
-                  <Form.Group className="mb-3">
-                    <Form.Label>{locale === 'es' ? 'Formato de hora' : 'Time format'}</Form.Label>
-                    <Form.Select
-                      value={calendarSettings.timeFormat}
-                      onChange={(e) => updateCalendarSettings({ timeFormat: e.target.value as '12h' | '24h' })}
-                    >
-                      <option value="12h">12 {locale === 'es' ? 'horas (AM/PM)' : 'hour (AM/PM)'}</option>
-                      <option value="24h">24 {locale === 'es' ? 'horas' : 'hour'}</option>
-                    </Form.Select>
-                  </Form.Group>
-
-                  <Form.Group className="mb-3">
-                    <Form.Label>{locale === 'es' ? 'Tema de colores' : 'Color theme'}</Form.Label>
-                    <Form.Select
-                      value={calendarSettings.colorTheme}
-                      onChange={(e) => updateCalendarSettings({ colorTheme: e.target.value as 'default' | 'colorful' | 'minimal' })}
-                    >
-                      <option value="default">{locale === 'es' ? 'Predeterminado' : 'Default'}</option>
-                      <option value="colorful">{locale === 'es' ? 'Colorido' : 'Colorful'}</option>
-                      <option value="minimal">{locale === 'es' ? 'Minimalista' : 'Minimal'}</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Card.Body>
-              </Card>
-            </Col>
-
-            {/* Status Colors */}
-            <Col md={6}>
-              <Card className="mb-3">
-                <Card.Header>
-                  <h6 className="mb-0">
-                    <i className="fas fa-palette me-2"></i>
-                    {locale === 'es' ? 'Colores de Estado' : 'Status Colors'}
-                  </h6>
-                </Card.Header>
-                <Card.Body>
-                  {Object.entries(calendarSettings.statusColors).map(([status, color]) => (
-                    <Form.Group key={status} className="mb-3">
-                      <Form.Label className="d-flex align-items-center">
-                        <div
-                          className="rounded me-2"
-                          style={{
-                            width: '16px',
-                            height: '16px',
-                            backgroundColor: color
-                          }}
-                        ></div>
-                        {status === 'confirmed' ? (locale === 'es' ? 'Confirmada' : 'Confirmed') :
-                         status === 'pending' ? (locale === 'es' ? 'Pendiente' : 'Pending') :
-                         status === 'canceled' ? (locale === 'es' ? 'Cancelada' : 'Canceled') :
-                         status === 'completed' ? (locale === 'es' ? 'Completada' : 'Completed') :
-                         (locale === 'es' ? 'No se presentó' : 'No Show')}
-                      </Form.Label>
-                      <Form.Control
-                        type="color"
-                        value={color}
-                        onChange={(e) => updateCalendarSettings({
-                          statusColors: {
-                            ...calendarSettings.statusColors,
-                            [status]: e.target.value
-                          }
-                        })}
-                      />
-                    </Form.Group>
-                  ))}
-                </Card.Body>
-              </Card>
-            </Col>
-
-            {/* Appointment Display Options */}
-            <Col md={12}>
-              <Card>
-                <Card.Header>
-                  <h6 className="mb-0">
-                    <i className="fas fa-list me-2"></i>
-                    {locale === 'es' ? 'Información a Mostrar' : 'Appointment Information'}
-                  </h6>
-                </Card.Header>
-                <Card.Body>
-                  <Row>
-                    <Col md={6}>
-                      <Form.Group className="mb-3">
-                        <Form.Check
-                          type="checkbox"
-                          id="showCustomerNames"
-                          label={locale === 'es' ? 'Nombres de clientes' : 'Customer names'}
-                          checked={calendarSettings.displayOptions.showCustomerNames}
-                          onChange={(e) => updateCalendarSettings({
-                            displayOptions: { ...calendarSettings.displayOptions, showCustomerNames: e.target.checked }
-                          })}
-                        />
-                      </Form.Group>
-                      <Form.Group className="mb-3">
-                        <Form.Check
-                          type="checkbox"
-                          id="showServiceNames"
-                          label={locale === 'es' ? 'Nombres de servicios' : 'Service names'}
-                          checked={calendarSettings.displayOptions.showServiceNames}
-                          onChange={(e) => updateCalendarSettings({
-                            displayOptions: { ...calendarSettings.displayOptions, showServiceNames: e.target.checked }
-                          })}
-                        />
-                      </Form.Group>
-                      <Form.Group className="mb-3">
-                        <Form.Check
-                          type="checkbox"
-                          id="showPhoneNumbers"
-                          label={locale === 'es' ? 'Números de teléfono' : 'Phone numbers'}
-                          checked={calendarSettings.displayOptions.showPhoneNumbers}
-                          onChange={(e) => updateCalendarSettings({
-                            displayOptions: { ...calendarSettings.displayOptions, showPhoneNumbers: e.target.checked }
-                          })}
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group className="mb-3">
-                        <Form.Check
-                          type="checkbox"
-                          id="showDuration"
-                          label={locale === 'es' ? 'Duración del servicio' : 'Service duration'}
-                          checked={calendarSettings.displayOptions.showDuration}
-                          onChange={(e) => updateCalendarSettings({
-                            displayOptions: { ...calendarSettings.displayOptions, showDuration: e.target.checked }
-                          })}
-                        />
-                      </Form.Group>
-                      <Form.Group className="mb-3">
-                        <Form.Check
-                          type="checkbox"
-                          id="showPricing"
-                          label={locale === 'es' ? 'Precios' : 'Pricing'}
-                          checked={calendarSettings.displayOptions.showPricing}
-                          onChange={(e) => updateCalendarSettings({
-                            displayOptions: { ...calendarSettings.displayOptions, showPricing: e.target.checked }
-                          })}
-                        />
-                      </Form.Group>
-                      <Form.Group className="mb-3">
-                        <Form.Check
-                          type="checkbox"
-                          id="showAppointmentDetails"
-                          label={locale === 'es' ? 'Detalles completos' : 'Full details'}
-                          checked={calendarSettings.showAppointmentDetails}
-                          onChange={(e) => updateCalendarSettings({ showAppointmentDetails: e.target.checked })}
-                        />
-                      </Form.Group>
-                    </Col>
-                  </Row>
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="outline-secondary" onClick={() => setShowCalendarSettings(false)}>
-            {locale === 'es' ? 'Cerrar' : 'Close'}
-          </Button>
-          <Button
-            variant="outline-primary"
-            onClick={() => {
-              // Reset to defaults
-              setCalendarSettings({
-                viewType: 'month',
-                showWeekends: true,
-                startWeek: 'sunday',
-                timeFormat: '12h',
-                showAppointmentDetails: true,
-                colorTheme: 'default',
-                statusColors: {
-                  confirmed: '#198754',
-                  pending: '#ffc107',
-                  canceled: '#dc3545',
-                  completed: '#0dcaf0',
-                  no_show: '#6c757d'
-                },
-                displayOptions: {
-                  showCustomerNames: true,
-                  showServiceNames: true,
-                  showPhoneNumbers: false,
-                  showDuration: true,
-                  showPricing: false
-                },
-                filterOptions: {
-                  statusFilter: ['confirmed', 'pending'],
-                  serviceFilter: [],
-                  dateRange: { start: '', end: '' }
-                }
-              })
-            }}
-          >
-            {locale === 'es' ? 'Restablecer' : 'Reset Defaults'}
-          </Button>
-          <Button variant="success" onClick={() => setShowCalendarSettings(false)}>
-            <i className="fas fa-save me-1"></i>
-            {locale === 'es' ? 'Guardar' : 'Save'}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Availability Manager Modal */}
-      {business && (
-        <AvailabilityManager
-          show={showAvailabilityManager}
-          onHide={() => setShowAvailabilityManager(false)}
-          businessId={business.id}
-          onUpdate={fetchData}
-        />
-      )}
-    </div>
+          <Tab.Pane eventKey="upcoming">
+            <Card>
+              <Card.Header>
+                <div className="d-flex justify-content-between align-items-center">
+                  <h5 className="mb-0">
+                    <i className="fas fa-clock me-2"></i>
+                    Upcoming Appointments (Next 30 Days)
+                  </h5>
+                  <Button 
+                    variant="outline-primary" 
+                    size="sm"
+                    onClick={generateRecurringAppointments}
+                  >
+                    <i className="fas fa-sync me-1"></i>
+                    Refresh
+                  </Button>
+                </div>
+              </Card.Header>
+              <Card.Body>
+                {upcomingAppointments.length === 0 ? (
+                  <Alert variant="info" className="text-center">
+                    <i className="fas fa-calendar-plus fa-2x mb-3 d-block"></i>
+                    <h6>No Upcoming Appointments</h6>
+                    <p className="mb-0 text-muted">
+                      Your upcoming recurring appointments will appear here once generated.
+                    </p>
+                  </Alert>
+                ) : (
+                  <div>
+                    {upcomingAppointments.map((appointment, index) => (
+                      <Card key={appointment.id || index} className="mb-3 border-start border-4 border-success">
+                        <Card.Body className="p-3">
+                          <div className="d-flex justify-content-between align-items-start">
+                            <div>
+                              <h6 className="mb-1">{appointment.service_name}</h6>
+                              <p className="text-muted mb-1">
+                                <i className="fas fa-user me-1"></i>
+                                {appointment.customer_email}
+                              </p>
+                              <p className="text-muted mb-0">
+                                <i className="fas fa-clock me-1"></i>
+                                {new Date(appointment.starts_at).toLocaleDateString()} at{' '}
+                                {new Date(appointment.starts_at).toLocaleTimeString()}
+                              </p>
+                            </div>
+                            <Badge 
+                              bg={appointment.recurring_frequency ? "info" : "success"}
+                              className="ms-2"
+                            >
+                              {appointment.recurring_frequency ? 
+                                `${appointment.recurring_frequency}ly` : 
+                                'One-time'
+                              }
+                            </Badge>
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
+          </Tab.Pane>
+        </Tab.Content>
+      </Tab.Container>
+    </Container>
   )
 }
