@@ -9,6 +9,7 @@ import { usePathname } from 'next/navigation'
 import { Button } from 'react-bootstrap'
 import { useLanguage } from '@/lib/language-context'
 import BusinessSwitcher from '@/components/BusinessSwitcher'
+import SubscriptionCheck from '@/components/SubscriptionCheck'
 
 export default function DashboardLayout({
   children,
@@ -418,7 +419,9 @@ export default function DashboardLayout({
             paddingBottom: isMobile ? '2rem' : '1.5rem'
           }}
         >
-          {children}
+          <SubscriptionCheck requireActiveSubscription={true}>
+            {children}
+          </SubscriptionCheck>
         </main>
       </div>
     </div>

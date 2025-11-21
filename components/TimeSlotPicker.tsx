@@ -97,11 +97,16 @@ export default function TimeSlotPicker({
           </h6>
           <Row className="g-2">
             {availableDates.map(({ date, display }) => (
-              <Col key={date} xs={6} md={4} lg={3}>
+              <Col key={date} xs={6} sm={4} md={3} xl={2}>
                 <Button
                   variant={selectedDate === date ? 'success' : 'outline-secondary'}
                   size="sm"
-                  className="w-100"
+                  className="w-100 text-nowrap"
+                  style={{ 
+                    minHeight: '44px',
+                    fontSize: 'clamp(0.7rem, 1.8vw, 0.825rem)',
+                    padding: '0.5rem 0.25rem'
+                  }}
                   onClick={() => setSelectedDate(date)}
                 >
                   {display}
@@ -147,11 +152,16 @@ export default function TimeSlotPicker({
         ) : (
           <Row className="g-2">
             {timeSlots.map((slot) => (
-              <Col key={slot.datetime} xs={6} md={4} lg={3}>
+              <Col key={slot.datetime} xs={6} sm={4} md={3} xl={2}>
                 <Button
                   variant={selectedSlot === slot.datetime ? 'success' : 'outline-primary'}
                   size="sm"
-                  className="w-100"
+                  className="w-100 text-nowrap"
+                  style={{ 
+                    minHeight: '44px',
+                    fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
+                    padding: '0.5rem 0.25rem'
+                  }}
                   disabled={!slot.available}
                   onClick={() => slot.available && onSelectSlot(slot.datetime)}
                 >

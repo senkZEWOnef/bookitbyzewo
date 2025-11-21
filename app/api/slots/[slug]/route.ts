@@ -53,43 +53,56 @@ export async function GET(
     const requestedDate = parseISO(date)
     const dayOfWeek = getDay(requestedDate) // 0 = Sunday, 1 = Monday, etc.
 
-    // Get availability rules for this day
-    const availabilityResult = await query(
-      'SELECT * FROM availability_rules WHERE business_id = $1 AND weekday = $2 AND is_active = true',
-      [business.id, dayOfWeek]
-    )
-
-    if (availabilityResult.rows.length === 0) {
-      return NextResponse.json({
-        success: true,
-        slots: [],
-        message: 'No availability for this day'
-      })
-    }
-
-    const availability = availabilityResult.rows[0]
-
-    // Check for exceptions on this specific date
-    const exceptionResult = await query(
-      'SELECT * FROM availability_exceptions WHERE business_id = $1 AND date = $2',
+    // Check for day-specific availability first
+    const dayAvailabilityResult = await query(
+      'SELECT * FROM day_availability WHERE business_id = $1 AND date = $2',
       [business.id, format(requestedDate, 'yyyy-MM-dd')]
     )
 
-    if (exceptionResult.rows.length > 0 && exceptionResult.rows[0].is_closed) {
-      return NextResponse.json({
-        success: true,
-        slots: [],
-        message: 'Closed on this day'
-      })
+    let timeSlots: string[] = []
+
+    if (dayAvailabilityResult.rows.length > 0) {
+      const dayAvailability = dayAvailabilityResult.rows[0]
+      
+      if (dayAvailability.is_day_off) {
+        return NextResponse.json({
+          success: true,
+          slots: [],
+          message: 'Closed on this day'
+        })
+      }
+
+      // Use custom time slots if available
+      if (dayAvailability.custom_time_slots && dayAvailability.custom_time_slots.length > 0) {
+        timeSlots = dayAvailability.custom_time_slots
+          .map((slot: any) => generateTimeSlots(slot.start_time, slot.end_time, service.duration_minutes, 30))
+          .flat()
+      }
     }
 
-    // Generate time slots
-    const slots = generateTimeSlots(
-      availability.start_time,
-      availability.end_time,
-      service.duration_minutes,
-      30 // 30-minute intervals
-    )
+    // Fall back to default business hours if no custom slots
+    if (timeSlots.length === 0) {
+      const defaultHoursResult = await query(
+        'SELECT * FROM business_default_hours WHERE business_id = $1 AND day_of_week = $2 AND is_closed = false',
+        [business.id, dayOfWeek]
+      )
+
+      if (defaultHoursResult.rows.length === 0) {
+        return NextResponse.json({
+          success: true,
+          slots: [],
+          message: 'No availability for this day'
+        })
+      }
+
+      const defaultHours = defaultHoursResult.rows[0]
+      timeSlots = generateTimeSlots(
+        defaultHours.open_time,
+        defaultHours.close_time,
+        service.duration_minutes,
+        defaultHours.slot_duration_minutes || 30
+      )
+    }
 
     // Get existing appointments for this date
     const dayStart = startOfDay(requestedDate)
@@ -107,14 +120,14 @@ export async function GET(
     const existingAppointments = appointmentsResult.rows
 
     // Filter available slots
-    const availableSlots = slots.filter(slot => {
+    const availableSlots = timeSlots.filter(slot => {
       const slotStart = parseISO(`${format(requestedDate, 'yyyy-MM-dd')}T${slot}:00`)
       const slotEnd = addMinutes(slotStart, service.duration_minutes)
 
       // Check if slot conflicts with existing appointments
       const hasConflict = existingAppointments.some(apt => {
         const aptStart = parseISO(apt.starts_at)
-        const aptEnd = addMinutes(aptStart, apt.duration_minutes)
+        const aptEnd = addMinutes(aptStart, service.duration_minutes) // Use service duration as fallback
         
         return (
           (slotStart >= aptStart && slotStart < aptEnd) ||
@@ -126,9 +139,15 @@ export async function GET(
       return !hasConflict
     })
 
+    // Format slots as expected by the frontend
+    const formattedSlots = availableSlots.map(slot => ({
+      datetime: `${format(requestedDate, 'yyyy-MM-dd')}T${slot}:00`,
+      available: true
+    }))
+
     return NextResponse.json({
       success: true,
-      slots: availableSlots,
+      slots: formattedSlots,
       business: {
         name: business.name,
         timezone: business.timezone

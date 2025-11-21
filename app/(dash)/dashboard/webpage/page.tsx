@@ -129,6 +129,10 @@ interface WebpageSettings {
     website: string
     tiktok: string
     linkedin: string
+    twitter: string
+    youtube: string
+    threads: string
+    snapchat: string
   }
 }
 
@@ -252,7 +256,11 @@ const defaultSettings: WebpageSettings = {
     whatsapp: '',
     website: '',
     tiktok: '',
-    linkedin: ''
+    linkedin: '',
+    twitter: '',
+    youtube: '',
+    threads: '',
+    snapchat: ''
   }
 }
 
@@ -666,7 +674,7 @@ export default function WebpagePage() {
               )}
 
               <Tab.Container defaultActiveKey="header">
-                <Nav variant="tabs" className="mb-4 flex-wrap flex-sm-nowrap">
+                <Nav variant="tabs" className="mb-4 flex-wrap">
                   <Nav.Item>
                     <Nav.Link eventKey="header">
                       <i className="fas fa-window-maximize me-1"></i>
@@ -1107,128 +1115,6 @@ export default function WebpagePage() {
                     )}
                   </Tab.Pane>
 
-                  <Tab.Pane eventKey="rules">
-                    <Form.Group className="mb-3">
-                      <Form.Label>Section Title</Form.Label>
-                      <Form.Control
-                        type="text"
-                        value={settings.rulesSection.title}
-                        onChange={(e) => updateRulesSection({ title: e.target.value })}
-                        placeholder="Booking Policies"
-                      />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                      <Form.Label>Background Color</Form.Label>
-                      <div className="d-flex align-items-center gap-2">
-                        <Form.Control
-                          type="color"
-                          value={settings.rulesSection.backgroundColor}
-                          onChange={(e) => updateRulesSection({ backgroundColor: e.target.value })}
-                          style={{ width: '60px' }}
-                        />
-                        <Form.Control
-                          type="text"
-                          value={settings.rulesSection.backgroundColor}
-                          onChange={(e) => updateRulesSection({ backgroundColor: e.target.value })}
-                          placeholder="#f8f9fa"
-                        />
-                      </div>
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                      <Form.Label>Background Image (optional)</Form.Label>
-                      <Form.Control
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e as React.ChangeEvent<HTMLInputElement>, 'rules')}
-                      />
-                      {settings.rulesSection.backgroundImage && (
-                        <div className="mt-2">
-                          <img 
-                            src={settings.rulesSection.backgroundImage} 
-                            alt="Rules background preview" 
-                            style={{ maxWidth: '200px', maxHeight: '100px', objectFit: 'cover' }}
-                            className="rounded"
-                          />
-                          <Button
-                            variant="outline-danger"
-                            size="sm"
-                            className="ms-2"
-                            onClick={() => updateRulesSection({ backgroundImage: '' })}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      )}
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                      <Form.Label>
-                        <i className="fas fa-credit-card me-1"></i>
-                        Deposit Policy
-                      </Form.Label>
-                      <Form.Control
-                        type="text"
-                        value={settings.rulesSection.depositRule}
-                        onChange={(e) => updateRulesSection({ depositRule: e.target.value })}
-                        placeholder="A $10 deposit is required to confirm your appointment"
-                      />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                      <Form.Label>
-                        <i className="fas fa-clock me-1"></i>
-                        Lateness Policy
-                      </Form.Label>
-                      <Form.Control
-                        type="text"
-                        value={settings.rulesSection.latenessRule}
-                        onChange={(e) => updateRulesSection({ latenessRule: e.target.value })}
-                        placeholder="Please arrive on time. Late arrivals may result in shortened service"
-                      />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                      <Form.Label>
-                        <i className="fas fa-user-times me-1"></i>
-                        No-Show Policy
-                      </Form.Label>
-                      <Form.Control
-                        type="text"
-                        value={settings.rulesSection.noshowRule}
-                        onChange={(e) => updateRulesSection({ noshowRule: e.target.value })}
-                        placeholder="No-show appointments will forfeit their deposit"
-                      />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                      <Form.Label>
-                        <i className="fas fa-ban me-1"></i>
-                        Cancellation Policy
-                      </Form.Label>
-                      <Form.Control
-                        type="text"
-                        value={settings.rulesSection.cancellationRule}
-                        onChange={(e) => updateRulesSection({ cancellationRule: e.target.value })}
-                        placeholder="Cancellations must be made 24 hours in advance for full refund"
-                      />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                      <Form.Label>
-                        <i className="fas fa-list me-1"></i>
-                        Additional Rules (optional)
-                      </Form.Label>
-                      <Form.Control
-                        as="textarea"
-                        rows={3}
-                        value={settings.rulesSection.additionalRules}
-                        onChange={(e) => updateRulesSection({ additionalRules: e.target.value })}
-                        placeholder="Any additional policies or rules..."
-                      />
-                    </Form.Group>
-                  </Tab.Pane>
 
                   <Tab.Pane eventKey="gallery">
                     <Form.Group className="mb-3">
@@ -1607,6 +1493,129 @@ export default function WebpagePage() {
                     )}
                   </Tab.Pane>
 
+                  <Tab.Pane eventKey="rules">
+                    <Form.Group className="mb-3">
+                      <Form.Label>Section Title</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={settings.rulesSection.title}
+                        onChange={(e) => updateRulesSection({ title: e.target.value })}
+                        placeholder="Booking Policies"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>Background Color</Form.Label>
+                      <div className="d-flex align-items-center gap-2">
+                        <Form.Control
+                          type="color"
+                          value={settings.rulesSection.backgroundColor}
+                          onChange={(e) => updateRulesSection({ backgroundColor: e.target.value })}
+                          style={{ width: '60px' }}
+                        />
+                        <Form.Control
+                          type="text"
+                          value={settings.rulesSection.backgroundColor}
+                          onChange={(e) => updateRulesSection({ backgroundColor: e.target.value })}
+                          placeholder="#f8f9fa"
+                        />
+                      </div>
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>Background Image (optional)</Form.Label>
+                      <Form.Control
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e as React.ChangeEvent<HTMLInputElement>, 'rules')}
+                      />
+                      {settings.rulesSection.backgroundImage && (
+                        <div className="mt-2">
+                          <img 
+                            src={settings.rulesSection.backgroundImage} 
+                            alt="Rules background preview" 
+                            style={{ maxWidth: '200px', maxHeight: '100px', objectFit: 'cover' }}
+                            className="rounded"
+                          />
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            className="ms-2"
+                            onClick={() => updateRulesSection({ backgroundImage: '' })}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      )}
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        <i className="fas fa-credit-card me-1"></i>
+                        Deposit Policy
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={settings.rulesSection.depositRule}
+                        onChange={(e) => updateRulesSection({ depositRule: e.target.value })}
+                        placeholder="A $10 deposit is required to confirm your appointment"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        <i className="fas fa-clock me-1"></i>
+                        Lateness Policy
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={settings.rulesSection.latenessRule}
+                        onChange={(e) => updateRulesSection({ latenessRule: e.target.value })}
+                        placeholder="Please arrive on time. Late arrivals may result in shortened service"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        <i className="fas fa-user-times me-1"></i>
+                        No-Show Policy
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={settings.rulesSection.noshowRule}
+                        onChange={(e) => updateRulesSection({ noshowRule: e.target.value })}
+                        placeholder="No-show appointments will forfeit their deposit"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        <i className="fas fa-ban me-1"></i>
+                        Cancellation Policy
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={settings.rulesSection.cancellationRule}
+                        onChange={(e) => updateRulesSection({ cancellationRule: e.target.value })}
+                        placeholder="Cancellations must be made 24 hours in advance for full refund"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        <i className="fas fa-list me-1"></i>
+                        Additional Rules (optional)
+                      </Form.Label>
+                      <Form.Control
+                        as="textarea"
+                        rows={3}
+                        value={settings.rulesSection.additionalRules}
+                        onChange={(e) => updateRulesSection({ additionalRules: e.target.value })}
+                        placeholder="Any additional policies or rules..."
+                      />
+                    </Form.Group>
+                  </Tab.Pane>
+
                   <Tab.Pane eventKey="social">
                     <Alert variant="info" className="mb-4">
                       <i className="fas fa-info-circle me-2"></i>
@@ -1694,6 +1703,68 @@ export default function WebpagePage() {
                             value={settings.socialMedia.linkedin}
                             onChange={(e) => updateSocialMedia('linkedin', e.target.value)}
                             placeholder="https://linkedin.com/company/yourbusiness"
+                          />
+                        </Form.Group>
+                      </Col>
+                    </Row>
+
+                    <Row>
+                      <Col md={6}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>
+                            <i className="fab fa-twitter text-primary me-2"></i>
+                            X (Twitter) URL
+                          </Form.Label>
+                          <Form.Control
+                            type="url"
+                            value={settings.socialMedia.twitter}
+                            onChange={(e) => updateSocialMedia('twitter', e.target.value)}
+                            placeholder="https://x.com/yourbusiness"
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>
+                            <i className="fab fa-youtube text-danger me-2"></i>
+                            YouTube URL
+                          </Form.Label>
+                          <Form.Control
+                            type="url"
+                            value={settings.socialMedia.youtube}
+                            onChange={(e) => updateSocialMedia('youtube', e.target.value)}
+                            placeholder="https://youtube.com/@yourbusiness"
+                          />
+                        </Form.Group>
+                      </Col>
+                    </Row>
+
+                    <Row>
+                      <Col md={6}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>
+                            <i className="fab fa-threads text-dark me-2"></i>
+                            Threads URL
+                          </Form.Label>
+                          <Form.Control
+                            type="url"
+                            value={settings.socialMedia.threads}
+                            onChange={(e) => updateSocialMedia('threads', e.target.value)}
+                            placeholder="https://threads.net/@yourbusiness"
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>
+                            <i className="fab fa-snapchat text-warning me-2"></i>
+                            Snapchat URL
+                          </Form.Label>
+                          <Form.Control
+                            type="url"
+                            value={settings.socialMedia.snapchat}
+                            onChange={(e) => updateSocialMedia('snapchat', e.target.value)}
+                            placeholder="https://snapchat.com/add/yourbusiness"
                           />
                         </Form.Group>
                       </Col>
@@ -1989,6 +2060,42 @@ export default function WebpagePage() {
                             title="WhatsApp"
                           >
                             <i className="fab fa-whatsapp"></i>
+                          </a>
+                        )}
+                        {settings.socialMedia.twitter && (
+                          <a 
+                            href={settings.socialMedia.twitter} 
+                            style={{ color: settings.headerSection.textColor, fontSize: '1.1rem' }}
+                            title="X (Twitter)"
+                          >
+                            <i className="fab fa-twitter"></i>
+                          </a>
+                        )}
+                        {settings.socialMedia.youtube && (
+                          <a 
+                            href={settings.socialMedia.youtube} 
+                            style={{ color: settings.headerSection.textColor, fontSize: '1.1rem' }}
+                            title="YouTube"
+                          >
+                            <i className="fab fa-youtube"></i>
+                          </a>
+                        )}
+                        {settings.socialMedia.threads && (
+                          <a 
+                            href={settings.socialMedia.threads} 
+                            style={{ color: settings.headerSection.textColor, fontSize: '1.1rem' }}
+                            title="Threads"
+                          >
+                            <i className="fab fa-threads"></i>
+                          </a>
+                        )}
+                        {settings.socialMedia.snapchat && (
+                          <a 
+                            href={settings.socialMedia.snapchat} 
+                            style={{ color: settings.headerSection.textColor, fontSize: '1.1rem' }}
+                            title="Snapchat"
+                          >
+                            <i className="fab fa-snapchat"></i>
                           </a>
                         )}
                         {settings.socialMedia.website && (
@@ -2562,6 +2669,26 @@ export default function WebpagePage() {
                           {settings.socialMedia.whatsapp && (
                             <a href={`https://wa.me/${settings.socialMedia.whatsapp}`} style={{ color: settings.footerSection.textColor, fontSize: '1.3rem' }} title="WhatsApp">
                               <i className="fab fa-whatsapp"></i>
+                            </a>
+                          )}
+                          {settings.socialMedia.twitter && (
+                            <a href={settings.socialMedia.twitter} style={{ color: settings.footerSection.textColor, fontSize: '1.3rem' }} title="X (Twitter)">
+                              <i className="fab fa-twitter"></i>
+                            </a>
+                          )}
+                          {settings.socialMedia.youtube && (
+                            <a href={settings.socialMedia.youtube} style={{ color: settings.footerSection.textColor, fontSize: '1.3rem' }} title="YouTube">
+                              <i className="fab fa-youtube"></i>
+                            </a>
+                          )}
+                          {settings.socialMedia.threads && (
+                            <a href={settings.socialMedia.threads} style={{ color: settings.footerSection.textColor, fontSize: '1.3rem' }} title="Threads">
+                              <i className="fab fa-threads"></i>
+                            </a>
+                          )}
+                          {settings.socialMedia.snapchat && (
+                            <a href={settings.socialMedia.snapchat} style={{ color: settings.footerSection.textColor, fontSize: '1.3rem' }} title="Snapchat">
+                              <i className="fab fa-snapchat"></i>
                             </a>
                           )}
                           {settings.socialMedia.website && (

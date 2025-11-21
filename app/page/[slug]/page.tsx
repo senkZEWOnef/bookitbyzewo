@@ -472,7 +472,7 @@ export default function BusinessWebpage() {
         <div className="text-center position-relative">
           <h2 className="fw-bold mb-3 display-4">{settings.heroTitle}</h2>
           <p className="mb-4 fs-5">{settings.heroSubtitle}</p>
-          <Button variant="light" size="lg" onClick={handleBookNow}>
+          <Button variant="light" size="lg" onClick={() => handleBookNow()}>
             <i className="fas fa-calendar-alt me-2"></i>
             Book Now
           </Button>

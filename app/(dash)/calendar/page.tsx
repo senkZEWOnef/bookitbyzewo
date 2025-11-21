@@ -121,7 +121,7 @@ export default function CalendarPage() {
     return (
       <Container fluid>
         <div className="text-center py-5">
-          <Spinner animation="border" size="lg" />
+          <Spinner animation="border" />
           <p className="mt-3 text-muted">Loading calendar...</p>
         </div>
       </Container>

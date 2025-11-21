@@ -64,8 +64,8 @@ export default function BusinessSwitcher({
       })
 
       if (response.ok) {
-        // Store the selected business in localStorage
-        localStorage.setItem('currentBusiness', JSON.stringify(business))
+        // Store the selected business in localStorage for this specific user
+        localStorage.setItem(`currentBusiness_${user.id}`, JSON.stringify(business))
         
         // Call the callback if provided
         if (onBusinessChange) {

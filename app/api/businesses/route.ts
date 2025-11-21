@@ -46,8 +46,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Get user's plan information
-    console.log('🟡 Checking user plan limits...')
+    // Get user's plan information and check subscription status
+    console.log('🟡 Checking user subscription status...')
     const userResult = await query(
       'SELECT plan, plan_status, trial_ends_at FROM users WHERE id = $1',
       [userId]
@@ -60,6 +60,20 @@ export async function POST(request: NextRequest) {
 
     const user = userResult.rows[0]
     console.log('🟡 User plan info:', { plan: user.plan, plan_status: user.plan_status })
+
+    // Check if user has an active subscription
+    const isSubscriptionActive = user.plan_status === 'active' || 
+      (user.plan_status === 'trial' && user.trial_ends_at && new Date(user.trial_ends_at) > new Date())
+
+    if (!isSubscriptionActive) {
+      console.log('🔴 User subscription inactive or expired')
+      return NextResponse.json({ 
+        error: 'Active subscription required to create businesses. Please upgrade your plan.',
+        subscriptionRequired: true,
+        currentStatus: user.plan_status,
+        trialEndsAt: user.trial_ends_at
+      }, { status: 402 }) // Payment Required
+    }
 
     // Check how many businesses this user already has
     const existingBusinesses = await query(
@@ -149,26 +163,27 @@ export async function POST(request: NextRequest) {
     
     console.log('🟢 All services created successfully')
 
-    // Create default availability rules (Monday-Friday 9AM-5PM, Saturday 10AM-3PM)
+    // Create default business hours (Sunday closed, Monday-Friday 9AM-5PM, Saturday 10AM-3PM)
     const defaultSchedule = [
-      { weekday: 1, start_time: '09:00', end_time: '17:00' }, // Monday
-      { weekday: 2, start_time: '09:00', end_time: '17:00' }, // Tuesday
-      { weekday: 3, start_time: '09:00', end_time: '17:00' }, // Wednesday
-      { weekday: 4, start_time: '09:00', end_time: '17:00' }, // Thursday
-      { weekday: 5, start_time: '09:00', end_time: '17:00' }, // Friday
-      { weekday: 6, start_time: '10:00', end_time: '15:00' }  // Saturday
+      { day_of_week: 0, is_closed: true }, // Sunday - closed
+      { day_of_week: 1, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Monday
+      { day_of_week: 2, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Tuesday
+      { day_of_week: 3, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Wednesday
+      { day_of_week: 4, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Thursday
+      { day_of_week: 5, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Friday
+      { day_of_week: 6, is_closed: false, open_time: '10:00', close_time: '15:00', slot_duration_minutes: 30 }  // Saturday
     ]
     
-    console.log('🟡 Creating default availability rules...')
-    for (const rule of defaultSchedule) {
+    console.log('🟡 Creating default business hours...')
+    for (const hours of defaultSchedule) {
       await query(
-        `INSERT INTO availability_rules (
-          business_id, weekday, start_time, end_time, is_active, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, true, NOW(), NOW())`,
-        [business.id, rule.weekday, rule.start_time, rule.end_time]
+        `INSERT INTO business_default_hours (
+          business_id, day_of_week, is_closed, open_time, close_time, slot_duration_minutes, break_times, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
+        [business.id, hours.day_of_week, hours.is_closed, hours.open_time || null, hours.close_time || null, hours.slot_duration_minutes || 30, '[]']
       )
     }
-    console.log('🟢 Default availability rules created successfully')
+    console.log('🟢 Default business hours created successfully')
 
     return NextResponse.json({ 
       success: true, 

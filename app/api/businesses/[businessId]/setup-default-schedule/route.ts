@@ -13,40 +13,41 @@ export async function POST(
 
     console.log('🟡 Setting up default schedule for business:', businessId)
 
-    // Check if business already has availability rules
-    const existingRules = await query(
-      'SELECT id FROM availability_rules WHERE business_id = $1',
+    // Check if business already has default hours
+    const existingHours = await query(
+      'SELECT id FROM business_default_hours WHERE business_id = $1',
       [businessId]
     )
 
-    if (existingRules.rows.length > 0) {
-      console.log('🟡 Business already has availability rules, skipping setup')
+    if (existingHours.rows.length > 0) {
+      console.log('🟡 Business already has default hours, skipping setup')
       return NextResponse.json({ 
         success: true, 
-        message: 'Business already has availability rules' 
+        message: 'Business already has default hours' 
       })
     }
 
-    // Create default availability rules (Monday-Friday 9AM-5PM, Saturday 10AM-3PM)
+    // Create default business hours (Monday-Friday 9AM-5PM, Saturday 10AM-3PM, Sunday closed)
     const defaultSchedule = [
-      { weekday: 1, start_time: '09:00', end_time: '17:00' }, // Monday
-      { weekday: 2, start_time: '09:00', end_time: '17:00' }, // Tuesday
-      { weekday: 3, start_time: '09:00', end_time: '17:00' }, // Wednesday
-      { weekday: 4, start_time: '09:00', end_time: '17:00' }, // Thursday
-      { weekday: 5, start_time: '09:00', end_time: '17:00' }, // Friday
-      { weekday: 6, start_time: '10:00', end_time: '15:00' }  // Saturday
+      { day_of_week: 0, is_closed: true }, // Sunday - closed
+      { day_of_week: 1, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Monday
+      { day_of_week: 2, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Tuesday
+      { day_of_week: 3, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Wednesday
+      { day_of_week: 4, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Thursday
+      { day_of_week: 5, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Friday
+      { day_of_week: 6, is_closed: false, open_time: '10:00', close_time: '15:00', slot_duration_minutes: 30 }  // Saturday
     ]
     
-    for (const rule of defaultSchedule) {
+    for (const hours of defaultSchedule) {
       await query(
-        `INSERT INTO availability_rules (
-          business_id, weekday, start_time, end_time, is_active, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, true, NOW(), NOW())`,
-        [businessId, rule.weekday, rule.start_time, rule.end_time]
+        `INSERT INTO business_default_hours (
+          business_id, day_of_week, is_closed, open_time, close_time, slot_duration_minutes, break_times, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
+        [businessId, hours.day_of_week, hours.is_closed, hours.open_time || null, hours.close_time || null, hours.slot_duration_minutes || 30, '[]']
       )
     }
     
-    console.log('🟢 Default availability rules created successfully for business', businessId)
+    console.log('🟢 Default business hours created successfully for business', businessId)
 
     return NextResponse.json({ 
       success: true, 

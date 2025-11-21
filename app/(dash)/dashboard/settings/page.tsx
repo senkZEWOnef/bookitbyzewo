@@ -5,6 +5,7 @@ import { Row, Col, Button, Alert, Form, Card } from 'react-bootstrap'
 import Link from 'next/link'
 import { useLanguage } from '@/lib/language-context'
 import ProfilePictureUpload from '@/components/ProfilePictureUpload'
+import VisualAvailabilityManager from '@/components/VisualAvailabilityManager'
 
 export const dynamic = 'force-dynamic'
 
@@ -678,6 +679,37 @@ export default function SettingsPage() {
             </div>
           </div>
         </Col>
+
+        {/* Availability Manager */}
+        {business && (
+          <Col lg={12} className="mb-4">
+            <div className="glass-card p-3 p-md-4 rounded-4">
+              <div className="d-flex align-items-center mb-4">
+                <div 
+                  className="rounded-circle me-3 d-flex align-items-center justify-content-center"
+                  style={{ 
+                    width: '50px', 
+                    height: '50px',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: 'white'
+                  }}
+                >
+                  <i className="fas fa-clock fs-5"></i>
+                </div>
+                <div>
+                  <h5 className="mb-0 fw-bold">
+                    {locale === 'es' ? 'Configuración de Horarios' : 'Availability Settings'}
+                  </h5>
+                  <small className="text-muted">
+                    {locale === 'es' ? 'Configura tus horarios de disponibilidad por bloques de 30 minutos' : 'Set your availability schedule with 30-minute blocks'}
+                  </small>
+                </div>
+              </div>
+              
+              <VisualAvailabilityManager businessId={business.id} />
+            </div>
+          </Col>
+        )}
 
         {/* Danger Zone */}
         <Col lg={6}>

@@ -92,34 +92,57 @@ export default function DashboardPage() {
       const user = JSON.parse(userString)
       console.log('✅ DASHBOARD: User found:', user.id)
 
-      // Check if there's a current business selected in localStorage
-      const currentBusinessString = localStorage.getItem('currentBusiness')
+      // Always fetch fresh business data for the current user
+      const response = await fetch(`/api/user/businesses?userId=${user.id}`)
+      const result = await response.json()
+      
+      if (!response.ok) {
+        console.error('❌ DASHBOARD: Failed to fetch businesses:', result.error)
+        setError('Failed to load businesses. Please try again.')
+        return
+      }
+      
+      if (!result.businesses || result.businesses.length === 0) {
+        console.log('❌ DASHBOARD: No businesses found for user')
+        setError('No businesses found. Please create a business first.')
+        return
+      }
+
+      // Check if there's a current business selected in localStorage for this specific user
+      const currentBusinessKey = `currentBusiness_${user.id}`
+      const currentBusinessString = localStorage.getItem(currentBusinessKey)
       let targetBusiness = null
 
       if (currentBusinessString) {
-        // Use the selected business
-        targetBusiness = JSON.parse(currentBusinessString)
-        console.log('✅ DASHBOARD: Using selected business:', targetBusiness.name)
-        setBusiness(targetBusiness)
-      } else {
-        // Fetch user's businesses from API and use the first one
-        const response = await fetch(`/api/user/businesses?userId=${user.id}`)
-        const result = await response.json()
-        
-        if (response.ok && result.businesses && result.businesses.length > 0) {
-          // Use the first business (preferring owned businesses)
-          targetBusiness = result.businesses[0]
-          setBusiness(targetBusiness)
-          
-          // Store it as the current business
-          localStorage.setItem('currentBusiness', JSON.stringify(targetBusiness))
-          console.log('✅ DASHBOARD: Using first available business:', targetBusiness.name)
-        } else {
-          console.log('❌ DASHBOARD: No businesses found for user')
-          setError('No businesses found. Please create a business first.')
-          return
+        try {
+          const savedBusiness = JSON.parse(currentBusinessString)
+          // Verify the saved business still exists in user's businesses
+          const businessExists = result.businesses.find((b: any) => b.id === savedBusiness.id)
+          if (businessExists) {
+            targetBusiness = businessExists
+            console.log('✅ DASHBOARD: Using saved business for user:', targetBusiness.name)
+          } else {
+            // Saved business no longer exists, remove from localStorage
+            localStorage.removeItem(currentBusinessKey)
+            console.log('🧹 DASHBOARD: Removed stale business from localStorage')
+          }
+        } catch (e) {
+          // Invalid JSON in localStorage, remove it
+          localStorage.removeItem(currentBusinessKey)
+          console.log('🧹 DASHBOARD: Removed invalid business data from localStorage')
         }
       }
+
+      if (!targetBusiness) {
+        // Use the first business (owned businesses are sorted first)
+        targetBusiness = result.businesses[0]
+        console.log('✅ DASHBOARD: Using first available business:', targetBusiness.name)
+        
+        // Store it as the current business for this user
+        localStorage.setItem(currentBusinessKey, JSON.stringify(targetBusiness))
+      }
+
+      setBusiness(targetBusiness)
 
       // Load stats and appointments for the selected business
       if (targetBusiness) {

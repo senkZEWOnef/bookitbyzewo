@@ -225,26 +225,26 @@ export default function BookingPage() {
   }
 
   return (
-    <Container className="py-4">
+    <Container className="py-3 py-md-4" style={{ marginTop: '80px' }}>
       <Row className="justify-content-center">
-        <Col lg={8}>
+        <Col xs={12} lg={8}>
           {/* Header */}
-          <div className="text-center mb-4">
-            <h2 className="fw-bold">{business?.name}</h2>
-            <p className="text-muted">
+          <div className="text-center mb-3 mb-md-4">
+            <h2 className="fw-bold fs-3 fs-md-2">{business?.name}</h2>
+            <p className="text-muted mb-0">
               {locale === 'es' ? 'Reserva tu cita' : 'Book your appointment'}
             </p>
           </div>
 
           {/* Demo Banner */}
           {businessSlug === 'demo' && (
-            <Alert variant="info" className="mb-4 border-0 shadow-sm">
-              <div className="d-flex align-items-center">
-                <div className="me-3">
+            <Alert variant="info" className="mb-3 mb-md-4 border-0 shadow-sm">
+              <div className="d-flex flex-column flex-md-row align-items-start align-items-md-center">
+                <div className="me-0 me-md-3 mb-2 mb-md-0">
                   <i className="fas fa-play-circle fa-2x text-primary"></i>
                 </div>
                 <div>
-                  <h6 className="mb-1">
+                  <h6 className="mb-1 fs-6">
                     <i className="fas fa-magic me-2"></i>
                     {locale === 'es' ? '¡Esta es una demostración!' : 'This is a live demo!'}
                   </h6>
@@ -260,7 +260,7 @@ export default function BookingPage() {
           )}
 
           {/* Progress Steps */}
-          <div className="d-flex justify-content-center mb-4">
+          <div className="d-flex flex-wrap justify-content-center mb-3 mb-md-4 gap-2">
             {[
               { key: 'service', label: locale === 'es' ? 'Servicio' : 'Service' },
               { key: 'time', label: locale === 'es' ? 'Horario' : 'Time' },
@@ -272,13 +272,14 @@ export default function BookingPage() {
                 <Badge 
                   bg={step === stepInfo.key ? 'success' : 'secondary'}
                   className="rounded-circle p-2"
+                  style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
                   {index + 1}
                 </Badge>
-                <span className={`ms-2 ${step === stepInfo.key ? 'fw-bold' : 'text-muted'}`}>
+                <span className={`ms-2 small ${step === stepInfo.key ? 'fw-bold' : 'text-muted'}`}>
                   {stepInfo.label}
                 </span>
-                {index < array.length - 1 && <span className="mx-3 text-muted">→</span>}
+                {index < array.length - 1 && <span className="mx-2 mx-md-3 text-muted d-none d-sm-inline">→</span>}
               </div>
             ))}
           </div>
@@ -289,8 +290,8 @@ export default function BookingPage() {
             </Alert>
           )}
 
-          <Card>
-            <Card.Body className="p-4">
+          <Card className="border-0 shadow">
+            <Card.Body className="p-3 p-md-4">
               {/* Step 1: Service Selection */}
               {step === 'service' && (
                 <div>
@@ -325,43 +326,49 @@ export default function BookingPage() {
                     </Button>
                   </div>
 
-                  <div className="mb-4 p-3 bg-light rounded">
-                    <strong>{selectedService.name}</strong>
-                    <div className="small text-muted mt-1">
-                      {selectedService.duration_min} min • {formatPrice(selectedService.price_cents)}
+                  <div className="mb-3 mb-md-4 p-3 bg-light rounded">
+                    <strong className="d-block">{selectedService.name}</strong>
+                    <div className="small text-muted mt-1 d-flex flex-wrap gap-2">
+                      <span><i className="fas fa-clock me-1"></i>{selectedService.duration_min} min</span>
+                      <span><i className="fas fa-dollar-sign me-1"></i>{formatPrice(selectedService.price_cents)}</span>
                       {(selectedService?.deposit_cents ?? 0) > 0 && (
-                        <> • {locale === 'es' ? 'Depósito' : 'Deposit'} {formatPrice(selectedService?.deposit_cents ?? 0)}</>
+                        <span><i className="fas fa-credit-card me-1"></i>{locale === 'es' ? 'Depósito' : 'Deposit'} {formatPrice(selectedService?.deposit_cents ?? 0)}</span>
                       )}
                     </div>
                   </div>
 
                   {/* Calendar for date selection */}
-                  <div className="mb-4">
-                    <h6 className="mb-3">
-                      {locale === 'es' ? 'Paso 1: Selecciona una fecha' : 'Step 1: Select a date'}
+                  <div className="mb-3 mb-md-4">
+                    <h6 className="mb-3 fs-6">
+                      <span className="badge bg-primary me-2">1</span>
+                      {locale === 'es' ? 'Selecciona una fecha' : 'Select a date'}
                     </h6>
-                    <MonthlyCalendar
-                      businessId={business?.id || ''}
-                      staffId={selectedStaff}
-                      onDateSelect={handleDateSelect}
-                      readOnly={false}
-                      publicView={true}
-                    />
+                    <div className="calendar-container">
+                      <MonthlyCalendar
+                        businessId={business?.id || ''}
+                        staffId={selectedStaff}
+                        onDateSelect={handleDateSelect}
+                        readOnly={false}
+                        publicView={true}
+                      />
+                    </div>
                   </div>
 
                   {/* Time slots for selected date */}
                   {selectedDate && (
-                    <div className="mb-4">
-                      <h6 className="mb-3">
-                        {locale === 'es' ? 'Paso 2: Selecciona una hora' : 'Step 2: Select a time'}
-                        <span className="text-muted ms-2">
-                          ({new Date(selectedDate).toLocaleDateString(locale === 'es' ? 'es-PR' : 'en-US', {
+                    <div className="mb-3 mb-md-4">
+                      <h6 className="mb-3 fs-6">
+                        <span className="badge bg-primary me-2">2</span>
+                        {locale === 'es' ? 'Selecciona una hora' : 'Select a time'}
+                        <div className="text-muted mt-1 small">
+                          <i className="fas fa-calendar-day me-1"></i>
+                          {new Date(selectedDate).toLocaleDateString(locale === 'es' ? 'es-PR' : 'en-US', {
                             weekday: 'long',
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric'
-                          })})
-                        </span>
+                          })}
+                        </div>
                       </h6>
                       <TimeSlotPicker
                         businessSlug={businessSlug}
@@ -516,23 +523,31 @@ export default function BookingPage() {
                   {/* Payment Method Selection */}
                   {!selectedPaymentMethod && (business.ath_movil_enabled && business.stripe_enabled) && (
                     <div className="mb-4">
-                      <h6 className="mb-3">
+                      <h6 className="mb-3 fs-6">
                         {locale === 'es' ? 'Selecciona método de pago' : 'Choose payment method'}
                       </h6>
-                      <Row className="g-3">
+                      <Row className="g-2 g-md-3">
                         {business.ath_movil_enabled && (
-                          <Col md={6}>
+                          <Col xs={12} md={6}>
                             <Card 
-                              className="h-100 border-2 cursor-pointer"
-                              style={{ cursor: 'pointer' }}
+                              className="h-100 border-2 payment-method-card"
+                              style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
                               onClick={() => setSelectedPaymentMethod('ath')}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-2px)'
+                                e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)'
+                                e.currentTarget.style.boxShadow = ''
+                              }}
                             >
-                              <Card.Body className="text-center p-4">
+                              <Card.Body className="text-center p-3 p-md-4">
                                 <div 
-                                  className="mb-3 mx-auto"
+                                  className="mb-2 mb-md-3 mx-auto"
                                   style={{
-                                    width: '60px',
-                                    height: '60px',
+                                    width: '50px',
+                                    height: '50px',
                                     backgroundColor: '#ff6b35',
                                     borderRadius: '12px',
                                     display: 'flex',
@@ -540,12 +555,12 @@ export default function BookingPage() {
                                     justifyContent: 'center',
                                     color: 'white',
                                     fontWeight: 'bold',
-                                    fontSize: '16px'
+                                    fontSize: '14px'
                                   }}
                                 >
                                   ATH
                                 </div>
-                                <h6 className="mb-2">ATH Móvil</h6>
+                                <h6 className="mb-2 fs-6">ATH Móvil</h6>
                                 <small className="text-muted">
                                   {locale === 'es' 
                                     ? 'Paga con tu app ATH Móvil' 
@@ -556,30 +571,38 @@ export default function BookingPage() {
                           </Col>
                         )}
                         {business.stripe_enabled && (
-                          <Col md={6}>
+                          <Col xs={12} md={6}>
                             <Card 
-                              className="h-100 border-2 cursor-pointer"
-                              style={{ cursor: 'pointer' }}
+                              className="h-100 border-2 payment-method-card"
+                              style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
                               onClick={() => setSelectedPaymentMethod('stripe')}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-2px)'
+                                e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)'
+                                e.currentTarget.style.boxShadow = ''
+                              }}
                             >
-                              <Card.Body className="text-center p-4">
+                              <Card.Body className="text-center p-3 p-md-4">
                                 <div 
-                                  className="mb-3 mx-auto"
+                                  className="mb-2 mb-md-3 mx-auto"
                                   style={{
-                                    width: '60px',
-                                    height: '60px',
+                                    width: '50px',
+                                    height: '50px',
                                     backgroundColor: '#635BFF',
                                     borderRadius: '12px',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     color: 'white',
-                                    fontSize: '24px'
+                                    fontSize: '20px'
                                   }}
                                 >
                                   <i className="fas fa-credit-card"></i>
                                 </div>
-                                <h6 className="mb-2">
+                                <h6 className="mb-2 fs-6">
                                   {locale === 'es' ? 'Tarjeta' : 'Credit/Debit Card'}
                                 </h6>
                                 <small className="text-muted">

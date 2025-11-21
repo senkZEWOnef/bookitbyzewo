@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Card, Button, Badge, Spinner, Alert, Modal, Form, ListGroup } from 'react-bootstrap'
+import VisualAvailabilityManager from './VisualAvailabilityManager'
 import { 
   format, 
   startOfMonth, 
@@ -84,7 +85,7 @@ export default function MonthlyCalendar({
         setAvailability(Array.isArray(availabilityData.availability) ? availabilityData.availability : [])
       }
 
-      if (appointmentsResponse.ok && !publicView) {
+      if (appointmentsResponse.ok && !publicView && 'json' in appointmentsResponse) {
         const appointmentsData = await appointmentsResponse.json()
         setAppointments(Array.isArray(appointmentsData.appointments) ? appointmentsData.appointments : [])
       }
@@ -217,10 +218,10 @@ export default function MonthlyCalendar({
       <div
         key={date.toISOString()}
         style={{ 
-          minHeight: viewType === 'week' ? '180px' : '120px',
-          maxHeight: viewType === 'week' ? '200px' : '140px',
+          minHeight: viewType === 'week' ? 'clamp(120px, 20vw, 180px)' : 'clamp(80px, 15vw, 120px)',
+          maxHeight: viewType === 'week' ? 'clamp(140px, 25vw, 200px)' : 'clamp(100px, 20vw, 140px)',
           cursor: (!readOnly && !publicView) ? 'pointer' : 'default',
-          fontSize: '0.75rem',
+          fontSize: 'clamp(0.65rem, 1.5vw, 0.75rem)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -379,19 +380,29 @@ export default function MonthlyCalendar({
   return (
     <div>
       {/* Calendar Navigation */}
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div className="d-flex align-items-center gap-2">
-          <Button variant="outline-secondary" onClick={goToPrevious} className="me-2">
+      <div className="mb-3 mb-md-4">
+        {/* Mobile Header */}
+        <div className="d-flex justify-content-between align-items-center mb-3 d-md-none">
+          <Button variant="outline-secondary" onClick={goToPrevious} size="sm">
             <i className="fas fa-chevron-left"></i>
           </Button>
-          <Button variant="outline-primary" onClick={goToToday} className="me-2">
-            Today
-          </Button>
-          <Button variant="outline-secondary" onClick={goToNext} className="me-3">
+          <h5 className="mb-0 text-center flex-grow-1 mx-2">
+            {viewType === 'week' ? 
+              `${format(calendarStart, 'MMM d')} - ${format(calendarEnd, 'MMM d')}` :
+              format(currentDate, 'MMM yyyy')
+            }
+          </h5>
+          <Button variant="outline-secondary" onClick={goToNext} size="sm">
             <i className="fas fa-chevron-right"></i>
           </Button>
-          
-          {/* View Toggle */}
+        </div>
+        
+        {/* Mobile Controls */}
+        <div className="d-flex gap-2 justify-content-center mb-3 d-md-none">
+          <Button variant="outline-primary" onClick={goToToday} size="sm">
+            <i className="fas fa-calendar-day me-1"></i>
+            Today
+          </Button>
           <div className="btn-group" role="group">
             <Button
               variant={viewType === 'week' ? 'success' : 'outline-success'}
@@ -399,7 +410,7 @@ export default function MonthlyCalendar({
               onClick={() => setViewType('week')}
             >
               <i className="fas fa-calendar-week me-1"></i>
-              Week
+              <span className="d-none d-sm-inline">Week</span>
             </Button>
             <Button
               variant={viewType === 'month' ? 'success' : 'outline-success'}
@@ -407,16 +418,51 @@ export default function MonthlyCalendar({
               onClick={() => setViewType('month')}
             >
               <i className="fas fa-calendar me-1"></i>
-              Month
+              <span className="d-none d-sm-inline">Month</span>
             </Button>
           </div>
         </div>
-        <h4 className="mb-0">
-          {viewType === 'week' ? 
-            `Week of ${format(calendarStart, 'MMM d')} - ${format(calendarEnd, 'MMM d, yyyy')}` :
-            format(currentDate, 'MMMM yyyy')
-          }
-        </h4>
+
+        {/* Desktop Header */}
+        <div className="d-none d-md-flex justify-content-between align-items-center">
+          <div className="d-flex align-items-center gap-2">
+            <Button variant="outline-secondary" onClick={goToPrevious}>
+              <i className="fas fa-chevron-left"></i>
+            </Button>
+            <Button variant="outline-primary" onClick={goToToday}>
+              Today
+            </Button>
+            <Button variant="outline-secondary" onClick={goToNext}>
+              <i className="fas fa-chevron-right"></i>
+            </Button>
+            
+            {/* View Toggle */}
+            <div className="btn-group ms-3" role="group">
+              <Button
+                variant={viewType === 'week' ? 'success' : 'outline-success'}
+                size="sm"
+                onClick={() => setViewType('week')}
+              >
+                <i className="fas fa-calendar-week me-1"></i>
+                Week
+              </Button>
+              <Button
+                variant={viewType === 'month' ? 'success' : 'outline-success'}
+                size="sm"
+                onClick={() => setViewType('month')}
+              >
+                <i className="fas fa-calendar me-1"></i>
+                Month
+              </Button>
+            </div>
+          </div>
+          <h4 className="mb-0">
+            {viewType === 'week' ? 
+              `Week of ${format(calendarStart, 'MMM d')} - ${format(calendarEnd, 'MMM d, yyyy')}` :
+              format(currentDate, 'MMMM yyyy')
+            }
+          </h4>
+        </div>
       </div>
 
       {loading ? (
@@ -426,11 +472,11 @@ export default function MonthlyCalendar({
         </div>
       ) : (
         <Card className="border-0 shadow-sm">
-          <Card.Body className="p-2">
+          <Card.Body className="p-1 p-md-2">
             <div style={{
               display: 'grid', 
               gridTemplateColumns: 'repeat(7, 1fr)', 
-              gap: '2px', 
+              gap: '1px', 
               backgroundColor: '#f8f9fa',
               borderRadius: '0.5rem',
               overflow: 'hidden'
@@ -438,15 +484,17 @@ export default function MonthlyCalendar({
               {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => (
                 <div 
                   key={day} 
-                  className="text-center fw-bold p-3 text-white"
+                  className="text-center fw-bold text-white"
                   style={{ 
-                    fontSize: '0.85rem',
+                    fontSize: '0.7rem',
                     backgroundColor: index === 0 || index === 6 ? '#6f42c1' : '#0d6efd',
-                    letterSpacing: '0.5px'
+                    letterSpacing: '0.5px',
+                    padding: '0.5rem 0.25rem'
                   }}
                 >
-                  <div className="d-none d-md-block">{day}</div>
-                  <div className="d-md-none">{day.substring(0, 3)}</div>
+                  <div className="d-none d-lg-block">{day}</div>
+                  <div className="d-none d-md-block d-lg-none">{day.substring(0, 4)}</div>
+                  <div className="d-md-none">{day.substring(0, 2)}</div>
                 </div>
               ))}
               
@@ -609,19 +657,20 @@ export default function MonthlyCalendar({
                 )}
               </div>
 
+              {/* Visual Availability Manager */}
+              <div className="mt-4">
+                <h6 className="mb-3">
+                  <i className="fas fa-clock me-2"></i>
+                  Availability Settings
+                </h6>
+                <VisualAvailabilityManager businessId={businessId} />
+              </div>
+              
               {/* Quick Actions */}
-              <div className="d-flex gap-2">
+              <div className="d-flex gap-2 mt-4">
                 <Button variant="primary">
                   <i className="fas fa-plus me-1"></i>
                   Add Appointment
-                </Button>
-                <Button variant="outline-secondary">
-                  <i className="fas fa-cog me-1"></i>
-                  Custom Hours
-                </Button>
-                <Button variant="outline-info">
-                  <i className="fas fa-copy me-1"></i>
-                  Copy from Another Day
                 </Button>
               </div>
             </div>

@@ -66,8 +66,10 @@ export default function SignupPage() {
       })
 
       if (response.ok) {
-        console.log('✅ Signup successful, redirecting to login')
-        router.push('/login?message=Account created successfully! Please login.')
+        console.log('✅ Signup successful, redirecting to plan selection')
+        // Store user data temporarily for plan selection
+        localStorage.setItem('pendingUser', JSON.stringify(result.user))
+        router.push('/choose-plan')
       } else {
         console.error('❌ Signup failed:', result)
         // Show more detailed error information
