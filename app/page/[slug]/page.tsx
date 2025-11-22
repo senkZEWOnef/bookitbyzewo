@@ -1248,18 +1248,21 @@ export default function BusinessWebpage() {
             Powered by{' '}
             <a 
               href="/"
+              className="text-decoration-none"
               style={{ 
                 color: '#6c757d', 
-                textDecoration: 'none',
-                fontWeight: '500'
+                fontWeight: '500',
+                transition: 'color 0.2s ease'
               }}
               onMouseEnter={(e) => {
-                e.target.style.color = '#0d6efd'
-                e.target.style.textDecoration = 'underline'
+                const target = e.target as HTMLAnchorElement
+                target.style.color = '#0d6efd'
+                target.style.textDecoration = 'underline'
               }}
               onMouseLeave={(e) => {
-                e.target.style.color = '#6c757d'
-                e.target.style.textDecoration = 'none'
+                const target = e.target as HTMLAnchorElement
+                target.style.color = '#6c757d'
+                target.style.textDecoration = 'none'
               }}
             >
               BookIt by Zewo
