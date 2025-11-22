@@ -369,51 +369,67 @@ export default function BusinessWebpage() {
 
   return (
     <div style={{ minHeight: '100vh' }}>
-      {/* Header - EXACT copy from preview */}
+      {/* Header - Desktop & Mobile Optimized */}
       <div
-        className="d-flex align-items-center justify-content-between p-4"
+        className="d-flex flex-column flex-sm-row align-items-center justify-content-between p-3 p-lg-4 gap-3"
         style={{
           backgroundColor: settings.headerSection.backgroundColor,
           color: settings.headerSection.textColor
         }}
       >
-        <div className="d-flex align-items-center">
-          <h1 className="mb-0 fw-bold">{settings.businessName}</h1>
+        <div className="d-flex align-items-center text-center text-sm-start flex-shrink-0">
+          <h1 
+            className="mb-0 fw-bold" 
+            style={{ fontSize: 'clamp(1.5rem, 4vw, 2rem)', lineHeight: '1.2' }}
+          >
+            {settings.businessName}
+          </h1>
         </div>
 
-        <div className="d-flex align-items-center gap-3">
+        <div className="d-flex flex-column flex-sm-row align-items-center gap-2 gap-sm-3">
           {settings.headerSection.showNavigationButtons && (
-            <div className="d-flex gap-2">
+            <div className="d-flex flex-wrap justify-content-center gap-2">
               <Button 
                 size="sm" 
                 variant={settings.headerSection.textColor === '#000000' ? 'outline-dark' : 'outline-light'}
+                className="px-3"
+                style={{ fontSize: 'clamp(0.8rem, 2vw, 0.875rem)', minHeight: '36px' }}
                 onClick={() => {
                   const bookingSection = document.getElementById('booking-section')
                   bookingSection?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                 }}
               >
+                <i className="fas fa-calendar-check me-1"></i>
                 Book Now
               </Button>
               <Button 
                 size="sm" 
                 variant={settings.headerSection.textColor === '#000000' ? 'outline-dark' : 'outline-light'}
+                className="px-3"
+                style={{ fontSize: 'clamp(0.8rem, 2vw, 0.875rem)', minHeight: '36px' }}
                 onClick={() => {
                   const rulesSection = document.getElementById('rules-section')
                   rulesSection?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                 }}
               >
+                <i className="fas fa-list me-1"></i>
                 Rules
               </Button>
             </div>
           )}
 
           {settings.headerSection.showSocialIcons && (
-            <div className="d-flex gap-2">
+            <div className="d-flex gap-2 justify-content-center">
               {settings.socialMedia.facebook && (
                 <a 
                   href={settings.socialMedia.facebook} 
-                  style={{ color: settings.headerSection.textColor, fontSize: '1.5rem' }}
+                  style={{ 
+                    color: settings.headerSection.textColor, 
+                    fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
+                    padding: '8px'
+                  }}
                   title="Facebook"
+                  className="d-flex align-items-center justify-content-center"
                 >
                   <i className="fab fa-facebook"></i>
                 </a>
@@ -421,8 +437,13 @@ export default function BusinessWebpage() {
               {settings.socialMedia.instagram && (
                 <a 
                   href={settings.socialMedia.instagram} 
-                  style={{ color: settings.headerSection.textColor, fontSize: '1.5rem' }}
+                  style={{ 
+                    color: settings.headerSection.textColor, 
+                    fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
+                    padding: '8px'
+                  }}
                   title="Instagram"
+                  className="d-flex align-items-center justify-content-center"
                 >
                   <i className="fab fa-instagram"></i>
                 </a>
@@ -430,8 +451,13 @@ export default function BusinessWebpage() {
               {settings.socialMedia.whatsapp && (
                 <a 
                   href={`https://wa.me/${settings.socialMedia.whatsapp}`} 
-                  style={{ color: settings.headerSection.textColor, fontSize: '1.5rem' }}
+                  style={{ 
+                    color: settings.headerSection.textColor, 
+                    fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
+                    padding: '8px'
+                  }}
                   title="WhatsApp"
+                  className="d-flex align-items-center justify-content-center"
                 >
                   <i className="fab fa-whatsapp"></i>
                 </a>
@@ -439,8 +465,13 @@ export default function BusinessWebpage() {
               {settings.socialMedia.website && (
                 <a 
                   href={settings.socialMedia.website} 
-                  style={{ color: settings.headerSection.textColor, fontSize: '1.5rem' }}
+                  style={{ 
+                    color: settings.headerSection.textColor, 
+                    fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
+                    padding: '8px'
+                  }}
                   title="Website"
+                  className="d-flex align-items-center justify-content-center"
                 >
                   <i className="fas fa-globe"></i>
                 </a>
@@ -455,7 +486,7 @@ export default function BusinessWebpage() {
         id="booking-section"
         className="text-white d-flex align-items-center justify-content-center"
         style={{
-          height: '400px',
+          minHeight: 'clamp(300px, 50vh, 400px)',
           backgroundColor: settings.heroBackgroundColor,
           backgroundImage: settings.heroBackgroundImage ? `url(${settings.heroBackgroundImage})` : 'none',
           backgroundSize: 'cover',
@@ -469,10 +500,36 @@ export default function BusinessWebpage() {
             style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
           />
         )}
-        <div className="text-center position-relative">
-          <h2 className="fw-bold mb-3 display-4">{settings.heroTitle}</h2>
-          <p className="mb-4 fs-5">{settings.heroSubtitle}</p>
-          <Button variant="light" size="lg" onClick={() => handleBookNow()}>
+        <div className="text-center position-relative px-3">
+          <h2 
+            className="fw-bold mb-3" 
+            style={{ 
+              fontSize: 'clamp(1.75rem, 5vw, 3rem)',
+              lineHeight: '1.2'
+            }}
+          >
+            {settings.heroTitle}
+          </h2>
+          <p 
+            className="mb-4" 
+            style={{ 
+              fontSize: 'clamp(1rem, 2.5vw, 1.25rem)',
+              maxWidth: '500px',
+              margin: '0 auto 1.5rem auto'
+            }}
+          >
+            {settings.heroSubtitle}
+          </p>
+          <Button 
+            variant="light" 
+            size="lg" 
+            onClick={() => handleBookNow()}
+            style={{ 
+              minHeight: '48px',
+              fontSize: 'clamp(0.9rem, 2.2vw, 1.1rem)',
+              padding: '0.75rem 2rem'
+            }}
+          >
             <i className="fas fa-calendar-alt me-2"></i>
             Book Now
           </Button>
@@ -480,7 +537,7 @@ export default function BusinessWebpage() {
       </div>
 
       {/* Business Info & Services */}
-      <div className="p-5 bg-light">
+      <div className="py-4 py-md-5 px-3 bg-light">
         <div 
           className="mb-5" 
           style={{ 
@@ -515,29 +572,37 @@ export default function BusinessWebpage() {
         </div>
 
         <Container>
-          <Row>
-            <Col lg={8}>
-              <h4 className="mb-4">Our Services</h4>
-              <Row>
+          <Row className="g-4">
+            <Col lg={8} className="order-2 order-lg-1">
+              <h4 className="mb-3 mb-md-4">Our Services</h4>
+              <Row className="g-3">
                 {services.map((service) => (
-                  <Col md={6} key={service.id} className="mb-3">
+                  <Col sm={6} lg={6} key={service.id} className="mb-2 mb-sm-0">
                     <Card className="h-100 shadow-sm">
-                      <Card.Body>
-                        <h5 className="card-title">{service.name}</h5>
+                      <Card.Body className="p-3 p-md-4">
+                        <h5 className="card-title" style={{ fontSize: 'clamp(1rem, 2.5vw, 1.25rem)' }}>
+                          {service.name}
+                        </h5>
                         {service.description && (
-                          <p className="card-text text-muted small">{service.description}</p>
+                          <p className="card-text text-muted small mb-3" style={{ fontSize: 'clamp(0.8rem, 2vw, 0.9rem)' }}>
+                            {service.description}
+                          </p>
                         )}
-                        <div className="d-flex justify-content-between align-items-center mt-3">
+                        <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mt-3 gap-2">
                           <div>
-                            <span className="text-muted small">Duration: {service.duration_min} min</span>
-                            <br />
-                            <strong className="h5 text-primary">${(service.price_cents / 100).toFixed(2)}</strong>
+                            <span className="text-muted small d-block">Duration: {service.duration_min} min</span>
+                            <strong className="h5 text-primary" style={{ fontSize: 'clamp(1.1rem, 3vw, 1.25rem)' }}>
+                              ${(service.price_cents / 100).toFixed(2)}
+                            </strong>
                           </div>
                           <Button 
                             variant="primary" 
                             size="sm"
+                            className="w-100 w-sm-auto"
+                            style={{ minHeight: '38px' }}
                             onClick={() => handleBookNow(service)}
                           >
+                            <i className="fas fa-calendar-check me-1 d-none d-sm-inline"></i>
                             Book Now
                           </Button>
                         </div>
@@ -547,37 +612,51 @@ export default function BusinessWebpage() {
                 ))}
               </Row>
             </Col>
-            <Col lg={4}>
-              <Card className="shadow-sm">
-                <Card.Header>
-                  <h5 className="mb-0">
-                    <i className="fas fa-calendar-alt me-2"></i>
-                    Quick Booking
-                  </h5>
-                </Card.Header>
-                <Card.Body>
-                  <p className="text-muted small mb-3">
-                    Select a service and choose your preferred time slot
-                  </p>
-                  <div className="d-grid gap-2">
-                    <Button variant="primary" size="lg" onClick={() => handleBookNow()}>
-                      <i className="fas fa-calendar-check me-2"></i>
-                      Book Appointment
-                    </Button>
-                    {settings.socialMedia.whatsapp && (
+            <Col lg={4} className="order-1 order-lg-2">
+              <div className="position-sticky" style={{ top: '20px' }}>
+                <Card className="shadow-sm">
+                  <Card.Header className="border-0 bg-primary text-white">
+                    <h5 className="mb-0" style={{ fontSize: 'clamp(1rem, 2.5vw, 1.25rem)' }}>
+                      <i className="fas fa-calendar-alt me-2"></i>
+                      Quick Booking
+                    </h5>
+                  </Card.Header>
+                  <Card.Body className="p-3 p-md-4">
+                    <p className="text-muted mb-3" style={{ fontSize: 'clamp(0.8rem, 2vw, 0.9rem)' }}>
+                      Select a service and choose your preferred time slot
+                    </p>
+                    <div className="d-grid gap-2">
                       <Button 
-                        variant="success" 
-                        size="sm"
-                        href={`https://wa.me/${settings.socialMedia.whatsapp}?text=Hi! I'd like to book an appointment.`}
-                        target="_blank"
+                        variant="primary" 
+                        size="lg" 
+                        onClick={() => handleBookNow()}
+                        style={{ 
+                          minHeight: '48px',
+                          fontSize: 'clamp(0.9rem, 2.2vw, 1.1rem)'
+                        }}
                       >
-                        <i className="fab fa-whatsapp me-2"></i>
-                        WhatsApp Us
+                        <i className="fas fa-calendar-check me-2"></i>
+                        Book Appointment
                       </Button>
-                    )}
-                  </div>
-                </Card.Body>
-              </Card>
+                      {settings.socialMedia.whatsapp && (
+                        <Button 
+                          variant="success" 
+                          size="sm"
+                          href={`https://wa.me/${settings.socialMedia.whatsapp}?text=Hi! I'd like to book an appointment.`}
+                          target="_blank"
+                          style={{ 
+                            minHeight: '40px',
+                            fontSize: 'clamp(0.8rem, 2vw, 0.9rem)'
+                          }}
+                        >
+                          <i className="fab fa-whatsapp me-2"></i>
+                          WhatsApp Us
+                        </Button>
+                      )}
+                    </div>
+                  </Card.Body>
+                </Card>
+              </div>
             </Col>
           </Row>
         </Container>
@@ -586,7 +665,7 @@ export default function BusinessWebpage() {
       {/* About Section */}
       {settings.aboutSection?.enabled && (
         <div
-          className="p-5 position-relative"
+          className="py-4 py-md-5 position-relative"
           style={{
             backgroundColor: settings.aboutSection.backgroundColor,
             backgroundImage: settings.aboutSection.backgroundImage ? `url(${settings.aboutSection.backgroundImage})` : 'none',
@@ -601,18 +680,19 @@ export default function BusinessWebpage() {
             />
           )}
           <Container 
-            className="position-relative" 
+            className="position-relative px-3 px-md-4" 
             style={{ 
               textAlign: settings.aboutSection.textStyle.textAlign,
               maxWidth: '800px'
             }}
           >
             <h3 
-              className="mb-4"
+              className="mb-3 mb-md-4"
               style={{
                 color: settings.aboutSection.textStyle.titleColor,
-                fontSize: settings.aboutSection.textStyle.titleFontSize,
-                fontFamily: settings.aboutSection.textStyle.fontFamily
+                fontSize: `clamp(1.5rem, 4vw, ${settings.aboutSection.textStyle.titleFontSize || '2rem'})`,
+                fontFamily: settings.aboutSection.textStyle.fontFamily,
+                lineHeight: '1.3'
               }}
             >
               {settings.aboutSection.title}
@@ -621,7 +701,7 @@ export default function BusinessWebpage() {
               className="lead"
               style={{
                 color: settings.aboutSection.textStyle.contentColor,
-                fontSize: settings.aboutSection.textStyle.contentFontSize,
+                fontSize: `clamp(1rem, 2.5vw, ${settings.aboutSection.textStyle.contentFontSize || '1.25rem'})`,
                 fontFamily: settings.aboutSection.textStyle.fontFamily,
                 lineHeight: '1.6'
               }}
@@ -1150,26 +1230,43 @@ export default function BusinessWebpage() {
                   </a>
                 )}
               </div>
-              {settings.footerSection.showPoweredBy && (
-                <p className="mb-0" style={{ fontSize: '0.9rem', opacity: 0.8 }}>
-                  Powered by{' '}
-                  <a 
-                    href="https://bookitbyzewo.com" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={{ 
-                      color: settings.footerSection.textColor, 
-                      textDecoration: 'none',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    BookIt by Zewo
-                  </a>
-                </p>
-              )}
             </Col>
           </Row>
         </Container>
+      </div>
+
+      {/* Powered by BookIt by Zewo */}
+      <div 
+        className="py-3 text-center border-top"
+        style={{ 
+          backgroundColor: '#f8f9fa',
+          borderColor: '#e9ecef !important'
+        }}
+      >
+        <div className="container">
+          <p className="mb-0 text-muted" style={{ fontSize: '0.85rem' }}>
+            Powered by{' '}
+            <a 
+              href="/"
+              style={{ 
+                color: '#6c757d', 
+                textDecoration: 'none',
+                fontWeight: '500'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.color = '#0d6efd'
+                e.target.style.textDecoration = 'underline'
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.color = '#6c757d'
+                e.target.style.textDecoration = 'none'
+              }}
+            >
+              BookIt by Zewo
+            </a>
+            {' '}- Professional Booking Management
+          </p>
+        </div>
       </div>
 
       {/* Booking Modal */}

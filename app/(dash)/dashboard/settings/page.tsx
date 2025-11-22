@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useLanguage } from '@/lib/language-context'
 import ProfilePictureUpload from '@/components/ProfilePictureUpload'
 import VisualAvailabilityManager from '@/components/VisualAvailabilityManager'
+import BusinessSharingManager from '@/components/BusinessSharingManager'
 
 export const dynamic = 'force-dynamic'
 
@@ -680,9 +681,43 @@ export default function SettingsPage() {
           </div>
         </Col>
 
+        {/* Business Sharing */}
+        {business && (
+          <Col lg={6} className="mb-4">
+            <div className="glass-card p-3 p-md-4 rounded-4">
+              <div className="d-flex align-items-center mb-4">
+                <div 
+                  className="rounded-circle me-3 d-flex align-items-center justify-content-center"
+                  style={{ 
+                    width: '50px', 
+                    height: '50px',
+                    background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                    color: 'white'
+                  }}
+                >
+                  <i className="fas fa-share-alt fs-5"></i>
+                </div>
+                <div>
+                  <h5 className="mb-0 fw-bold">
+                    {locale === 'es' ? 'Compartir mi Negocio' : 'Share My Business'}
+                  </h5>
+                  <small className="text-muted">
+                    {locale === 'es' ? 'Comparte tu página web y enlace de reservas con códigos QR' : 'Share your website and booking link with QR codes'}
+                  </small>
+                </div>
+              </div>
+              
+              <BusinessSharingManager 
+                businessSlug={business.slug} 
+                businessName={business.name} 
+              />
+            </div>
+          </Col>
+        )}
+
         {/* Availability Manager */}
         {business && (
-          <Col lg={12} className="mb-4">
+          <Col lg={6} className="mb-4">
             <div className="glass-card p-3 p-md-4 rounded-4">
               <div className="d-flex align-items-center mb-4">
                 <div 
