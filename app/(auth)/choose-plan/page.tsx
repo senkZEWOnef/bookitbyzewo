@@ -99,10 +99,21 @@ export default function ChoosePlanPage() {
 
   useEffect(() => {
     // Check if user just signed up
+    console.log('🔍 Checking for pendingUser in localStorage...')
     const userString = localStorage.getItem('pendingUser')
+    console.log('📦 pendingUser data:', userString)
+    
     if (userString) {
-      setPendingUser(JSON.parse(userString))
+      try {
+        const userData = JSON.parse(userString)
+        console.log('✅ Found pendingUser:', userData)
+        setPendingUser(userData)
+      } catch (error) {
+        console.error('❌ Error parsing pendingUser data:', error)
+        router.push('/signup')
+      }
     } else {
+      console.log('❌ No pendingUser found, redirecting to signup')
       // If no pending user, redirect to signup
       router.push('/signup')
     }
@@ -166,9 +177,9 @@ export default function ChoosePlanPage() {
   }
 
   return (
-    <Container className="py-5">
+    <Container fluid className="py-5">
       <Row className="justify-content-center">
-        <Col lg={10}>
+        <Col xl={11} lg={12}>
           <div className="text-center mb-5">
             <h1 className="display-5 fw-bold mb-3">
               Welcome, {pendingUser.full_name}! 👋
@@ -179,9 +190,9 @@ export default function ChoosePlanPage() {
             {error && <Alert variant="danger">{error}</Alert>}
           </div>
 
-          <Row className="g-4">
+          <Row className="g-4 justify-content-center">
             {plans.map((plan, index) => (
-              <Col lg={3} md={6} key={plan.id}>
+              <Col xl={3} lg={4} md={6} key={plan.id}>
                 <Card className={`h-100 border-0 position-relative overflow-hidden ${plan.popular ? 'shadow-xl' : 'shadow-lg'}`} 
                       style={{ transform: plan.popular ? 'scale(1.05)' : 'scale(1)' }}>
                   {plan.popular && (

@@ -66,10 +66,16 @@ export default function SignupPage() {
       })
 
       if (response.ok) {
-        console.log('✅ Signup successful, redirecting to plan selection')
+        console.log('✅ Signup successful, storing user data and redirecting to plan selection')
         // Store user data temporarily for plan selection
         localStorage.setItem('pendingUser', JSON.stringify(result.user))
-        router.push('/choose-plan')
+        console.log('📦 Stored pendingUser:', JSON.stringify(result.user))
+        
+        // Small delay to ensure localStorage is written
+        setTimeout(() => {
+          console.log('🔄 Redirecting to choose-plan page')
+          router.push('/choose-plan')
+        }, 100)
       } else {
         console.error('❌ Signup failed:', result)
         // Show more detailed error information
