@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import BetaAccounts from '@/components/admin/BetaAccounts'
 import { Container, Row, Col, Card, Button, Form, Alert, Table, Badge } from 'react-bootstrap'
 
 interface CouponCode {
@@ -379,6 +380,7 @@ export default function AdminDashboard() {
                     {[
                       { key: 'analytics', icon: 'fas fa-chart-line', label: 'Platform Analytics' },
                       { key: 'coupons', icon: 'fas fa-ticket-alt', label: 'Coupon Generator' },
+                      { key: 'beta', icon: 'fas fa-flask', label: 'Beta Testers' },
                       { key: 'businesses', icon: 'fas fa-building', label: 'Business Management' },
                       { key: 'users', icon: 'fas fa-users', label: 'User Management' },
                       { key: 'appointments', icon: 'fas fa-calendar', label: 'Recent Appointments' }
@@ -545,6 +547,8 @@ export default function AdminDashboard() {
                   </Col>
                 </Row>
               )}
+
+              {activeView === 'beta' && <BetaAccounts />}
 
               {activeView === 'coupons' && (
                 <Row className="g-4">
