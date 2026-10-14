@@ -1,0 +1,224 @@
+/* Admin panel theme - scoped to .admin-modern so nothing leaks into the rest of the app */
+.admin-modern {
+  --adm-bg: #0b0f14;
+  --adm-surface: #121821;
+  --adm-surface-2: #1a2230;
+  --adm-border: rgba(255, 255, 255, 0.08);
+  --adm-text: #e6edf3;
+  --adm-muted: #8b98a9;
+  --adm-accent: #10b981;
+  --adm-accent-soft: rgba(16, 185, 129, 0.12);
+  min-height: 100vh;
+  background: var(--adm-bg);
+  color: var(--adm-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ---------- top bar ---------- */
+.admin-modern .adm-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(11, 15, 20, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--adm-border);
+}
+.admin-modern .adm-topbar-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.admin-modern .adm-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+.admin-modern .adm-brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #04130d;
+}
+.admin-modern .adm-brand small {
+  color: var(--adm-muted);
+  font-weight: 500;
+  margin-left: 0.25rem;
+}
+.admin-modern .adm-btn {
+  background: transparent;
+  color: var(--adm-text);
+  border: 1px solid var(--adm-border);
+  border-radius: 10px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s;
+}
+.admin-modern .adm-btn:hover {
+  background: var(--adm-surface-2);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* ---------- layout + sidebar ---------- */
+.admin-modern .adm-shell {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+.admin-modern .adm-sidebar {
+  position: sticky;
+  top: 5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  background: var(--adm-surface);
+  border: 1px solid var(--adm-border);
+  border-radius: 14px;
+  padding: 0.5rem;
+}
+.admin-modern .adm-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--adm-muted);
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.admin-modern .adm-nav-item i {
+  width: 18px;
+  text-align: center;
+}
+.admin-modern .adm-nav-item:hover {
+  background: var(--adm-surface-2);
+  color: var(--adm-text);
+}
+.admin-modern .adm-nav-item.active {
+  background: var(--adm-accent-soft);
+  color: var(--adm-accent);
+}
+
+/* ---------- cards, tables, forms (restyles the existing views) ---------- */
+.admin-modern .card {
+  background: var(--adm-surface) !important;
+  border: 1px solid var(--adm-border) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  color: var(--adm-text);
+}
+.admin-modern .card-header {
+  background: transparent !important;
+  border-bottom: 0 !important;
+  padding: 1.25rem 1.25rem 0.25rem;
+}
+.admin-modern .card-header h5,
+.admin-modern .card-header h6 {
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+.admin-modern .text-white-50 {
+  color: var(--adm-muted) !important;
+}
+.admin-modern .table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--adm-text);
+  --bs-table-border-color: var(--adm-border);
+  --bs-table-striped-bg: rgba(255, 255, 255, 0.025);
+  --bs-table-hover-bg: rgba(255, 255, 255, 0.04);
+  font-size: 0.9rem;
+}
+.admin-modern .table > thead th {
+  color: var(--adm-muted) !important;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--adm-border) !important;
+}
+.admin-modern .table > tbody td {
+  border-color: var(--adm-border) !important;
+  vertical-align: middle;
+}
+.admin-modern .form-control,
+.admin-modern .form-select {
+  background-color: var(--adm-bg);
+  border: 1px solid var(--adm-border);
+  color: var(--adm-text);
+  border-radius: 10px;
+}
+.admin-modern .form-control::placeholder {
+  color: #5d6b7e;
+}
+.admin-modern .form-control:focus,
+.admin-modern .form-select:focus {
+  background-color: var(--adm-bg);
+  color: var(--adm-text);
+  border-color: var(--adm-accent);
+  box-shadow: 0 0 0 3px var(--adm-accent-soft);
+}
+.admin-modern .btn {
+  border-radius: 10px;
+  font-weight: 500;
+}
+.admin-modern .btn-success {
+  background: var(--adm-accent);
+  border-color: var(--adm-accent);
+  color: #04130d;
+}
+.admin-modern .btn-success:hover {
+  background: #0ea371;
+  border-color: #0ea371;
+  color: #04130d;
+}
+.admin-modern .alert {
+  border-radius: 12px;
+}
+.admin-modern code {
+  border-radius: 6px;
+}
+
+/* ---------- mobile: sidebar becomes a scrolling pill bar ---------- */
+@media (max-width: 767.98px) {
+  .admin-modern .adm-topbar-inner {
+    padding: 0.65rem 1rem;
+  }
+  .admin-modern .adm-btn-label {
+    display: none;
+  }
+  .admin-modern .adm-shell {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 1rem;
+    gap: 1rem;
+  }
+  .admin-modern .adm-sidebar {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0.4rem;
+  }
+  .admin-modern .adm-nav-item {
+    width: auto;
+  }
+}

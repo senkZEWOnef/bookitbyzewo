@@ -29,13 +29,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get all coupons using Neon
-    const result = await query(`
-      SELECT id, code, discount_type, discount_value, free_trial_months, 
-             applicable_plan, max_uses, used_count, expires_at, is_active, 
-             created_at, updated_at
-      FROM coupon_codes 
-      ORDER BY created_at DESC
-    `)
+    await query('ALTER TABLE coupon_codes ADD COLUMN IF NOT EXISTS label VARCHAR(100)')
+    const result = await query('SELECT * FROM coupon_codes ORDER BY created_at DESC')
 
     return NextResponse.json({ coupons: result.rows })
 

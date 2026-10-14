@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import BetaAccounts from '@/components/admin/BetaAccounts'
+import TrialCodes from '@/components/admin/TrialCodes'
 import { Container, Row, Col, Card, Button, Form, Alert, Table, Badge } from 'react-bootstrap'
 
 interface CouponCode {
@@ -316,108 +316,47 @@ export default function AdminDashboard() {
 
   return (
     <>
-      <div className="bg-mesh text-white position-relative overflow-hidden" style={{ minHeight: '100vh' }}>
-        <div className="position-absolute top-0 start-0 w-100 h-100" style={{
-          background: 'radial-gradient(circle at 20% 80%, rgba(16, 185, 129, 0.15) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.05) 0%, transparent 50%)'
-        }}></div>
-      
-        <Container className="position-relative py-4" style={{ paddingTop: '6rem' }}>
-          <Row>
-            <Col>
-              <div className="d-flex justify-content-between align-items-center py-4 border-bottom" style={{ borderColor: 'rgba(16, 185, 129, 0.2)' }}>
-                <div className="d-flex align-items-center">
-                  <i className="fab fa-whatsapp text-success me-3" style={{ fontSize: '2rem' }}></i>
-                  <h2 className="text-white mb-0 fw-bold">BookIt Admin Panel</h2>
-                </div>
-                <div className="d-flex gap-3">
-                  <Button 
-                    variant="outline-success" 
-                    onClick={() => window.open('/', '_blank')}
-                    className="px-4 py-2 fw-medium"
-                    style={{ 
-                      border: '2px solid rgba(16, 185, 129, 0.5)',
-                      borderRadius: '12px'
-                    }}
-                  >
-                    <i className="fas fa-external-link-alt me-2"></i>
-                    View Website
-                  </Button>
-                  <Button 
-                    variant="outline-light" 
-                    onClick={logout}
-                    className="px-4 py-2 fw-medium"
-                    style={{ 
-                      border: '2px solid rgba(255, 255, 255, 0.3)',
-                      borderRadius: '12px'
-                    }}
-                  >
-                    <i className="fas fa-sign-out-alt me-2"></i>
-                    Logout
-                  </Button>
-                </div>
-              </div>
-            </Col>
-          </Row>
+      <div className="admin-modern">
+        <header className="adm-topbar">
+          <div className="adm-topbar-inner">
+            <div className="adm-brand">
+              <span className="adm-brand-mark"><i className="fas fa-calendar-check"></i></span>
+              <span>BookIt <small>Admin</small></span>
+            </div>
+            <div className="d-flex gap-2">
+              <button className="adm-btn" onClick={() => window.open('/', '_blank')}>
+                <i className="fas fa-external-link-alt me-2"></i>
+                <span className="adm-btn-label">View website</span>
+              </button>
+              <button className="adm-btn" onClick={logout}>
+                <i className="fas fa-sign-out-alt me-2"></i>
+                <span className="adm-btn-label">Logout</span>
+              </button>
+            </div>
+          </div>
+        </header>
 
-          <Row className="mt-4 g-0">
-            <Col md={3} lg={2}>
-              <Card 
-                className="border-0 shadow-lg h-100"
-                style={{ 
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  backdropFilter: 'blur(20px)',
-                  borderRadius: '16px'
-                }}
+        <div className="adm-shell">
+          <nav className="adm-sidebar">
+            {[
+              { key: 'analytics', icon: 'fas fa-chart-line', label: 'Analytics' },
+              { key: 'coupons', icon: 'fas fa-ticket-alt', label: 'Trial Codes' },
+              { key: 'businesses', icon: 'fas fa-building', label: 'Businesses' },
+              { key: 'users', icon: 'fas fa-users', label: 'Users' },
+              { key: 'appointments', icon: 'fas fa-calendar', label: 'Appointments' }
+            ].map(item => (
+              <button
+                key={item.key}
+                className={`adm-nav-item ${activeView === item.key ? 'active' : ''}`}
+                onClick={() => setActiveView(item.key)}
               >
-                <Card.Body className="p-0">
-                  <div className="p-4 border-bottom" style={{ borderColor: 'rgba(16, 185, 129, 0.2)' }}>
-                    <h6 className="text-white mb-0 fw-bold d-flex align-items-center">
-                      <i className="fas fa-cog text-success me-2"></i>
-                      Admin Menu
-                    </h6>
-                  </div>
-                  <div className="p-2">
-                    {[
-                      { key: 'analytics', icon: 'fas fa-chart-line', label: 'Platform Analytics' },
-                      { key: 'coupons', icon: 'fas fa-ticket-alt', label: 'Coupon Generator' },
-                      { key: 'beta', icon: 'fas fa-flask', label: 'Beta Testers' },
-                      { key: 'businesses', icon: 'fas fa-building', label: 'Business Management' },
-                      { key: 'users', icon: 'fas fa-users', label: 'User Management' },
-                      { key: 'appointments', icon: 'fas fa-calendar', label: 'Recent Appointments' }
-                    ].map(item => (
-                      <button
-                        key={item.key}
-                        className={`w-100 text-start border-0 rounded-3 p-3 mb-2 fw-medium d-flex align-items-center ${
-                          activeView === item.key ? 'text-dark' : 'text-white'
-                        }`}
-                        style={{
-                          background: activeView === item.key 
-                            ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                            : 'transparent',
-                          transition: 'all 0.2s ease'
-                        }}
-                        onClick={() => setActiveView(item.key)}
-                        onMouseEnter={(e) => {
-                          if (activeView !== item.key) {
-                            (e.target as HTMLElement).style.background = 'rgba(16, 185, 129, 0.1)'
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (activeView !== item.key) {
-                            (e.target as HTMLElement).style.background = 'transparent'
-                          }
-                        }}
-                      >
-                        <i className={`${item.icon} me-3`} style={{ fontSize: '1.1rem', width: '20px' }}></i>
-                        <span style={{ fontSize: '0.9rem' }}>{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
+                <i className={item.icon}></i>
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </nav>
 
-            <Col md={9} lg={10} className="ps-4" style={{ paddingTop: '1rem' }}>
+          <main style={{ minWidth: 0 }}>
               {message.content && (
                 <Alert variant={message.type === 'success' ? 'success' : 'danger'} className="mb-4">
                   {message.content}
@@ -548,183 +487,7 @@ export default function AdminDashboard() {
                 </Row>
               )}
 
-              {activeView === 'beta' && <BetaAccounts />}
-
-              {activeView === 'coupons' && (
-                <Row className="g-4">
-                  <Col md={6}>
-                    <Card 
-                      className="border-0 shadow-lg"
-                      style={{ 
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        backdropFilter: 'blur(20px)',
-                        borderRadius: '16px'
-                      }}
-                    >
-                      <Card.Header 
-                        className="border-0 pb-0"
-                        style={{ background: 'transparent' }}
-                      >
-                        <h5 className="text-white mb-0 fw-bold d-flex align-items-center">
-                          <i className="fas fa-plus-circle text-success me-2"></i>
-                          Generate Solo Plan Trial Coupon
-                        </h5>
-                        <p className="text-white-50 mb-0 small">Coupons only work for Solo plan trials</p>
-                      </Card.Header>
-                      <Card.Body>
-                        <Form>
-                          <Form.Group className="mb-3">
-                            <Form.Label className="text-white fw-medium">Free Trial Duration (Solo Plan Only)</Form.Label>
-                            <Form.Select
-                              value={newCoupon.free_trial_months}
-                              onChange={(e) => setNewCoupon(prev => ({ ...prev, free_trial_months: parseInt(e.target.value) }))}
-                              style={{ 
-                                background: 'rgba(255, 255, 255, 0.1)', 
-                                border: '1px solid rgba(255, 255, 255, 0.2)', 
-                                color: '#fff',
-                                borderRadius: '8px'
-                              }}
-                            >
-                              <option value={1}>1 Month Free Trial</option>
-                              <option value={2}>2 Months Free Trial</option>
-                              <option value={3}>3 Months Free Trial</option>
-                            </Form.Select>
-                          </Form.Group>
-
-                          <Form.Group className="mb-3">
-                            <Form.Label className="text-white fw-medium">Max Uses</Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={newCoupon.max_uses}
-                              onChange={(e) => setNewCoupon(prev => ({ ...prev, max_uses: parseInt(e.target.value) }))}
-                              style={{ 
-                                background: 'rgba(255, 255, 255, 0.1)', 
-                                border: '1px solid rgba(255, 255, 255, 0.2)', 
-                                color: '#fff',
-                                borderRadius: '8px'
-                              }}
-                            />
-                          </Form.Group>
-
-                          <Form.Group className="mb-4">
-                            <Form.Label className="text-white fw-medium">Expires in Days</Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={newCoupon.expires_days}
-                              onChange={(e) => setNewCoupon(prev => ({ ...prev, expires_days: parseInt(e.target.value) }))}
-                              style={{ 
-                                background: 'rgba(255, 255, 255, 0.1)', 
-                                border: '1px solid rgba(255, 255, 255, 0.2)', 
-                                color: '#fff',
-                                borderRadius: '8px'
-                              }}
-                            />
-                          </Form.Group>
-
-                          <Button 
-                            onClick={generateCoupon} 
-                            className="w-100 fw-medium py-3"
-                            style={{
-                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                              border: 'none',
-                              borderRadius: '12px',
-                              fontSize: '1.1rem'
-                            }}
-                          >
-                            <i className="fas fa-magic me-2"></i>
-                            Generate Coupon Code
-                          </Button>
-                        </Form>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-
-                  <Col md={6}>
-                    <Card 
-                      className="border-0 shadow-lg"
-                      style={{ 
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        backdropFilter: 'blur(20px)',
-                        borderRadius: '16px'
-                      }}
-                    >
-                      <Card.Header 
-                        className="border-0 pb-0"
-                        style={{ background: 'transparent' }}
-                      >
-                        <h5 className="text-white mb-0 fw-bold d-flex align-items-center">
-                          <i className="fas fa-list text-success me-2"></i>
-                          Generated Coupons
-                        </h5>
-                      </Card.Header>
-                      <Card.Body style={{ maxHeight: '500px', overflowY: 'auto' }}>
-                        <Table 
-                          className="table-dark"
-                          style={{ 
-                            '--bs-table-bg': 'transparent',
-                            '--bs-table-striped-bg': 'rgba(255, 255, 255, 0.05)'
-                          } as React.CSSProperties}
-                        >
-                          <thead>
-                            <tr>
-                              <th className="text-white fw-medium border-0">Code</th>
-                              <th className="text-white fw-medium border-0">Plan</th>
-                              <th className="text-white fw-medium border-0">Trial Duration</th>
-                              <th className="text-white fw-medium border-0">Used</th>
-                              <th className="text-white fw-medium border-0">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {coupons.map(coupon => (
-                              <tr key={coupon.id}>
-                                <td className="border-0">
-                                  <code 
-                                    className="text-success fw-bold px-2 py-1 rounded"
-                                    style={{ background: 'rgba(16, 185, 129, 0.1)' }}
-                                  >
-                                    {coupon.code}
-                                  </code>
-                                </td>
-                                <td className="border-0">
-                                  <Badge 
-                                    className="fw-medium px-2 py-1"
-                                    style={{
-                                      background: 'rgba(59, 130, 246, 0.2)',
-                                      color: '#3b82f6',
-                                      border: '1px solid #3b82f6',
-                                      fontSize: '0.75rem'
-                                    }}
-                                  >
-                                    Solo Only
-                                  </Badge>
-                                </td>
-                                <td className="border-0 text-white fw-medium">
-                                  {coupon.free_trial_months} month{coupon.free_trial_months > 1 ? 's' : ''} free
-                                </td>
-                                <td className="border-0 text-white">{coupon.used_count}/{coupon.max_uses}</td>
-                                <td className="border-0">
-                                  <Badge 
-                                    className="fw-medium px-3 py-2"
-                                    style={{
-                                      background: coupon.is_active 
-                                        ? 'rgba(16, 185, 129, 0.2)' 
-                                        : 'rgba(239, 68, 68, 0.2)',
-                                      color: coupon.is_active ? '#10b981' : '#ef4444',
-                                      border: `1px solid ${coupon.is_active ? '#10b981' : '#ef4444'}`
-                                    }}
-                                  >
-                                    {coupon.is_active ? 'Active' : 'Inactive'}
-                                  </Badge>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </Table>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                </Row>
-              )}
+              {activeView === 'coupons' && <TrialCodes />}
 
               {activeView === 'businesses' && (
                 <Row>
@@ -1064,9 +827,8 @@ export default function AdminDashboard() {
                   </Col>
                 </Row>
               )}
-            </Col>
-          </Row>
-        </Container>
+          </main>
+        </div>
       </div>
     </>
   )

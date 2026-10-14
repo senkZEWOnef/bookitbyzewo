@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Form, Button, Card, Alert } from 'react-bootstrap'
@@ -15,12 +15,19 @@ export default function SignupPage() {
     email: '',
     phone: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    trialCode: ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
   const { t } = useLanguage()
+
+  // Shared links look like /signup?code=FULL3M-ABC123
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('code')
+    if (code) setFormData(prev => ({ ...prev, trialCode: code }))
+  }, [])
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,7 +61,8 @@ export default function SignupPage() {
           email: formData.email.trim(),
           password: formData.password,
           full_name: formData.fullName,
-          phone: formData.phone
+          phone: formData.phone,
+          trial_code: formData.trialCode.trim() || undefined
         })
       })
 
@@ -67,9 +75,15 @@ export default function SignupPage() {
 
       if (response.ok) {
         console.log('✅ Signup successful, redirecting to plan selection')
-        // Store user data temporarily for plan selection
-        localStorage.setItem('pendingUser', JSON.stringify(result.user))
-        router.push('/choose-plan')
+        if (result.user.plan_status === 'trial') {
+          // A trial code started the trial already, so skip plan selection
+          localStorage.setItem('user', JSON.stringify(result.user))
+          router.push('/dashboard/onboarding')
+        } else {
+          // Store user data temporarily for plan selection
+          localStorage.setItem('pendingUser', JSON.stringify(result.user))
+          router.push('/choose-plan')
+        }
       } else {
         console.error('❌ Signup failed:', result)
         // Show more detailed error information
@@ -143,7 +157,7 @@ export default function SignupPage() {
             />
           </Form.Group>
 
-          <Form.Group className="mb-4">
+          <Form.Group className="mb-3">
             <Form.Label>{t('auth.signup.confirm')}</Form.Label>
             <Form.Control
               type="password"
@@ -154,6 +168,20 @@ export default function SignupPage() {
             />
           </Form.Group>
           
+          <Form.Group className="mb-4">
+            <Form.Label>Trial code (optional)</Form.Label>
+            <Form.Control
+              type="text"
+              value={formData.trialCode}
+              onChange={(e) => handleInputChange('trialCode', e.target.value.toUpperCase())}
+              placeholder="FULL3M-ABC123"
+              autoCapitalize="characters"
+            />
+            <Form.Text className="text-muted">
+              Got a free trial code? Enter it to start your trial without a card.
+            </Form.Text>
+          </Form.Group>
+
           <Button 
             type="submit" 
             variant="success" 

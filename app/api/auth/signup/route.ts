@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { query } from '@/lib/db'
+import { addMonths } from 'date-fns'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, full_name, phone } = await request.json()
+    const { email, password, full_name, phone, trial_code } = await request.json()
 
     // Validate input
     if (!email || !password || !full_name) {
@@ -28,29 +29,71 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Create user with inactive status - payment required to activate
-    const result = await query(
-      'INSERT INTO users (email, password, full_name, phone, plan, plan_status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, full_name, plan, plan_status',
-      [
-        email, 
-        hashedPassword, 
-        full_name, 
-        phone || null,
-        'solo',
-        'incomplete' // Requires payment to activate
-      ]
-    )
+    // Optional trial code: claim one use atomically before creating the account
+    let coupon: any = null
+    const code = typeof trial_code === 'string' ? trial_code.trim().toUpperCase() : ''
+    if (code) {
+      const claimed = await query(
+        `UPDATE coupon_codes
+         SET used_count = used_count + 1, updated_at = NOW()
+         WHERE code = $1 AND is_active = true AND expires_at > NOW() AND used_count < max_uses
+         RETURNING id, free_trial_months, applicable_plan`,
+        [code]
+      )
+      if (claimed.rows.length === 0) {
+        return NextResponse.json({ error: 'This trial code is invalid, expired or already used up' }, { status: 400 })
+      }
+      coupon = claimed.rows[0]
+    }
 
-    const newUser = result.rows[0]
+    let newUser
+    try {
+      if (coupon) {
+        // Trial code: start the trial right away on the plan the code grants
+        const result = await query(
+          'INSERT INTO users (email, password, full_name, phone, plan, plan_status, trial_ends_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, email, full_name, plan, plan_status, trial_ends_at',
+          [
+            email,
+            hashedPassword,
+            full_name,
+            phone || null,
+            coupon.applicable_plan === 'pro' ? 'pro' : 'solo',
+            'trial',
+            addMonths(new Date(), coupon.free_trial_months).toISOString()
+          ]
+        )
+        newUser = result.rows[0]
+      } else {
+        // Create user with inactive status - payment required to activate
+        const result = await query(
+          'INSERT INTO users (email, password, full_name, phone, plan, plan_status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, full_name, plan, plan_status',
+          [email, hashedPassword, full_name, phone || null, 'solo', 'incomplete']
+        )
+        newUser = result.rows[0]
+      }
+    } catch (insertError) {
+      if (coupon) {
+        // Give the use back if the account could not be created
+        await query('UPDATE coupon_codes SET used_count = used_count - 1 WHERE id = $1', [coupon.id]).catch(() => {})
+      }
+      throw insertError
+    }
+
+    if (coupon) {
+      await query('INSERT INTO coupon_usage (coupon_id, user_id) VALUES ($1, $2)', [coupon.id, newUser.id]).catch(() => {})
+    }
 
     return NextResponse.json({
-      message: 'Account created successfully. Payment required to activate.',
+      message: coupon
+        ? 'Account created successfully. Your free trial has started.'
+        : 'Account created successfully. Payment required to activate.',
       user: {
         id: newUser.id,
         email: newUser.email,
         full_name: newUser.full_name,
         plan: newUser.plan,
-        plan_status: newUser.plan_status
+        plan_status: newUser.plan_status,
+        trial_ends_at: newUser.trial_ends_at || null
       }
     })
 
