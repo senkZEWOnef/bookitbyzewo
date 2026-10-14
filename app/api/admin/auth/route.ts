@@ -10,9 +10,11 @@ function getAdminCredentials() {
   const username = process.env.ADMIN_USERNAME
   const password = process.env.ADMIN_PASSWORD
   if (!username || !password) {
-    throw new Error('ADMIN_USERNAME and ADMIN_PASSWORD environment variables are required')
+    const missing = [!username && 'ADMIN_USERNAME', !password && 'ADMIN_PASSWORD'].filter(Boolean)
+    console.error(`Admin auth misconfigured: missing env var(s) ${missing.join(', ')}`)
+    return null
   }
-  return { username, password }
+  return { username: username.trim(), password }
 }
 
 export async function POST(request: NextRequest) {
@@ -22,6 +24,12 @@ export async function POST(request: NextRequest) {
 
     // Verify admin credentials
     const ADMIN_CREDENTIALS = getAdminCredentials()
+    if (!ADMIN_CREDENTIALS) {
+      return NextResponse.json(
+        { error: 'Admin login is not configured on the server (ADMIN_USERNAME / ADMIN_PASSWORD missing)' },
+        { status: 503 }
+      )
+    }
     if (username !== ADMIN_CREDENTIALS.username || password !== ADMIN_CREDENTIALS.password) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
