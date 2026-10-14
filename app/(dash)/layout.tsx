@@ -10,6 +10,7 @@ import { Button } from 'react-bootstrap'
 import { useLanguage } from '@/lib/language-context'
 import BusinessSwitcher from '@/components/BusinessSwitcher'
 import SubscriptionCheck from '@/components/SubscriptionCheck'
+import AssistantChat from '@/components/AssistantChat'
 
 export default function DashboardLayout({
   children,
@@ -423,6 +424,20 @@ export default function DashboardLayout({
             {children}
           </SubscriptionCheck>
         </main>
+
+        <AssistantChat
+          endpoint="/api/assistant"
+          confirmEndpoint="/api/assistant/confirm"
+          getToken={() => localStorage.getItem('token')}
+          title="AI Assistant"
+          subtitle="Ask about your appointments, accept or cancel them"
+          suggestions={[
+            'What do I have today?',
+            'Show my pending appointments',
+            'Accept all of tomorrow\'s pending appointments'
+          ]}
+          upgradeHref="/pricing"
+        />
       </div>
     </div>
   )

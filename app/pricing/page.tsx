@@ -305,6 +305,18 @@ export default function PricingPage() {
                           <i className="fas fa-check text-success fs-5"></i>
                         </td>
                       </tr>
+                      <tr className="border-bottom">
+                        <td className="py-4 px-4 fw-semibold">{t('pricing.table.ai_assistant')}</td>
+                        <td className="text-center py-4">
+                          <i className="fas fa-times text-muted"></i>
+                        </td>
+                        <td className="text-center py-4 bg-light">
+                          <i className="fas fa-times text-muted"></i>
+                        </td>
+                        <td className="text-center py-4">
+                          <i className="fas fa-check text-success fs-5"></i>
+                        </td>
+                      </tr>
                       <tr>
                         <td className="py-4 px-4 fw-semibold">{t('pricing.table.support')}</td>
                         <td className="text-center py-4">{t('pricing.table.email')}</td>

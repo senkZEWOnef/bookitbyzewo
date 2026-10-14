@@ -83,3 +83,17 @@ export async function loginUser(email: string, password: string) {
     token
   }
 }
+
+// Short-lived signed tokens that bind a confirmed assistant action to the person who approved it
+export function signActionToken(payload: { sub: string; tool: string; input: unknown }) {
+  return jwt.sign({ ...payload, scope: 'assistant-action' }, JWT_SECRET, { expiresIn: '10m' })
+}
+
+export function verifyActionToken(token: string) {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { sub: string; tool: string; input: any; scope: string }
+    return payload.scope === 'assistant-action' ? payload : null
+  } catch {
+    return null
+  }
+}

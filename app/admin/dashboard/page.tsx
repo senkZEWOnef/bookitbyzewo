@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import TrialCodes from '@/components/admin/TrialCodes'
+import AssistantChat from '@/components/AssistantChat'
 import { Container, Row, Col, Card, Button, Form, Alert, Table, Badge } from 'react-bootstrap'
 
 interface CouponCode {
@@ -829,6 +830,20 @@ export default function AdminDashboard() {
               )}
           </main>
         </div>
+
+        <AssistantChat
+          endpoint="/api/admin/assistant"
+          confirmEndpoint="/api/admin/assistant/confirm"
+          getToken={() => localStorage.getItem('admin_token')}
+          title="Admin Agent"
+          subtitle="Tell me what to do on the platform"
+          theme="dark"
+          suggestions={[
+            'How many users are on trial right now?',
+            'Create a 3 month full-features trial code for Carlos',
+            'Show businesses with no appointments'
+          ]}
+        />
       </div>
     </>
   )

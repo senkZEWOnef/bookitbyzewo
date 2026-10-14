@@ -8,7 +8,7 @@ import { useLanguage } from '@/lib/language-context'
 export const dynamic = 'force-dynamic'
 
 export default function HomePage() {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const router = useRouter()
   return (
     <>
@@ -304,7 +304,7 @@ export default function HomePage() {
           </Row>
           
           <Row className="g-5">
-            <Col md={6} lg={3}>
+            <Col md={6} lg>
               <div className="text-center">
                 <div className="feature-icon mx-auto mb-3">
                   <i className="fab fa-whatsapp"></i>
@@ -316,7 +316,7 @@ export default function HomePage() {
               </div>
             </Col>
             
-            <Col md={6} lg={3}>
+            <Col md={6} lg>
               <div className="text-center">
                 <div className="feature-icon mx-auto mb-3" style={{ 
                   background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' 
@@ -330,7 +330,7 @@ export default function HomePage() {
               </div>
             </Col>
             
-            <Col md={6} lg={3}>
+            <Col md={6} lg>
               <div className="text-center">
                 <div className="feature-icon mx-auto mb-3" style={{ 
                   background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' 
@@ -344,7 +344,7 @@ export default function HomePage() {
               </div>
             </Col>
             
-            <Col md={6} lg={3}>
+            <Col md={6} lg>
               <div className="text-center">
                 <div className="feature-icon mx-auto mb-3" style={{ 
                   background: 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)' 
@@ -354,6 +354,23 @@ export default function HomePage() {
                 <h5 className="fw-bold mb-3">{t('whychoose.mobile.title')}</h5>
                 <p className="text-muted">
                   {t('whychoose.mobile.desc')}
+                </p>
+              </div>
+            </Col>
+            <Col md={6} lg>
+              <div className="text-center">
+                <div className="feature-icon mx-auto mb-3" style={{ 
+                  background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)' 
+                }}>
+                  <i className="fas fa-wand-magic-sparkles"></i>
+                </div>
+                <h5 className="fw-bold mb-3">
+                  {language === 'es' ? 'Asistente con IA' : 'AI Assistant'}
+                </h5>
+                <p className="text-muted">
+                  {language === 'es'
+                    ? 'Habla con tu asistente para ver, aceptar o cancelar citas. Incluido en el plan Pro.'
+                    : 'Just tell your assistant to read, accept or cancel appointments for you. Included in the Pro plan.'}
                 </p>
               </div>
             </Col>
