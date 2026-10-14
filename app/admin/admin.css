@@ -222,3 +222,53 @@
     width: auto;
   }
 }
+
+/* ---------- light theme ---------- */
+.admin-modern[data-theme='light'] {
+  --adm-bg: #f4f6f9;
+  --adm-surface: #ffffff;
+  --adm-surface-2: #eef1f5;
+  --adm-border: rgba(15, 23, 42, 0.1);
+  --adm-text: #111827;
+  --adm-muted: #6b7280;
+  --adm-accent: #059669;
+  --adm-accent-soft: rgba(5, 150, 105, 0.1);
+  color-scheme: light;
+}
+.admin-modern[data-theme='light'] .adm-topbar {
+  background: rgba(244, 246, 249, 0.85);
+}
+.admin-modern[data-theme='light'] .adm-btn:hover {
+  border-color: rgba(15, 23, 42, 0.25);
+}
+/* Views written for the dark theme use white text utilities; map them onto the theme colors */
+.admin-modern[data-theme='light'] .text-white,
+.admin-modern[data-theme='light'] .text-white * {
+  color: var(--adm-text) !important;
+}
+.admin-modern[data-theme='light'] .btn-success,
+.admin-modern[data-theme='light'] .btn-success * {
+  color: #ffffff !important;
+}
+.admin-modern[data-theme='light'] .btn-outline-light {
+  color: var(--adm-text);
+  border-color: rgba(15, 23, 42, 0.25);
+}
+.admin-modern[data-theme='light'] .btn-outline-light:hover {
+  background: var(--adm-surface-2);
+  color: var(--adm-text);
+}
+.admin-modern[data-theme='light'] .form-control::placeholder {
+  color: #9ca3af;
+}
+.admin-modern[data-theme='light'] .form-control,
+.admin-modern[data-theme='light'] .form-select {
+  background-color: #ffffff;
+}
+.admin-modern[data-theme='light'] .table {
+  --bs-table-striped-bg: rgba(15, 23, 42, 0.03);
+  --bs-table-hover-bg: rgba(15, 23, 42, 0.05);
+}
+.admin-modern[data-theme='light'] .text-success {
+  color: var(--adm-accent) !important;
+}

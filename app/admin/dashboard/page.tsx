@@ -88,11 +88,23 @@ export default function AdminDashboard() {
   })
   const [message, setMessage] = useState({ type: '', content: '' })
   const [activeView, setActiveView] = useState('analytics')
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
   const router = useRouter()
 
   useEffect(() => {
     verifyAdminAccess()
+    try {
+      if (localStorage.getItem('admin_theme') === 'light') setTheme('light')
+    } catch {}
   }, [])
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    try {
+      localStorage.setItem('admin_theme', next)
+    } catch {}
+  }
 
   const verifyAdminAccess = async () => {
     const token = localStorage.getItem('admin_token')
@@ -317,7 +329,7 @@ export default function AdminDashboard() {
 
   return (
     <>
-      <div className="admin-modern">
+      <div className="admin-modern" data-theme={theme}>
         <header className="adm-topbar">
           <div className="adm-topbar-inner">
             <div className="adm-brand">
@@ -325,6 +337,14 @@ export default function AdminDashboard() {
               <span>BookIt <small>Admin</small></span>
             </div>
             <div className="d-flex gap-2">
+              <button
+                className="adm-btn"
+                onClick={toggleTheme}
+                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              >
+                <i className={`fas ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`}></i>
+              </button>
               <button className="adm-btn" onClick={() => window.open('/', '_blank')}>
                 <i className="fas fa-external-link-alt me-2"></i>
                 <span className="adm-btn-label">View website</span>
@@ -837,7 +857,7 @@ export default function AdminDashboard() {
           getToken={() => localStorage.getItem('admin_token')}
           title="Admin Agent"
           subtitle="Tell me what to do on the platform"
-          theme="dark"
+          theme={theme}
           suggestions={[
             'How many users are on trial right now?',
             'Create a 3 month full-features trial code for Carlos',
