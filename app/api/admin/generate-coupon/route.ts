@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
           `INSERT INTO coupon_codes (
              code, discount_type, discount_value, free_trial_months,
              applicable_plan, max_uses, expires_at, is_active, label
-           ) VALUES ($1, 'trial', 0, $2, $3, $4, $5, true, $6)`,
+           ) VALUES ($1, 'free_trial', 0, $2, $3, $4, $5, true, $6)`,
           [code, free_trial_months, plan, max_uses, expiresAt.toISOString(), label || null]
         )
         return NextResponse.json({ success: true, code, expires_at: expiresAt.toISOString() })
