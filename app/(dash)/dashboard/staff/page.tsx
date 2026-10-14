@@ -191,15 +191,33 @@ export default function StaffPage() {
 
   const toggleStaffStatus = async (staffMember: Staff) => {
     try {
-      // TODO: Implement staff status update API endpoint
-      // For now, update in mock data
-      setStaff(prev => prev.map(s => 
-        s.id === staffMember.id 
+      const token = localStorage.getItem('token')
+
+      const response = await fetch(`/api/businesses/${business.id}/staff`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          id: staffMember.id,
+          is_active: !staffMember.is_active
+        })
+      })
+
+      const result = await response.json()
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update staff status')
+      }
+
+      setStaff(prev => prev.map(s =>
+        s.id === staffMember.id
           ? { ...s, is_active: !s.is_active }
           : s
       ))
     } catch (error) {
       console.error('Error updating staff:', error)
+      alert(error instanceof Error ? error.message : 'Failed to update staff status')
     }
   }
 

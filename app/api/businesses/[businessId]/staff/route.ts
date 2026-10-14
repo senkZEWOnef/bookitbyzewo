@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { validatePlanLimit, getPlanLimits } from '@/lib/plans'
+import { getUserIdFromRequest } from '@/lib/auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+async function verifyBusinessOwnership(businessId: string, userId: string): Promise<boolean> {
+  const result = await query(
+    'SELECT id FROM businesses WHERE id = $1 AND owner_id = $2',
+    [businessId, userId]
+  )
+  return result.rows.length > 0
+}
 
 export async function GET(
   request: NextRequest,
@@ -11,6 +20,16 @@ export async function GET(
 ) {
   try {
     const businessId = params.businessId
+    const userId = getUserIdFromRequest(request)
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const isOwner = await verifyBusinessOwnership(businessId, userId)
+    if (!isOwner) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
 
     // Get staff members for this business
     const result = await query(
@@ -18,9 +37,9 @@ export async function GET(
       [businessId]
     )
 
-    return NextResponse.json({ 
-      success: true, 
-      staff: result.rows 
+    return NextResponse.json({
+      success: true,
+      staff: result.rows
     })
 
   } catch (error) {
@@ -34,12 +53,17 @@ export async function POST(
   { params }: { params: { businessId: string } }
 ) {
   try {
-    const { email, fullName, role, userId } = await request.json()
+    const { email, fullName, role } = await request.json()
     const businessId = params.businessId
+    const userId = getUserIdFromRequest(request)
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     console.log('🟢 Staff addition request:', { businessId, email, fullName, role, userId })
 
-    if (!email || !fullName || !role || !userId) {
+    if (!email || !fullName || !role) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -103,8 +127,8 @@ export async function POST(
     const newStaff = result.rows[0]
     console.log('🟢 Staff member added successfully:', newStaff)
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       staff: newStaff,
       message: 'Staff member added successfully'
     })
@@ -112,5 +136,138 @@ export async function POST(
   } catch (error) {
     console.error('Staff addition error:', error)
     return NextResponse.json({ error: 'Failed to add staff member' }, { status: 500 })
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { businessId: string } }
+) {
+  try {
+    const businessId = params.businessId
+    const userId = getUserIdFromRequest(request)
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const isOwner = await verifyBusinessOwnership(businessId, userId)
+    if (!isOwner) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    const { id, display_name, email, phone, role, is_active } = await request.json()
+
+    if (!id) {
+      return NextResponse.json({ error: 'Staff ID is required' }, { status: 400 })
+    }
+
+    // Build dynamic update query
+    const updates: string[] = []
+    const values: any[] = []
+    let paramCount = 1
+
+    if (display_name !== undefined) {
+      updates.push(`display_name = $${paramCount}`)
+      values.push(display_name)
+      paramCount++
+    }
+
+    if (email !== undefined) {
+      updates.push(`email = $${paramCount}`)
+      values.push(email)
+      paramCount++
+    }
+
+    if (phone !== undefined) {
+      updates.push(`phone = $${paramCount}`)
+      values.push(phone)
+      paramCount++
+    }
+
+    if (role !== undefined) {
+      updates.push(`role = $${paramCount}`)
+      values.push(role)
+      paramCount++
+    }
+
+    if (is_active !== undefined) {
+      updates.push(`is_active = $${paramCount}`)
+      values.push(is_active)
+      paramCount++
+    }
+
+    if (updates.length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+    }
+
+    updates.push(`updated_at = NOW()`)
+    values.push(id)
+    values.push(businessId)
+
+    const result = await query(
+      `UPDATE staff SET ${updates.join(', ')}
+       WHERE id = $${paramCount} AND business_id = $${paramCount + 1}
+       RETURNING id, display_name, email, phone, role, is_active, updated_at`,
+      values
+    )
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Staff member not found' }, { status: 404 })
+    }
+
+    console.log('🟢 Staff member updated:', result.rows[0])
+
+    return NextResponse.json({
+      success: true,
+      staff: result.rows[0]
+    })
+
+  } catch (error) {
+    console.error('Staff update error:', error)
+    return NextResponse.json({ error: 'Failed to update staff member' }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { businessId: string } }
+) {
+  try {
+    const businessId = params.businessId
+    const userId = getUserIdFromRequest(request)
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const isOwner = await verifyBusinessOwnership(businessId, userId)
+    if (!isOwner) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const staffId = searchParams.get('id')
+
+    if (!staffId) {
+      return NextResponse.json({ error: 'Staff ID is required' }, { status: 400 })
+    }
+
+    // Soft delete - deactivate staff member
+    await query(
+      'UPDATE staff SET is_active = false, updated_at = NOW() WHERE id = $1 AND business_id = $2',
+      [staffId, businessId]
+    )
+
+    console.log('🟢 Staff member deactivated:', staffId)
+
+    return NextResponse.json({
+      success: true,
+      message: 'Staff member deactivated'
+    })
+
+  } catch (error) {
+    console.error('Staff deletion error:', error)
+    return NextResponse.json({ error: 'Failed to delete staff member' }, { status: 500 })
   }
 }

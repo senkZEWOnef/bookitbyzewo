@@ -127,8 +127,10 @@ export async function GET(
       // Check if slot conflicts with existing appointments
       const hasConflict = existingAppointments.some(apt => {
         const aptStart = parseISO(apt.starts_at)
-        const aptEnd = addMinutes(aptStart, service.duration_minutes) // Use service duration as fallback
-        
+        // Use the appointment's actual duration, fallback to service duration if null
+        const aptDuration = apt.duration_minutes || service.duration_minutes
+        const aptEnd = addMinutes(aptStart, aptDuration)
+
         return (
           (slotStart >= aptStart && slotStart < aptEnd) ||
           (slotEnd > aptStart && slotEnd <= aptEnd) ||

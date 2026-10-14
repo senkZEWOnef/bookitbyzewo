@@ -68,13 +68,14 @@ export async function POST(request: NextRequest) {
 
     console.log('📢 REMINDERS: Creating reminders for appointment:', appointmentId)
 
-    // Get appointment details
+    // Get appointment details including business timezone
     const appointmentResult = await query(`
-      SELECT 
+      SELECT
         a.*,
         s.name as service_name,
         b.name as business_name,
-        b.messaging_mode
+        b.messaging_mode,
+        b.timezone as business_timezone
       FROM appointments a
       JOIN services s ON a.service_id = s.id
       JOIN businesses b ON a.business_id = b.id
@@ -89,26 +90,27 @@ export async function POST(request: NextRequest) {
 
     const appointment = appointmentResult.rows[0]
     const appointmentTime = new Date(appointment.starts_at)
+    const timezone = appointment.business_timezone || 'America/Puerto_Rico'
+
+    // Format time in business timezone
+    const formattedTime = appointmentTime.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: timezone
+    })
 
     // Create standard reminders (24 hour and 1 hour)
     const standardReminders = [
       {
         type: '24_hour',
         scheduledFor: new Date(appointmentTime.getTime() - 24 * 60 * 60 * 1000),
-        message: `Reminder: You have an appointment tomorrow at ${appointmentTime.toLocaleTimeString('en-US', { 
-          hour: 'numeric', 
-          minute: '2-digit', 
-          hour12: true 
-        })} for ${appointment.service_name} at ${appointment.business_name}.`
+        message: `Reminder: You have an appointment tomorrow at ${formattedTime} for ${appointment.service_name} at ${appointment.business_name}.`
       },
       {
         type: '1_hour',
         scheduledFor: new Date(appointmentTime.getTime() - 60 * 60 * 1000),
-        message: `Reminder: Your appointment is in 1 hour at ${appointmentTime.toLocaleTimeString('en-US', { 
-          hour: 'numeric', 
-          minute: '2-digit', 
-          hour12: true 
-        })} for ${appointment.service_name}.`
+        message: `Reminder: Your appointment is in 1 hour at ${formattedTime} for ${appointment.service_name}.`
       }
     ]
 

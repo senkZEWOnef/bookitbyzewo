@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { getUserIdFromRequest } from '@/lib/auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+async function verifyBusinessOwnership(businessId: string, userId: string): Promise<boolean> {
+  const result = await query(
+    'SELECT id FROM businesses WHERE id = $1 AND owner_id = $2',
+    [businessId, userId]
+  )
+  return result.rows.length > 0
+}
 
 export async function GET(
   request: NextRequest,
@@ -10,6 +19,16 @@ export async function GET(
 ) {
   try {
     const businessId = params.businessId
+    const userId = getUserIdFromRequest(request)
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const isOwner = await verifyBusinessOwnership(businessId, userId)
+    if (!isOwner) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
 
     console.log('🟡 Fetching availability for business:', businessId)
 
@@ -100,6 +119,17 @@ export async function POST(
 ) {
   try {
     const businessId = params.businessId
+    const userId = getUserIdFromRequest(request)
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const isOwner = await verifyBusinessOwnership(businessId, userId)
+    if (!isOwner) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
     const { type, data } = await request.json()
 
     console.log('🟡 Creating availability for business:', businessId, 'type:', type)
@@ -173,7 +203,17 @@ export async function DELETE(
 ) {
   try {
     const businessId = params.businessId
-    
+    const userId = getUserIdFromRequest(request)
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const isOwner = await verifyBusinessOwnership(businessId, userId)
+    if (!isOwner) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
     console.log('🟡 Deleting availability rules for business:', businessId)
 
     // Delete all availability rules for the business

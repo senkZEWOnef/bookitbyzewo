@@ -84,26 +84,46 @@ export default function ServicesPage() {
     setSubmitting(true)
 
     try {
-      // Get user from localStorage for API request
-      const userString = localStorage.getItem('user')
-      const user = userString ? JSON.parse(userString) : null
+      const token = localStorage.getItem('token')
 
       if (editingService) {
-        // TODO: Implement service update API endpoint
-        // For now, update in local state
-        setServices(prev => prev.map(s => 
-          s.id === editingService.id 
+        // Update existing service
+        const response = await fetch(`/api/businesses/${business.id}/services`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ id: editingService.id, ...formData })
+        })
+
+        const result = await response.json()
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to update service')
+        }
+
+        setServices(prev => prev.map(s =>
+          s.id === editingService.id
             ? { ...s, ...formData }
             : s
         ))
       } else {
-        // TODO: Implement service creation API endpoint
-        // For now, add to local state with proper business association
-        const newService: Service = {
-          ...formData,
-          id: Date.now().toString(),
+        // Create new service
+        const response = await fetch(`/api/businesses/${business.id}/services`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(formData)
+        })
+
+        const result = await response.json()
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to create service')
         }
-        setServices(prev => [newService, ...prev])
+
+        setServices(prev => [result.service, ...prev])
       }
 
       setShowModal(false)
@@ -149,14 +169,27 @@ export default function ServicesPage() {
 
   const toggleServiceStatus = async (service: Service) => {
     try {
-      // Get user from localStorage for API request
-      const userString = localStorage.getItem('user')
-      const user = userString ? JSON.parse(userString) : null
+      const token = localStorage.getItem('token')
 
-      // TODO: Implement service status update API endpoint
-      // For now, update in local state
-      setServices(prev => prev.map(s => 
-        s.id === service.id 
+      const response = await fetch(`/api/businesses/${business.id}/services`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          id: service.id,
+          is_active: !service.is_active
+        })
+      })
+
+      const result = await response.json()
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update service status')
+      }
+
+      setServices(prev => prev.map(s =>
+        s.id === service.id
           ? { ...s, is_active: !s.is_active }
           : s
       ))

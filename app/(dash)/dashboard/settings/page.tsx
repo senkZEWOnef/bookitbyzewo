@@ -107,18 +107,32 @@ export default function SettingsPage() {
     setMessage({ type: '', content: '' })
 
     try {
-      // TODO: Implement business update API endpoint
-      // For now, just update local state
-      setMessage({ 
-        type: 'success', 
-        content: locale === 'es' ? '¡Configuración del negocio actualizada exitosamente!' : 'Business settings updated successfully!' 
+      const token = localStorage.getItem('token')
+      const response = await fetch(`/api/businesses/${business.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(businessForm)
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update business')
+      }
+
+      setMessage({
+        type: 'success',
+        content: locale === 'es' ? '¡Configuración del negocio actualizada exitosamente!' : 'Business settings updated successfully!'
       })
       setBusiness((prev: any) => ({ ...prev, ...businessForm }))
     } catch (error) {
       console.error('Error updating business:', error)
-      setMessage({ 
-        type: 'error', 
-        content: locale === 'es' ? 'Error al actualizar configuración del negocio.' : 'Failed to update business settings.' 
+      setMessage({
+        type: 'error',
+        content: locale === 'es' ? 'Error al actualizar configuración del negocio.' : 'Failed to update business settings.'
       })
     } finally {
       setSubmitting(false)
@@ -133,8 +147,23 @@ export default function SettingsPage() {
     setMessage({ type: '', content: '' })
 
     try {
-      // TODO: Implement profile update API endpoint
-      // For now, update localStorage user
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(profileForm)
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update profile')
+      }
+
+      // Update localStorage with new user data
       const updatedUser = {
         ...user,
         full_name: profileForm.full_name,
@@ -144,15 +173,15 @@ export default function SettingsPage() {
       localStorage.setItem('user', JSON.stringify(updatedUser))
       setUser(updatedUser)
 
-      setMessage({ 
-        type: 'success', 
-        content: locale === 'es' ? '¡Perfil actualizado exitosamente!' : 'Profile updated successfully!' 
+      setMessage({
+        type: 'success',
+        content: locale === 'es' ? '¡Perfil actualizado exitosamente!' : 'Profile updated successfully!'
       })
     } catch (error) {
       console.error('Error updating profile:', error)
-      setMessage({ 
-        type: 'error', 
-        content: locale === 'es' ? 'Error al actualizar perfil.' : 'Failed to update profile.' 
+      setMessage({
+        type: 'error',
+        content: locale === 'es' ? 'Error al actualizar perfil.' : 'Failed to update profile.'
       })
     } finally {
       setSubmitting(false)
@@ -160,18 +189,37 @@ export default function SettingsPage() {
   }
 
   const handleDeleteAccount = async () => {
-    if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+    const confirmMessage = locale === 'es'
+      ? '¿Estás seguro de que quieres eliminar tu cuenta? Esta acción no se puede deshacer.'
+      : 'Are you sure you want to delete your account? This action cannot be undone.'
+
+    if (!confirm(confirmMessage)) {
       return
     }
 
     try {
-      // TODO: Implement account deletion API endpoint
-      setMessage({ 
-        type: 'error', 
-        content: locale === 'es' ? 'La eliminación de cuenta no está disponible en modo demo.' : 'Account deletion is not available in demo mode.' 
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/user/account', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       })
+
+      if (response.ok) {
+        localStorage.removeItem('user')
+        localStorage.removeItem('token')
+        window.location.href = '/login'
+      } else {
+        const result = await response.json()
+        throw new Error(result.error || 'Failed to delete account')
+      }
     } catch (error) {
       console.error('Error deleting account:', error)
+      setMessage({
+        type: 'error',
+        content: error instanceof Error ? error.message : (locale === 'es' ? 'Error al eliminar cuenta.' : 'Failed to delete account.')
+      })
     }
   }
 

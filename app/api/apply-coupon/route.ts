@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { getUserIdFromRequest } from '@/lib/auth'
+import { addMonths } from 'date-fns'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    const { code, userId, plan } = await request.json()
+    const userId = getUserIdFromRequest(request)
 
-    if (!code || !userId || !plan) {
-      return NextResponse.json({ 
-        error: 'Coupon code, user ID, and plan are required' 
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { code, plan } = await request.json()
+
+    if (!code || !plan) {
+      return NextResponse.json({
+        error: 'Coupon code and plan are required'
       }, { status: 400 })
     }
 
@@ -49,39 +57,45 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Apply coupon to user account
-    const newTrialEnd = new Date()
-    newTrialEnd.setMonth(newTrialEnd.getMonth() + coupon.free_trial_months)
+    // Apply coupon to user account using proper date calculation
+    const newTrialEnd = addMonths(new Date(), coupon.free_trial_months)
 
+    // Use a transaction to prevent race conditions on coupon usage
+    // First, try to increment usage count atomically with a check
+    const updateResult = await query(
+      `UPDATE coupon_codes
+       SET used_count = used_count + 1, updated_at = NOW()
+       WHERE id = $1 AND used_count < max_uses
+       RETURNING id`,
+      [coupon.id]
+    )
+
+    if (updateResult.rows.length === 0) {
+      return NextResponse.json({
+        error: 'Coupon has reached maximum usage limit'
+      }, { status: 400 })
+    }
+
+    // Update user's trial period
     await query(
-      `UPDATE users 
-       SET plan_status = 'trial', 
+      `UPDATE users
+       SET plan_status = 'trial',
            trial_ends_at = $1,
-           updated_at = NOW() 
+           updated_at = NOW()
        WHERE id = $2`,
       [newTrialEnd.toISOString(), userId]
     )
 
-    // Increment coupon usage count
-    await query(
-      'UPDATE coupon_codes SET used_count = used_count + 1, updated_at = NOW() WHERE id = $1',
-      [coupon.id]
-    )
-
-    // Create coupon usage record
-    await query(`
-      CREATE TABLE IF NOT EXISTS coupon_usage (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        coupon_id UUID REFERENCES coupon_codes(id),
-        user_id UUID REFERENCES users(id),
-        applied_at TIMESTAMP DEFAULT NOW()
+    // Record coupon usage (table should already exist)
+    try {
+      await query(
+        'INSERT INTO coupon_usage (coupon_id, user_id) VALUES ($1, $2)',
+        [coupon.id, userId]
       )
-    `)
-
-    await query(
-      'INSERT INTO coupon_usage (coupon_id, user_id) VALUES ($1, $2)',
-      [coupon.id, userId]
-    )
+    } catch {
+      // If table doesn't exist or insert fails, log but don't fail the request
+      console.log('Could not record coupon usage - table may not exist')
+    }
 
     console.log('🟢 Coupon applied successfully:', {
       code: coupon.code,

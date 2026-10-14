@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { Container, Row, Col, Card, Button, Form, Alert, Spinner, Modal } from 'react-bootstrap'
 import TimeSlotPicker from '@/components/TimeSlotPicker'
+import { normalizeWebsiteUrl } from '@/lib/external-website'
 
 interface Business {
   id: string
@@ -34,6 +35,11 @@ interface Service {
 }
 
 interface WebpageSettings {
+  externalWebsite?: {
+    enabled: boolean
+    url: string
+    buttonText?: string
+  }
   headerSection: {
     backgroundColor: string
     textColor: string
@@ -480,6 +486,23 @@ export default function BusinessWebpage() {
           )}
         </div>
       </div>
+
+      {/* Existing website: let visitors choose between the business website and booking here */}
+      {settings.externalWebsite?.enabled && normalizeWebsiteUrl(settings.externalWebsite.url) && (
+        <div className="text-center py-3 px-3 border-bottom bg-light">
+          <span className="me-2 text-muted">Already know us?</span>
+          <a
+            href={normalizeWebsiteUrl(settings.externalWebsite.url) as string}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-dark btn-sm"
+          >
+            <i className="fas fa-external-link-alt me-1"></i>
+            {settings.externalWebsite.buttonText || 'Visit our website'}
+          </a>
+          <span className="ms-2 text-muted">or book your appointment below</span>
+        </div>
+      )}
 
       {/* Hero Section - EXACT copy from preview */}
       <div

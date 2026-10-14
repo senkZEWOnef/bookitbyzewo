@@ -3,8 +3,14 @@
 import { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Form, Button, Nav, Tab, Alert } from 'react-bootstrap'
 import MonthlyCalendar from '@/components/MonthlyCalendar'
+import { normalizeWebsiteUrl } from '@/lib/external-website'
 
 interface WebpageSettings {
+  externalWebsite: {
+    enabled: boolean
+    url: string
+    buttonText: string
+  }
   headerSection: {
     backgroundColor: string
     textColor: string
@@ -250,6 +256,11 @@ const defaultSettings: WebpageSettings = {
       hours: 'Mon-Fri: 9AM-5PM, Sat: 9AM-3PM'
     }
   },
+  externalWebsite: {
+    enabled: false,
+    url: '',
+    buttonText: ''
+  },
   socialMedia: {
     facebook: '',
     instagram: '',
@@ -382,6 +393,10 @@ export default function WebpagePage() {
                   ...settingsResult.settings.footerSection?.contactInfo
                 }
               },
+              externalWebsite: {
+                ...defaultSettings.externalWebsite,
+                ...settingsResult.settings.externalWebsite
+              },
               socialMedia: {
                 ...defaultSettings.socialMedia,
                 ...settingsResult.settings.socialMedia
@@ -422,6 +437,17 @@ export default function WebpagePage() {
       return
     }
 
+    let settingsToSave = settings
+    if (settings.externalWebsite.enabled || settings.externalWebsite.url.trim()) {
+      const normalized = normalizeWebsiteUrl(settings.externalWebsite.url)
+      if (!normalized) {
+        setMessage('Please enter a valid website link (for example https://www.mybusiness.com)')
+        return
+      }
+      settingsToSave = { ...settings, externalWebsite: { ...settings.externalWebsite, url: normalized } }
+      setSettings(settingsToSave)
+    }
+
     setSaving(true)
     setMessage('')
 
@@ -435,7 +461,7 @@ export default function WebpagePage() {
         },
         body: JSON.stringify({
           businessId: business.id,
-          settings: settings
+          settings: settingsToSave
         })
       })
 
@@ -682,6 +708,12 @@ export default function WebpagePage() {
                     </Nav.Link>
                   </Nav.Item>
                   <Nav.Item>
+                    <Nav.Link eventKey="website">
+                      <i className="fas fa-globe me-1"></i>
+                      Existing Website
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
                     <Nav.Link eventKey="hero">
                       <i className="fas fa-star me-1"></i>
                       Hero Section
@@ -782,6 +814,53 @@ export default function WebpagePage() {
                       The header displays your business name and provides navigation to different sections. 
                       Social media icons will only appear if you've added links in the Social Media tab.
                     </Alert>
+                  </Tab.Pane>
+
+                  <Tab.Pane eventKey="website">
+                    <Alert variant="info" className="small">
+                      <i className="fas fa-info-circle me-2"></i>
+                      Already have a website? Add its link here. Clients who open your booking link or QR code
+                      will see a button to visit your website, and can still book on this platform as usual.
+                    </Alert>
+
+                    <Form.Group className="mb-3">
+                      <Form.Check
+                        type="switch"
+                        id="externalWebsiteEnabled"
+                        checked={settings.externalWebsite.enabled}
+                        onChange={(e) => updateSettings({ externalWebsite: { ...settings.externalWebsite, enabled: e.target.checked } })}
+                        label="I already have a website - show a link to it"
+                      />
+                    </Form.Group>
+
+                    {settings.externalWebsite.enabled && (
+                      <>
+                        <Form.Group className="mb-3">
+                          <Form.Label>Website Link</Form.Label>
+                          <Form.Control
+                            type="url"
+                            placeholder="https://www.mybusiness.com"
+                            value={settings.externalWebsite.url}
+                            isInvalid={!!settings.externalWebsite.url.trim() && !normalizeWebsiteUrl(settings.externalWebsite.url)}
+                            onChange={(e) => updateSettings({ externalWebsite: { ...settings.externalWebsite, url: e.target.value } })}
+                          />
+                          <Form.Control.Feedback type="invalid">
+                            Enter a valid link, for example https://www.mybusiness.com
+                          </Form.Control.Feedback>
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                          <Form.Label>Button Text (optional)</Form.Label>
+                          <Form.Control
+                            type="text"
+                            maxLength={40}
+                            placeholder="Visit our website"
+                            value={settings.externalWebsite.buttonText}
+                            onChange={(e) => updateSettings({ externalWebsite: { ...settings.externalWebsite, buttonText: e.target.value } })}
+                          />
+                        </Form.Group>
+                      </>
+                    )}
                   </Tab.Pane>
 
                   <Tab.Pane eventKey="hero">
@@ -2111,6 +2190,17 @@ export default function WebpagePage() {
                     )}
                   </div>
                 </div>
+
+                {settings.externalWebsite.enabled && normalizeWebsiteUrl(settings.externalWebsite.url) && (
+                  <div className="text-center py-3 px-3 border-bottom bg-light">
+                    <span className="me-2 small text-muted">Already know us?</span>
+                    <span className="btn btn-sm btn-dark">
+                      <i className="fas fa-external-link-alt me-1"></i>
+                      {settings.externalWebsite.buttonText || 'Visit our website'}
+                    </span>
+                    <span className="ms-2 small text-muted">or book below</span>
+                  </div>
+                )}
 
                 {/* Hero Section Preview */}
                 <div

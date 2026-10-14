@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { getUserIdFromRequest } from '@/lib/auth'
 
 // DELETE /api/staff/invite/[id] - Delete a pending staff invitation
 export async function DELETE(
@@ -8,10 +9,17 @@ export async function DELETE(
 ) {
   try {
     const invitationId = params.id
-    
-    // Get user from headers for authorization
-    const inviterId = request.headers.get('x-user-id')
-    
+
+    // Get user from JWT token for authorization
+    const inviterId = getUserIdFromRequest(request)
+
+    if (!inviterId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     if (!invitationId) {
       return NextResponse.json(
         { error: 'Invitation ID is required' },

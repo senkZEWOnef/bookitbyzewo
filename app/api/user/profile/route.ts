@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { getUserIdFromRequest } from '@/lib/auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function PUT(request: NextRequest) {
   try {
-    const { userId, avatar_url, full_name, phone } = await request.json()
-
-    console.log('🟡 Profile update request:', { userId, hasAvatar: !!avatar_url, full_name, phone })
+    const userId = getUserIdFromRequest(request)
 
     if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const { avatar_url, full_name, phone } = await request.json()
+
+    console.log('🟡 Profile update request:', { userId, hasAvatar: !!avatar_url, full_name, phone })
 
     // First check if user exists
     const userCheck = await query('SELECT id FROM users WHERE id = $1', [userId])
@@ -91,11 +94,10 @@ export async function PUT(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
+    const userId = getUserIdFromRequest(request)
 
     if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const result = await query(

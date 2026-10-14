@@ -47,7 +47,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate Stripe key format (should start with sk_)
+    if (!business.stripe_secret_key.startsWith('sk_')) {
+      console.error('Invalid Stripe secret key format for business:', businessSlug)
+      return NextResponse.json(
+        { error: 'Invalid Stripe configuration' },
+        { status: 500 }
+      )
+    }
+
     // Initialize Stripe with business credentials
+    // NOTE: In production, stripe_secret_key should be encrypted at rest in the database
     const stripe = new Stripe(business.stripe_secret_key, {
       apiVersion: '2023-08-16'
     })

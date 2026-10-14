@@ -2,7 +2,15 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { query } from './db'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required')
+  }
+  return secret
+}
+
+const JWT_SECRET = getJwtSecret()
 
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 12)
@@ -33,6 +41,16 @@ export async function createUser(email: string, password: string, fullName?: str
   )
   
   return result.rows[0]
+}
+
+export function getUserIdFromRequest(request: Request): string | null {
+  const authHeader = request.headers.get('Authorization')
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null
+  }
+  const token = authHeader.replace('Bearer ', '')
+  const payload = verifyToken(token)
+  return payload?.userId || null
 }
 
 export async function loginUser(email: string, password: string) {

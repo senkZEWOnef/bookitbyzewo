@@ -5,10 +5,14 @@ import { query } from '@/lib/db'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Admin credentials (hardcoded as requested)
-const ADMIN_CREDENTIALS = {
-  username: 'zewo',
-  password: 'Poesie509$$$'
+// Admin credentials from environment variables
+function getAdminCredentials() {
+  const username = process.env.ADMIN_USERNAME
+  const password = process.env.ADMIN_PASSWORD
+  if (!username || !password) {
+    throw new Error('ADMIN_USERNAME and ADMIN_PASSWORD environment variables are required')
+  }
+  return { username, password }
 }
 
 export async function POST(request: NextRequest) {
@@ -17,6 +21,7 @@ export async function POST(request: NextRequest) {
     const { username, password } = await request.json()
 
     // Verify admin credentials
+    const ADMIN_CREDENTIALS = getAdminCredentials()
     if (username !== ADMIN_CREDENTIALS.username || password !== ADMIN_CREDENTIALS.password) {
       return NextResponse.json(
         { error: 'Invalid credentials' },

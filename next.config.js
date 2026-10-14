@@ -2,7 +2,6 @@
 const nextConfig = {
   output: 'standalone',
   trailingSlash: false,
-  generateBuildId: () => 'build',
   experimental: {
     serverComponentsExternalPackages: ['pg']
   },

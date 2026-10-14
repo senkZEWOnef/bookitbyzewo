@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { normalizeWebsiteUrl } from '@/lib/external-website'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -66,6 +67,15 @@ export async function POST(request: NextRequest) {
 
     if (!businessId || !settings) {
       return NextResponse.json({ error: 'Business ID and settings required' }, { status: 400 })
+    }
+
+    const external = settings.externalWebsite
+    if (external && (external.enabled || (external.url || '').trim())) {
+      const normalized = normalizeWebsiteUrl(external.url)
+      if (!normalized) {
+        return NextResponse.json({ error: 'Invalid website link' }, { status: 400 })
+      }
+      external.url = normalized
     }
 
     await ensureTableExists()
