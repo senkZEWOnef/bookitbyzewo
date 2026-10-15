@@ -55,19 +55,26 @@ export default function ProfilePictureUpload({ currentPictureUrl, onPictureUpdat
     setError('')
 
     try {
-      // Convert image to base64 for simple storage
-      const reader = new FileReader()
-      
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string
-          resolve(result)
+      // Shrink the photo first: phone photos are several MB, which is too big to send and store as base64
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const img = new window.Image()
+        const objectUrl = URL.createObjectURL(selectedFile)
+        img.onload = () => {
+          const size = 400
+          const canvas = document.createElement('canvas')
+          canvas.width = size
+          canvas.height = size
+          // Center-crop to a square so any photo shape fits the round avatar
+          const side = Math.min(img.width, img.height)
+          const sx = (img.width - side) / 2
+          const sy = (img.height - side) / 2
+          canvas.getContext('2d')!.drawImage(img, sx, sy, side, side, 0, 0, size, size)
+          URL.revokeObjectURL(objectUrl)
+          resolve(canvas.toDataURL('image/jpeg', 0.85))
         }
-        reader.onerror = reject
-        reader.readAsDataURL(selectedFile)
+        img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error(locale === 'es' ? 'No se pudo leer la imagen' : 'Could not read the image')) }
+        img.src = objectUrl
       })
-
-      const base64Data = await base64Promise
 
       // Update profile using new Neon API
       const response = await fetch('/api/user/profile', {

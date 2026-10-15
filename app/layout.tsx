@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { LanguageProvider } from '@/lib/language-context'
 import Navigation from '@/components/Navigation'
+import AuthFetch from '@/components/AuthFetch'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +37,7 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <AuthFetch />
         <LanguageProvider>
           <Navigation />
           {children}

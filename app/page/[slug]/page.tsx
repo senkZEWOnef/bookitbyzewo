@@ -204,12 +204,8 @@ export default function BusinessWebpage() {
       const businessResult = await businessResponse.json()
       setBusiness(businessResult.business)
 
-      // Fetch services
-      const servicesResponse = await fetch(`/api/businesses/${businessResult.business.id}/services`)
-      if (servicesResponse.ok) {
-        const servicesResult = await servicesResponse.json()
-        setServices(servicesResult.services || [])
-      }
+      // Services come with the public business response (the owner-only services route needs a login)
+      setServices(businessResult.services || [])
 
       // Fetch webpage settings with default fallback
       const settingsResponse = await fetch(`/api/webpage-settings?businessId=${businessResult.business.id}`)
