@@ -30,8 +30,8 @@ function getTrialDaysRemaining(trialEndsAt: string | null): number | null {
 
 function formatPlanName(plan: string): string {
   switch (plan) {
-    case 'solo': return 'Solo Plan'
-    case 'team': return 'Team Plan'  
+    case 'solo': return 'Starter Plan'
+    case 'team':
     case 'pro': return 'Pro Plan'
     default: return 'Unknown Plan'
   }

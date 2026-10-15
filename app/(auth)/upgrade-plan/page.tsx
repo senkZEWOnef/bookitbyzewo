@@ -17,9 +17,9 @@ const plans = [
     gradient: 'linear-gradient(135deg, #6c757d 0%, #5a6268 100%)',
     features: [
       '30-day free trial',
-      '1 staff member',
-      '1 business location', 
-      'Up to 500 bookings/month',
+      'Up to 10 staff members',
+      '1 business',
+      'Unlimited bookings',
       'WhatsApp integration',
       'Payment processing',
       'Bilingual support'
@@ -30,63 +30,37 @@ const plans = [
   },
   {
     id: 'solo',
-    name: 'Solo Plan',
-    price: '$19',
+    name: 'Starter Plan',
+    price: '$29.99',
     period: '/mo',
-    description: 'Perfect for individual service providers',
+    description: '1 business with up to 10 staff members',
     gradient: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
     features: [
-      '1 staff member',
-      '1 business location',
-      'Up to 500 bookings/month',
-      'WhatsApp integration',
+      '1 business',
+      'Up to 10 staff members',
+      'Unlimited bookings',
+      'Automated WhatsApp messages',
+      'AI assistant',
       'Payment processing',
-      'Bilingual support',
-      'Basic calendar sync',
       'Email support'
     ],
-    cta: 'Choose Solo',
+    cta: 'Choose Starter',
     popular: false
-  },
-  {
-    id: 'team',
-    name: 'Team Plan',
-    price: '$39',
-    period: '/mo',
-    description: 'For growing teams and multiple staff',
-    gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-    features: [
-      'Up to 5 staff members',
-      'Multiple locations',
-      'Up to 2,000 bookings/month',
-      'Advanced scheduling',
-      'Advanced calendar sync',
-      'Customer management',
-      'Basic reports',
-      'Priority support'
-    ],
-    cta: 'Choose Team',
-    popular: true
   },
   {
     id: 'pro',
     name: 'Pro Plan',
-    price: '$79',
+    price: '$59.99',
     period: '/mo',
-    description: 'For established businesses',
-    gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    description: 'Unlimited businesses and unlimited staff',
+    gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
     features: [
-      'Up to 10 staff members',
-      'Unlimited bookings',
-      'Automated WhatsApp',
-      'Custom domains',
-      'Advanced reports',
-      'API access',
-      'Integrations',
-      'Phone + email support'
+      'Unlimited businesses',
+      'Unlimited staff members',
+      'Everything in Starter'
     ],
     cta: 'Choose Pro',
-    popular: false
+    popular: true
   }
 ]
 
@@ -104,6 +78,21 @@ export default function UpgradePlanPage() {
       router.push('/login')
     }
   }, [])
+
+
+  // Sends the browser to Stripe Checkout for the chosen plan
+  const startCheckout = async (planId: string) => {
+    const response = await fetch('/api/billing/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+      body: JSON.stringify({ plan: planId })
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok || !result.url) {
+      throw new Error(result.error || 'Could not start checkout. Please try again.')
+    }
+    window.location.href = result.url
+  }
 
   const handlePlanSelection = async (planId: string) => {
     if (!currentUser) {
@@ -124,7 +113,7 @@ export default function UpgradePlanPage() {
 
         const response = await fetch('/api/auth/activate-trial', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
           body: JSON.stringify({ userId: currentUser.id })
         })
 
@@ -142,10 +131,10 @@ export default function UpgradePlanPage() {
           setError(result.error || 'Failed to activate trial')
         }
       } else {
-        router.push(`/payment?plan=${planId}&userId=${currentUser.id}&upgrade=true`)
+        await startCheckout(planId) // redirects to Stripe
       }
     } catch (err) {
-      setError('An error occurred. Please try again.')
+      setError(err instanceof Error ? err.message : 'An error occurred. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -223,9 +212,9 @@ export default function UpgradePlanPage() {
                   <div className="card-body d-flex flex-column">
                     <ul className="list-unstyled mb-4">
                       <li className="mb-2"><i className="fas fa-check text-success me-2"></i>30-day free trial</li>
-                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>1 staff member</li>
-                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Up to 500 bookings/month</li>
-                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>WhatsApp integration</li>
+                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>1 business, up to 10 staff</li>
+                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Unlimited bookings</li>
+                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Automated WhatsApp + AI assistant</li>
                     </ul>
                     <button 
                       className="btn btn-outline-secondary btn-lg mt-auto w-100"
@@ -242,52 +231,51 @@ export default function UpgradePlanPage() {
               <div className="col-lg-4 col-md-6">
                 <div className="card border border-primary h-100">
                   <div className="card-header bg-primary text-white text-center py-3">
-                    <h5 className="card-title mb-0">Solo Plan</h5>
-                    <h2 className="mb-0">$19 <small className="text-white-50">/ month</small></h2>
+                    <h5 className="card-title mb-0">Starter Plan</h5>
+                    <h2 className="mb-0">$29.99 <small className="text-white-50">/ month</small></h2>
                   </div>
                   <div className="card-body d-flex flex-column">
                     <ul className="list-unstyled mb-4">
-                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>1 staff member</li>
-                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Up to 500 bookings/month</li>
-                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>WhatsApp integration</li>
-                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Email support</li>
+                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>1 business</li>
+                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Up to 10 staff members</li>
+                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Unlimited bookings</li>
+                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Automated WhatsApp + AI assistant</li>
                     </ul>
                     <button 
                       className="btn btn-primary btn-lg mt-auto w-100"
                       disabled={loading}
                       onClick={() => handlePlanSelection('solo')}
                     >
-                      {loading ? 'Loading...' : 'Choose Solo'}
+                      {loading ? 'Loading...' : 'Choose Starter'}
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Team Plan */}
+              {/* Pro Plan */}
               <div className="col-lg-4 col-md-6">
                 <div className="card border border-success h-100 position-relative">
                   <div className="position-absolute top-0 start-50 translate-middle">
                     <span className="badge bg-success px-3 py-2">
-                      <i className="fas fa-star me-1"></i>Most Popular
+                      <i className="fas fa-star me-1"></i>Unlimited
                     </span>
                   </div>
                   <div className="card-header bg-success text-white text-center py-3" style={{ marginTop: '15px' }}>
-                    <h5 className="card-title mb-0">Team Plan</h5>
-                    <h2 className="mb-0">$39 <small className="text-white-50">/ month</small></h2>
+                    <h5 className="card-title mb-0">Pro Plan</h5>
+                    <h2 className="mb-0">$59.99 <small className="text-white-50">/ month</small></h2>
                   </div>
                   <div className="card-body d-flex flex-column">
                     <ul className="list-unstyled mb-4">
-                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Up to 5 staff members</li>
-                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Up to 2,000 bookings/month</li>
-                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Advanced scheduling</li>
-                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Priority support</li>
+                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Unlimited businesses</li>
+                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Unlimited staff members</li>
+                      <li className="mb-2"><i className="fas fa-check text-success me-2"></i>Everything in Starter</li>
                     </ul>
                     <button 
                       className="btn btn-success btn-lg mt-auto w-100"
                       disabled={loading}
-                      onClick={() => handlePlanSelection('team')}
+                      onClick={() => handlePlanSelection('pro')}
                     >
-                      {loading ? 'Loading...' : 'Choose Team'}
+                      {loading ? 'Loading...' : 'Choose Pro'}
                     </button>
                   </div>
                 </div>

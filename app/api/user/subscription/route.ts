@@ -53,6 +53,7 @@ function isSubscriptionActive(subscription: any): boolean {
 }
 
 import { getUserIdFromRequest } from '@/lib/auth'
+import { ensureModerationColumns } from '@/lib/moderation'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -77,7 +78,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const isActive = isSubscriptionActive(subscription)
+    await ensureModerationColumns()
+    const banned = await query('SELECT banned_at FROM users WHERE id = $1', [userId])
+    const isActive = !banned.rows[0]?.banned_at && isSubscriptionActive(subscription)
 
     return NextResponse.json({
       subscription: {

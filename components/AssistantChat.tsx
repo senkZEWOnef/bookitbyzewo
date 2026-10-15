@@ -163,9 +163,9 @@ export default function AssistantChat({
             {needsUpgrade ? (
               <div className="text-center py-4">
                 <i className="fas fa-lock mb-3" style={{ fontSize: 28, color: ACCENT }}></i>
-                <div className="fw-bold mb-1">Available on the Pro plan</div>
+                <div className="fw-bold mb-1">Your plan is not active</div>
                 <div className="small mb-3" style={{ color: colors.muted }}>
-                  Upgrade to Pro to manage your appointments just by chatting.
+                  Choose a plan to keep managing your appointments just by chatting.
                 </div>
                 {upgradeHref && (
                   <Link href={upgradeHref} className="btn btn-success btn-sm">See plans</Link>

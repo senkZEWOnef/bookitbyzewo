@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { ensureModerationColumns } from '@/lib/moderation'
+import { AdminActionError, deleteUserAccount, setUserBanned } from '@/lib/admin-actions'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -29,8 +31,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Get users from Neon database
-    const result = await query('SELECT id, email, full_name, phone, created_at FROM users ORDER BY created_at DESC')
+    await ensureModerationColumns()
+    const result = await query('SELECT id, email, full_name, phone, plan, plan_status, trial_ends_at, banned_at, created_at FROM users ORDER BY created_at DESC')
     
     return NextResponse.json({ users: result.rows })
   } catch (error) {
@@ -48,21 +50,18 @@ export async function POST(request: NextRequest) {
 
   try {
     const { action, userId } = await request.json()
+    if (!userId || !['ban', 'unban', 'delete'].includes(action)) {
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+    }
 
-    // For now, just log the action since we need to implement proper user management
-    console.log(`Admin action: ${action} for user ${userId}`)
+    if (action === 'delete') await deleteUserAccount(userId)
+    else await setUserBanned(userId, action === 'ban')
 
-    // TODO: Implement with Neon database
-    // if (action === 'ban') {
-    //   // Add banned_until column to users table and update it
-    // } else if (action === 'unban') {
-    //   // Remove ban from users table
-    // } else if (action === 'delete') {
-    //   // Delete user from users table
-    // }
-
-    return NextResponse.json({ success: true, message: `User ${action} action logged` })
+    return NextResponse.json({ success: true })
   } catch (error) {
+    if (error instanceof AdminActionError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
     console.error('Admin user action error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

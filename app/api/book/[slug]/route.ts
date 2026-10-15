@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { ensureModerationColumns, BUSINESS_IS_OPEN } from '@/lib/moderation'
 import { parseISO, addMinutes } from 'date-fns'
 
 export const runtime = 'nodejs'
@@ -21,8 +22,10 @@ export async function POST(
     }
 
     // Get business details using Neon
+    await ensureModerationColumns()
     const businessResult = await query(
-      'SELECT * FROM businesses WHERE slug = $1',
+      `SELECT b.* FROM businesses b LEFT JOIN users u ON u.id = b.owner_id
+       WHERE b.slug = $1 AND ${BUSINESS_IS_OPEN}`,
       [params.slug]
     )
 

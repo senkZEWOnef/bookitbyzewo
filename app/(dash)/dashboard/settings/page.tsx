@@ -7,6 +7,7 @@ import { useLanguage } from '@/lib/language-context'
 import ProfilePictureUpload from '@/components/ProfilePictureUpload'
 import VisualAvailabilityManager from '@/components/VisualAvailabilityManager'
 import BusinessSharingManager from '@/components/BusinessSharingManager'
+import BillingCard from '@/components/BillingCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -254,6 +255,8 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      <BillingCard />
 
       {message.content && (
         <Alert variant={message.type === 'success' ? 'success' : 'danger'} className="mb-4">

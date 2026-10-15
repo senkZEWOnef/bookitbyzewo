@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { ensureModerationColumns, BUSINESS_IS_OPEN } from '@/lib/moderation'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -14,8 +15,11 @@ export async function GET(
     console.log('🔍 BOOKING API: Fetching business data for slug:', slug)
 
     // Get business by slug
+    await ensureModerationColumns()
     const businessResult = await query(
-      'SELECT id, name, slug, description, location, phone, email, timezone FROM businesses WHERE slug = $1',
+      `SELECT b.id, b.name, b.slug, b.description, b.location, b.phone, b.email, b.timezone
+       FROM businesses b LEFT JOIN users u ON u.id = b.owner_id
+       WHERE b.slug = $1 AND ${BUSINESS_IS_OPEN}`,
       [slug]
     )
 

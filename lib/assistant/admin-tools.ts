@@ -1,8 +1,11 @@
 import { query } from '@/lib/db'
 import { createTrialCode, TrialCodeError } from '@/lib/trial-codes'
+import { PLAN_PRICE_CENTS } from '@/lib/billing'
+import { ensureModerationColumns } from '@/lib/moderation'
+import { deleteUserAccount, setBusinessSuspended, setUserBanned, AdminActionError } from '@/lib/admin-actions'
 import type { AgentTool } from './agent'
 
-const PLANS = ['solo', 'team', 'pro']
+const PLANS = ['solo', 'pro'] // solo = Starter (1 business, 10 staff), pro = unlimited
 const PLAN_STATUSES = ['trial', 'active', 'past_due', 'cancelled', 'incomplete']
 
 function clampLimit(value: unknown, fallback = 25) {
@@ -47,7 +50,17 @@ export function buildAdminTools(): Record<string, AgentTool> {
                         COALESCE(SUM(used_count), 0)::int AS redeemed
                  FROM coupon_codes`).catch(() => ({ rows: [{}] }))
         ])
+        const paying = (plan: string) =>
+          users.rows
+            .filter((r: any) => (plan === 'pro' ? r.plan === 'pro' || r.plan === 'team' : r.plan === 'solo') && r.plan_status === 'active')
+            .reduce((n: number, r: any) => n + r.count, 0)
+        const starter = paying('solo')
+        const pro = paying('pro')
         return {
+          plans: 'solo = Starter ($29.99/mo, 1 business, 10 staff), pro = Pro ($59.99/mo, unlimited)',
+          paying_starter: starter,
+          paying_pro: pro,
+          monthly_recurring_revenue_usd: (starter * PLAN_PRICE_CENTS.solo + pro * PLAN_PRICE_CENTS.pro) / 100,
           users_by_plan_status: users.rows,
           businesses: businesses.rows[0].count,
           appointments: appointments.rows[0],
@@ -70,6 +83,7 @@ export function buildAdminTools(): Record<string, AgentTool> {
         }
       },
       run: async input => {
+        await ensureModerationColumns()
         const params: unknown[] = []
         const where: string[] = []
         if (input.search) {
@@ -79,7 +93,7 @@ export function buildAdminTools(): Record<string, AgentTool> {
         if (input.plan_status) { params.push(input.plan_status); where.push(`plan_status = $${params.length}`) }
         params.push(clampLimit(input.limit))
         const result = await query(
-          `SELECT id, email, full_name, phone, plan, plan_status, trial_ends_at, created_at
+          `SELECT id, email, full_name, phone, plan, plan_status, trial_ends_at, banned_at, created_at
            FROM users ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
            ORDER BY created_at DESC LIMIT $${params.length}`,
           params
@@ -98,6 +112,7 @@ export function buildAdminTools(): Record<string, AgentTool> {
         }
       },
       run: async input => {
+        await ensureModerationColumns()
         const params: unknown[] = []
         let where = ''
         if (input.search) {
@@ -106,7 +121,7 @@ export function buildAdminTools(): Record<string, AgentTool> {
         }
         params.push(clampLimit(input.limit))
         const result = await query(
-          `SELECT b.id, b.name, b.slug, b.created_at,
+          `SELECT b.id, b.name, b.slug, b.created_at, b.suspended_at,
                   u.email AS owner_email, u.full_name AS owner_name,
                   (SELECT COUNT(*)::int FROM appointments WHERE business_id = b.id) AS appointments,
                   (SELECT COUNT(*)::int FROM services WHERE business_id = b.id) AS services
@@ -165,7 +180,7 @@ export function buildAdminTools(): Record<string, AgentTool> {
       def: {
         name: 'create_trial_code',
         description:
-          'Create a shareable trial code. tier "full" = Pro features, "basic" = Solo. Returns the code and a signup link path.',
+          'Create a shareable trial code. tier "full" = Pro plan (unlimited businesses and staff), "basic" = Starter plan (1 business, 10 staff). Both include every feature. Returns the code and a signup link path.',
         input_schema: {
           type: 'object',
           properties: {
@@ -244,7 +259,8 @@ export function buildAdminTools(): Record<string, AgentTool> {
     set_user_plan: {
       def: {
         name: 'set_user_plan',
-        description: 'Change a user\'s plan and/or plan status. This affects their access and billing state, so it needs approval.',
+        description:
+          'Change a user\'s plan and/or plan status in BookIt (solo = Starter, pro = Pro). This does NOT change anything in Stripe: for a user with a paid Stripe subscription, the next Stripe event overwrites it. Use it for comped accounts and corrections. Needs approval.',
         input_schema: {
           type: 'object',
           properties: {
@@ -292,23 +308,79 @@ export function buildAdminTools(): Record<string, AgentTool> {
       }
     },
 
-    delete_user: {
+    ban_user: {
       def: {
-        name: 'delete_user',
-        description: 'Permanently delete a user account and everything it owns (businesses, appointments). Irreversible; needs approval.',
-        input_schema: {
-          type: 'object',
-          properties: { email: emailSchema },
-          required: ['email']
-        }
+        name: 'ban_user',
+        description: 'Suspend a user account: they cannot log in or use the app, and their booking pages stop accepting bookings. Reversible with unban_user. Needs approval.',
+        input_schema: { type: 'object', properties: { email: emailSchema }, required: ['email'] }
       },
-      confirm: async input => {
+      confirm: async input => `Ban ${(await findUser(input.email)).email} (they lose access and their booking pages go offline)`,
+      run: async input => {
         const u = await findUser(input.email)
-        return `PERMANENTLY delete user ${u.email} and every business, service and appointment they own`
+        await setUserBanned(u.id, true)
+        return { banned: u.email }
+      }
+    },
+
+    unban_user: {
+      def: {
+        name: 'unban_user',
+        description: 'Lift a ban so the user can log in again.',
+        input_schema: { type: 'object', properties: { email: emailSchema }, required: ['email'] }
       },
       run: async input => {
         const u = await findUser(input.email)
-        await query('DELETE FROM users WHERE id = $1', [u.id])
+        await setUserBanned(u.id, false)
+        return { unbanned: u.email }
+      }
+    },
+
+    suspend_business: {
+      def: {
+        name: 'suspend_business',
+        description: 'Take a business\'s public booking page offline (no new bookings) without deleting anything. Reversible with activate_business. Needs approval.',
+        input_schema: { type: 'object', properties: { business_id: { type: 'string' } }, required: ['business_id'] }
+      },
+      confirm: async input => `Suspend business "${(await findBusiness(input.business_id)).name}" (its booking page goes offline)`,
+      run: async input => {
+        const b = await findBusiness(input.business_id)
+        await setBusinessSuspended(b.id, true)
+        return { suspended: b.name }
+      }
+    },
+
+    activate_business: {
+      def: {
+        name: 'activate_business',
+        description: 'Bring a suspended business\'s booking page back online.',
+        input_schema: { type: 'object', properties: { business_id: { type: 'string' } }, required: ['business_id'] }
+      },
+      run: async input => {
+        const b = await findBusiness(input.business_id)
+        await setBusinessSuspended(b.id, false)
+        return { activated: b.name }
+      }
+    },
+
+    delete_user: {
+      def: {
+        name: 'delete_user',
+        description: 'Permanently delete a user account and everything it owns (businesses, appointments), after cancelling their Stripe subscription. Irreversible; needs approval.',
+        input_schema: { type: 'object', properties: { email: emailSchema }, required: ['email'] }
+      },
+      confirm: async input => {
+        const u = await findUser(input.email)
+        const sub = await query('SELECT subscription_id FROM users WHERE id = $1', [u.id])
+        return `PERMANENTLY delete user ${u.email} and every business, service and appointment they own${sub.rows[0]?.subscription_id ? ' (their Stripe subscription will be cancelled first)' : ''}`
+      },
+      run: async input => {
+        const u = await findUser(input.email)
+        try {
+          await deleteUserAccount(u.id)
+        } catch (error) {
+          if (error instanceof AdminActionError) throw new Error(error.message)
+          throw error
+        }
         return { deleted: u.email }
       }
     }

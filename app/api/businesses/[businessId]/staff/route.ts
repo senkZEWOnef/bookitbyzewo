@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
-import { validatePlanLimit, getPlanLimits } from '@/lib/plans'
+import { validatePlanLimit, getPlanLimits, isUnlimited, PLAN_NAMES, normalizePlan } from '@/lib/plans'
 import { getUserIdFromRequest } from '@/lib/auth'
 
 export const runtime = 'nodejs'
@@ -92,11 +92,11 @@ export async function POST(
     // Validate against plan limits
     const planLimits = getPlanLimits(business.plan)
     
-    if (currentStaffCount >= planLimits.maxStaff) {
+    if (currentStaffCount >= planLimits.maxStaff && !isUnlimited(planLimits.maxStaff)) {
       console.log('🔴 Staff limit exceeded for plan:', business.plan)
-      const suggestedPlan = planLimits.maxStaff === 1 ? 'team' : 'pro'
+      const suggestedPlan = 'pro'
       return NextResponse.json({ 
-        error: `Your ${business.plan.charAt(0).toUpperCase() + business.plan.slice(1)} plan allows up to ${planLimits.maxStaff} staff member${planLimits.maxStaff === 1 ? '' : 's'}. Upgrade to ${suggestedPlan.charAt(0).toUpperCase() + suggestedPlan.slice(1)} plan to add more staff.`,
+        error: `Your ${PLAN_NAMES[normalizePlan(business.plan)]} plan allows up to ${planLimits.maxStaff} staff members. Upgrade to Pro for unlimited staff.`,
         planLimit: true,
         currentPlan: business.plan,
         suggestedPlan: suggestedPlan,

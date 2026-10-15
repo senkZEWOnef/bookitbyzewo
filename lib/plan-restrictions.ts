@@ -1,4 +1,5 @@
 import { query } from './db'
+import { getPlanLimits as getBasePlanLimits, normalizePlan, PLAN_NAMES, UNLIMITED } from './plans'
 
 export interface PlanLimits {
   staffLimit: number
@@ -21,48 +22,17 @@ export interface UserSubscription {
   subscriptionId: string | null
 }
 
+// Derived from lib/plans.ts so there is a single source of truth for plan limits
 export function getPlanLimits(plan: 'solo' | 'team' | 'pro'): PlanLimits {
-  switch (plan) {
-    case 'solo':
-      return {
-        staffLimit: 1,
-        monthlyBookingsLimit: 500,
-        canUseAdvancedCalendar: false,
-        canUseAutomatedWhatsapp: false,
-        canUseCustomDomain: false,
-        canUseApi: false,
-        canUseAdvancedReports: false
-      }
-    case 'team':
-      return {
-        staffLimit: 5,
-        monthlyBookingsLimit: 2000,
-        canUseAdvancedCalendar: true,
-        canUseAutomatedWhatsapp: false,
-        canUseCustomDomain: false,
-        canUseApi: false,
-        canUseAdvancedReports: true
-      }
-    case 'pro':
-      return {
-        staffLimit: 10,
-        monthlyBookingsLimit: null, // unlimited
-        canUseAdvancedCalendar: true,
-        canUseAutomatedWhatsapp: true,
-        canUseCustomDomain: true,
-        canUseApi: true,
-        canUseAdvancedReports: true
-      }
-    default:
-      return {
-        staffLimit: 0,
-        monthlyBookingsLimit: 0,
-        canUseAdvancedCalendar: false,
-        canUseAutomatedWhatsapp: false,
-        canUseCustomDomain: false,
-        canUseApi: false,
-        canUseAdvancedReports: false
-      }
+  const base = getBasePlanLimits(plan)
+  return {
+    staffLimit: base.maxStaff,
+    monthlyBookingsLimit: null, // bookings are unlimited on every plan
+    canUseAdvancedCalendar: base.hasAdvancedCalendar,
+    canUseAutomatedWhatsapp: base.hasAutomatedWhatsApp,
+    canUseCustomDomain: base.hasCustomDomains,
+    canUseApi: base.hasApiAccess,
+    canUseAdvancedReports: base.hasAdvancedReports
   }
 }
 
@@ -158,16 +128,7 @@ export async function updateUserUsageCounters(userId: string): Promise<void> {
 }
 
 export function formatPlanName(plan: string): string {
-  switch (plan) {
-    case 'solo':
-      return 'Solo Plan'
-    case 'team':
-      return 'Team Plan'
-    case 'pro':
-      return 'Pro Plan'
-    default:
-      return 'Unknown Plan'
-  }
+  return `${PLAN_NAMES[normalizePlan(plan)]} Plan`
 }
 
 export function formatPlanStatus(status: string): { text: string; variant: string } {
@@ -217,7 +178,7 @@ export function shouldShowUpgradePrompt(subscription: UserSubscription): boolean
   const limits = getPlanLimits(subscription.plan)
   
   // Check staff usage
-  if (subscription.staffCount >= limits.staffLimit * 0.8) {
+  if (limits.staffLimit < UNLIMITED && subscription.staffCount >= limits.staffLimit * 0.8) {
     return true
   }
 

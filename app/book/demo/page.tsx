@@ -288,17 +288,12 @@ function PlansDemo({ t, demoData, setDemoData }: any) {
   const plans = [
     {
       name: 'solo',
-      price: 19,
+      price: 29.99,
       features: ['demo.plans.solo.staff', 'demo.plans.solo.location', 'demo.plans.solo.whatsapp', 'demo.plans.solo.trial']
     },
     {
-      name: 'team', 
-      price: 39,
-      features: ['demo.plans.team.staff', 'demo.plans.team.locations', 'demo.plans.team.scheduling', 'demo.plans.team.calendar']
-    },
-    {
       name: 'pro',
-      price: 79, 
+      price: 59.99, 
       features: ['demo.plans.pro.staff', 'demo.plans.pro.automation', 'demo.plans.pro.analytics', 'demo.plans.pro.api']
     }
   ]
@@ -306,7 +301,7 @@ function PlansDemo({ t, demoData, setDemoData }: any) {
   return (
     <Row className="g-4">
       {plans.map((plan, index) => (
-        <Col md={4} key={plan.name}>
+        <Col md={6} key={plan.name}>
           <Card 
             className={`h-100 border-0 cursor-pointer ${demoData.plan === plan.name ? 'border-success' : ''}`}
             style={{ 
@@ -555,17 +550,16 @@ function ServicesDemo({ t, demoData }: any) {
 function StaffDemo({ t, demoData }: any) {
   const getPlanLimit = () => {
     switch (demoData.plan) {
-      case 'solo': return 1
-      case 'team': return 5
-      case 'pro': return 10
-      default: return 1
+      case 'solo': return 10
+      case 'pro': return 999
+      default: return 10
     }
   }
 
   const staffMembers = [
     { name: 'María García', role: t('demo.staff.owner'), status: 'active' },
-    { name: 'Ana López', role: t('demo.staff.stylist'), status: demoData.plan !== 'solo' ? 'active' : 'blocked' },
-    { name: 'Carlos Rivera', role: t('demo.staff.assistant'), status: demoData.plan === 'pro' ? 'active' : 'blocked' }
+    { name: 'Ana López', role: t('demo.staff.stylist'), status: 'active' },
+    { name: 'Carlos Rivera', role: t('demo.staff.assistant'), status: 'active' }
   ]
 
   return (
@@ -573,8 +567,8 @@ function StaffDemo({ t, demoData }: any) {
       <div className="mb-4">
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h6 className="text-white fw-bold">{t('demo.staff.title')}</h6>
-          <Badge bg={demoData.plan === 'solo' ? 'warning' : 'success'}>
-            {demoData.plan === 'solo' ? `1/1 ${t('demo.staff.limit')}` : `1/${getPlanLimit()} ${t('demo.staff.limit')}`}
+          <Badge bg="success">
+            {demoData.plan === 'pro' ? `3/∞ ${t('demo.staff.limit')}` : `3/${getPlanLimit()} ${t('demo.staff.limit')}`}
           </Badge>
         </div>
 

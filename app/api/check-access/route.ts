@@ -15,9 +15,11 @@ export async function GET(request: NextRequest) {
   try {
     // Check user's subscription status
     const { query } = await import('@/lib/db')
+    const { ensureModerationColumns } = await import('@/lib/moderation')
+    await ensureModerationColumns()
 
     const result = await query(
-      `SELECT plan, plan_status, trial_ends_at FROM users WHERE id = $1`,
+      `SELECT plan, plan_status, trial_ends_at, banned_at FROM users WHERE id = $1`,
       [userId]
     )
 
@@ -29,6 +31,10 @@ export async function GET(request: NextRequest) {
     }
 
     const user = result.rows[0]
+
+    if (user.banned_at) {
+      return NextResponse.json({ hasAccess: false, reason: 'account_suspended' })
+    }
 
     // Check if subscription is active
     if (user.plan_status === 'active') {

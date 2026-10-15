@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { getUserIdFromRequest } from '@/lib/auth'
+import { ensureModerationColumns } from '@/lib/moderation'
 import { isAssistantConfigured, parseHistory, runAgent } from '@/lib/assistant/agent'
 import { buildUserTools } from '@/lib/assistant/user-tools'
 
@@ -16,12 +17,14 @@ export async function POST(request: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    // Pro plan only: the plan is read from the database, never from anything the browser sends
-    const userResult = await query('SELECT plan, plan_status, trial_ends_at FROM users WHERE id = $1', [userId])
+    // Every plan includes the assistant, but it needs an active subscription or a running trial.
+    // Read from the database, never from anything the browser sends.
+    await ensureModerationColumns()
+    const userResult = await query('SELECT plan, plan_status, trial_ends_at, banned_at FROM users WHERE id = $1', [userId])
     const user = userResult.rows[0]
     const hasAccess =
       user &&
-      user.plan === 'pro' &&
+      !user.banned_at &&
       (user.plan_status === 'active' || (user.plan_status === 'trial' && user.trial_ends_at && new Date(user.trial_ends_at) > new Date()))
     if (!hasAccess) {
       return NextResponse.json({ error: 'upgrade_required' }, { status: 403 })

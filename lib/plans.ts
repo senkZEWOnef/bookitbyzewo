@@ -11,59 +11,52 @@ export interface PlanLimits {
   hasCustomDomains: boolean
   hasApiAccess: boolean
   hasAutomatedWhatsApp: boolean
+  hasAiAssistant: boolean
   supportLevel: 'email' | 'priority_email' | 'phone_email'
 }
 
+// "No limit" sentinel. Large enough that no real account reaches it.
+export const UNLIMITED = 999999
+
+// Both plans include the same features (automated WhatsApp, AI assistant, scheduling, reports...).
+// They differ only in how many businesses and staff members an account may have.
+// 'solo' is the Starter plan (1 business, 10 staff). 'pro' is unlimited businesses and staff.
+const FULL_FEATURES = {
+  hasAdvancedCalendar: true,
+  hasStaffScheduling: true,
+  hasCustomerManagement: true,
+  hasBasicReports: true,
+  hasAdvancedReports: true,
+  hasCustomDomains: false, // not built yet
+  hasApiAccess: false, // not built yet
+  hasAutomatedWhatsApp: true,
+  hasAiAssistant: true,
+  supportLevel: 'email' as const
+}
+
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
-  solo: {
-    maxStaff: 1,
-    maxLocations: 1,
-    hasAdvancedCalendar: false,
-    hasStaffScheduling: false,
-    hasCustomerManagement: false,
-    hasBasicReports: false,
-    hasAdvancedReports: false,
-    hasCustomDomains: false,
-    hasApiAccess: false,
-    hasAutomatedWhatsApp: false,
-    supportLevel: 'email'
-  },
-  team: {
-    maxStaff: 5,
-    maxLocations: 999, // unlimited
-    hasAdvancedCalendar: true,
-    hasStaffScheduling: true,
-    hasCustomerManagement: true,
-    hasBasicReports: true,
-    hasAdvancedReports: false,
-    hasCustomDomains: false,
-    hasApiAccess: false,
-    hasAutomatedWhatsApp: false,
-    supportLevel: 'priority_email'
-  },
-  pro: {
-    maxStaff: 10,
-    maxLocations: 999, // unlimited
-    hasAdvancedCalendar: true,
-    hasStaffScheduling: true,
-    hasCustomerManagement: true,
-    hasBasicReports: true,
-    hasAdvancedReports: true,
-    hasCustomDomains: true,
-    hasApiAccess: true,
-    hasAutomatedWhatsApp: true,
-    supportLevel: 'phone_email'
-  }
+  solo: { maxStaff: 10, maxLocations: 1, ...FULL_FEATURES },
+  pro: { maxStaff: UNLIMITED, maxLocations: UNLIMITED, ...FULL_FEATURES }
 }
 
 export const PLAN_PRICES = {
-  solo: { monthly: 19, yearly: 190, hasFreeTrial: true },
-  team: { monthly: 39, yearly: 390, hasFreeTrial: false },
-  pro: { monthly: 79, yearly: 790, hasFreeTrial: false }
+  solo: { monthly: 29.99, hasFreeTrial: true },
+  pro: { monthly: 59.99, hasFreeTrial: true }
+}
+
+export const PLAN_NAMES: Record<string, string> = { solo: 'Starter', pro: 'Pro' }
+
+// The old Team plan no longer exists; any account still on it gets the Pro limits
+export function normalizePlan(planName: string | null | undefined): 'solo' | 'pro' {
+  return planName === 'pro' || planName === 'team' ? 'pro' : 'solo'
 }
 
 export function getPlanLimits(planName: string): PlanLimits {
-  return PLAN_LIMITS[planName] || PLAN_LIMITS.solo
+  return PLAN_LIMITS[normalizePlan(planName)]
+}
+
+export function isUnlimited(value: number) {
+  return value >= UNLIMITED
 }
 
 export function validatePlanLimit(
@@ -78,16 +71,16 @@ export function validatePlanLimit(
       if (currentValue >= limits.maxStaff) {
         return {
           valid: false,
-          message: `Your ${planName.charAt(0).toUpperCase() + planName.slice(1)} plan allows up to ${limits.maxStaff} staff member${limits.maxStaff === 1 ? '' : 's'}. Upgrade to add more.`
+          message: `Your ${PLAN_NAMES[normalizePlan(planName)]} plan allows up to ${limits.maxStaff} staff member${limits.maxStaff === 1 ? '' : 's'}. Upgrade to Pro for unlimited staff.`
         }
       }
       break
       
     case 'maxLocations':
-      if (currentValue >= limits.maxLocations && limits.maxLocations < 999) {
+      if (currentValue >= limits.maxLocations && !isUnlimited(limits.maxLocations)) {
         return {
           valid: false,
-          message: `Your ${planName.charAt(0).toUpperCase() + planName.slice(1)} plan allows up to ${limits.maxLocations} location${limits.maxLocations === 1 ? '' : 's'}. Upgrade to add more.`
+          message: `Your ${PLAN_NAMES[normalizePlan(planName)]} plan allows ${limits.maxLocations} business${limits.maxLocations === 1 ? '' : 'es'}. Upgrade to Pro for unlimited businesses.`
         }
       }
       break
@@ -112,12 +105,12 @@ export function validateFeatureAccess(
       hasAdvancedReports: 'Advanced Reports',
       hasCustomDomains: 'Custom Domains',
       hasApiAccess: 'API Access',
-      hasAutomatedWhatsApp: 'Automated WhatsApp Messages'
+      hasAutomatedWhatsApp: 'Automated WhatsApp Messages',
+      hasAiAssistant: 'AI Assistant'
     }
     
     const featureName = featureNames[feature as keyof typeof featureNames] || feature.toString()
-    const upgradePlan = feature === 'hasAdvancedReports' || feature === 'hasCustomDomains' || 
-                       feature === 'hasApiAccess' || feature === 'hasAutomatedWhatsApp' ? 'Pro' : 'Team'
+    const upgradePlan = 'Pro'
     
     return {
       hasAccess: false,

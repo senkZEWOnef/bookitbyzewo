@@ -75,6 +75,7 @@ export default function SignupPage() {
 
       if (response.ok) {
         console.log('✅ Signup successful, redirecting to plan selection')
+        if (result.token) localStorage.setItem('token', result.token)
         if (result.user.plan_status === 'trial') {
           // A trial code started the trial already, so skip plan selection
           localStorage.setItem('user', JSON.stringify(result.user))

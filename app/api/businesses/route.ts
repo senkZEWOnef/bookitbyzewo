@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
-import { validatePlanLimit, getPlanLimits } from '@/lib/plans'
+import { validatePlanLimit, getPlanLimits, isUnlimited } from '@/lib/plans'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -87,22 +87,11 @@ export async function POST(request: NextRequest) {
     // Validate against plan limits
     const planLimits = getPlanLimits(user.plan)
     
-    // For Solo plan: only 1 business allowed
-    if (user.plan === 'solo' && currentBusinessCount >= 1) {
-      console.log('🔴 Solo plan business limit exceeded')
-      return NextResponse.json({ 
-        error: 'Your Solo plan allows only 1 business. Upgrade to Team ($39/mo) to create additional businesses.',
-        planLimit: true,
-        currentPlan: 'solo',
-        suggestedPlan: 'team'
-      }, { status: 403 })
-    }
-
-    // For other plans, use the location limit as business limit for now
-    if (currentBusinessCount >= planLimits.maxLocations && planLimits.maxLocations < 999) {
+    // Starter allows 1 business; Pro is unlimited
+    if (currentBusinessCount >= planLimits.maxLocations && !isUnlimited(planLimits.maxLocations)) {
       console.log('🔴 Plan business limit exceeded for plan:', user.plan)
       return NextResponse.json({ 
-        error: `Your ${user.plan.charAt(0).toUpperCase() + user.plan.slice(1)} plan allows up to ${planLimits.maxLocations} business${planLimits.maxLocations === 1 ? '' : 'es'}. Upgrade to Pro plan for unlimited businesses.`,
+        error: 'Your Starter plan includes 1 business. Upgrade to Pro ($59.99/mo) for unlimited businesses.',
         planLimit: true,
         currentPlan: user.plan,
         suggestedPlan: 'pro'

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { query } from '@/lib/db'
 import { addMonths } from 'date-fns'
+import { generateToken } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
+      token: generateToken(newUser.id),
       message: coupon
         ? 'Account created successfully. Your free trial has started.'
         : 'Account created successfully. Payment required to activate.',

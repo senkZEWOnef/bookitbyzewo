@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     if (coupon.applicable_plan !== plan) {
       return NextResponse.json({ 
         valid: false,
-        error: `This coupon is only valid for ${coupon.applicable_plan.charAt(0).toUpperCase() + coupon.applicable_plan.slice(1)} plan. Coupons do not work for Team or Pro plans.` 
+        error: `This coupon is only valid for ${coupon.applicable_plan.charAt(0).toUpperCase() + coupon.applicable_plan.slice(1)} plan.` 
       })
     }
 

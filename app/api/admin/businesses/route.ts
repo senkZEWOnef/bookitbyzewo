@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { ensureModerationColumns } from '@/lib/moderation'
+import { AdminActionError, setBusinessSuspended } from '@/lib/admin-actions'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Get all businesses with owner info and stats using Neon
+    await ensureModerationColumns()
     const result = await query(`
       SELECT 
         b.*,
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
       slug: row.slug,
       location: row.location,
       timezone: row.timezone,
-      subscription_status: row.subscription_status || 'trial',
+      subscription_status: row.suspended_at ? 'suspended' : 'active',
       created_at: row.created_at,
       updated_at: row.updated_at,
       profiles: {
@@ -97,23 +99,17 @@ export async function POST(request: NextRequest) {
 
   try {
     const { action, businessId } = await request.json()
-
-    if (action === 'suspend') {
-      // Suspend business by setting subscription to inactive
-      await query(
-        'UPDATE businesses SET subscription_status = $1, updated_at = NOW() WHERE id = $2',
-        ['suspended', businessId]
-      )
-    } else if (action === 'activate') {
-      // Activate business
-      await query(
-        'UPDATE businesses SET subscription_status = $1, updated_at = NOW() WHERE id = $2',
-        ['active', businessId]
-      )
+    if (!businessId || !['suspend', 'activate'].includes(action)) {
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
+
+    await setBusinessSuspended(businessId, action === 'suspend')
 
     return NextResponse.json({ success: true })
   } catch (error) {
+    if (error instanceof AdminActionError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
     console.error('Admin business action error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

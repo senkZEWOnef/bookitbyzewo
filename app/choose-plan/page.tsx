@@ -11,7 +11,7 @@ const plans = [
     name: 'Free Trial',
     price: '$0',
     period: '30 days',
-    description: 'Try all features for 30 days',
+    description: 'Try everything free for 30 days',
     gradient: 'linear-gradient(135deg, #6c757d 0%, #5a6268 100%)',
     cta: 'Start Free Trial',
     popular: false,
@@ -19,33 +19,23 @@ const plans = [
   },
   {
     id: 'solo',
-    name: 'Solo Plan',
-    price: '$19',
+    name: 'Starter Plan',
+    price: '$29.99',
     period: '/mo',
-    description: 'Perfect for individual service providers',
+    description: '1 business with up to 10 staff members',
     gradient: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-    cta: 'Choose Solo',
+    cta: 'Choose Starter',
     popular: false
-  },
-  {
-    id: 'team',
-    name: 'Team Plan',
-    price: '$39',
-    period: '/mo',
-    description: 'For growing teams and multiple staff',
-    gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-    cta: 'Choose Team',
-    popular: true
   },
   {
     id: 'pro',
     name: 'Pro Plan',
-    price: '$79',
+    price: '$59.99',
     period: '/mo',
-    description: 'For established businesses',
-    gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    description: 'Unlimited businesses and unlimited staff',
+    gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
     cta: 'Choose Pro',
-    popular: false
+    popular: true
   }
 ]
 
@@ -64,6 +54,21 @@ export default function ChoosePlanPage() {
     }
   }, [])
 
+
+  // Sends the browser to Stripe Checkout for the chosen plan
+  const startCheckout = async (planId: string) => {
+    const response = await fetch('/api/billing/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+      body: JSON.stringify({ plan: planId })
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok || !result.url) {
+      throw new Error(result.error || 'Could not start checkout. Please try again.')
+    }
+    window.location.href = result.url
+  }
+
   const handlePlanSelection = async (planId: string) => {
     if (!pendingUser) {
       setError('No user data found. Please sign up again.')
@@ -77,7 +82,7 @@ export default function ChoosePlanPage() {
       if (planId === 'trial') {
         const response = await fetch('/api/auth/activate-trial', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
           body: JSON.stringify({
             userId: pendingUser.id
           })
@@ -96,11 +101,10 @@ export default function ChoosePlanPage() {
           setError(result.error || 'Failed to activate trial')
         }
       } else {
-        localStorage.setItem('selectedPlan', planId)
-        router.push(`/payment?plan=${planId}&userId=${pendingUser.id}`)
+        await startCheckout(planId) // redirects to Stripe
       }
     } catch (err) {
-      setError('An error occurred. Please try again.')
+      setError(err instanceof Error ? err.message : 'An error occurred. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -216,7 +220,7 @@ export default function ChoosePlanPage() {
         {/* Plans Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
           gap: '30px',
           marginBottom: '60px'
         }}>

@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { query } from './db'
+import { ensureModerationColumns } from './moderation'
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET
@@ -54,8 +55,9 @@ export function getUserIdFromRequest(request: Request): string | null {
 }
 
 export async function loginUser(email: string, password: string) {
+  await ensureModerationColumns()
   const result = await query(
-    'SELECT id, email, password, full_name, plan, plan_status, trial_ends_at FROM users WHERE email = $1',
+    'SELECT id, email, password, full_name, plan, plan_status, trial_ends_at, banned_at FROM users WHERE email = $1',
     [email]
   )
   
@@ -67,6 +69,9 @@ export async function loginUser(email: string, password: string) {
   const isValid = await verifyPassword(password, user.password)
   if (!isValid) {
     throw new Error('Invalid credentials')
+  }
+  if (user.banned_at) {
+    throw new Error('This account has been suspended. Please contact support.')
   }
   
   const token = generateToken(user.id)

@@ -369,8 +369,8 @@ export default function HomePage() {
                 </h5>
                 <p className="text-muted">
                   {language === 'es'
-                    ? 'Habla con tu asistente para ver, aceptar o cancelar citas. Incluido en el plan Pro.'
-                    : 'Just tell your assistant to read, accept or cancel appointments for you. Included in the Pro plan.'}
+                    ? 'Habla con tu asistente para ver, aceptar o cancelar citas. Incluido en todos los planes.'
+                    : 'Just tell your assistant to read, accept or cancel appointments for you. Included in every plan.'}
                 </p>
               </div>
             </Col>

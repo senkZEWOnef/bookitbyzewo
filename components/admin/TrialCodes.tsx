@@ -102,8 +102,8 @@ export default function TrialCodes() {
             <Form.Group className="mb-3">
               <Form.Label className="text-white">Package</Form.Label>
               <Form.Select value={form.tier} onChange={e => setForm(p => ({ ...p, tier: e.target.value }))}>
-                <option value="full">Full features (Pro)</option>
-                <option value="basic">Basic (Solo)</option>
+                <option value="full">Pro (unlimited businesses & staff)</option>
+                <option value="basic">Starter (1 business, 10 staff)</option>
               </Form.Select>
             </Form.Group>
 
@@ -204,7 +204,7 @@ export default function TrialCodes() {
                       <code className="text-success fw-bold">{c.code}</code>
                       {c.label && <div className="small text-white-50">{c.label}</div>}
                     </td>
-                    <td>{c.applicable_plan === 'pro' ? 'Full' : 'Basic'}</td>
+                    <td>{c.applicable_plan === 'pro' ? 'Pro' : 'Starter'}</td>
                     <td>{c.free_trial_months === 12 ? '1 year' : `${c.free_trial_months} mo`}</td>
                     <td>{c.used_count}/{c.max_uses}</td>
                     <td>{new Date(c.expires_at).toLocaleDateString()}</td>

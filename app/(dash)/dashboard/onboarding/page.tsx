@@ -311,7 +311,7 @@ export default function OnboardingPage() {
                       </p>
                       <p className="mb-0">
                         <small>
-                          💰 <strong>Want multiple businesses?</strong> Upgrade to Pro ($79/month) to manage unlimited businesses.
+                          💰 <strong>Want multiple businesses?</strong> Upgrade to Pro ($59.99/month) to manage unlimited businesses.
                         </small>
                       </p>
                     </Alert>

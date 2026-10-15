@@ -12,6 +12,7 @@ import {
   getTrialDaysRemaining,
   shouldShowUpgradePrompt
 } from '@/lib/plan-restrictions'
+import { UNLIMITED } from '@/lib/plans'
 
 interface SubscriptionGateProps {
   children: React.ReactNode
@@ -56,9 +57,9 @@ export default function SubscriptionGate({
 
       switch (requiredAction) {
         case 'add_staff':
-          if (subscription.staffCount >= limits.staffLimit) {
+          if (limits.staffLimit < UNLIMITED && subscription.staffCount >= limits.staffLimit) {
             blocked = true
-            reason = `You've reached your plan limit of ${limits.staffLimit} staff member${limits.staffLimit > 1 ? 's' : ''}.`
+            reason = `You've reached your plan limit of ${limits.staffLimit} staff members. Upgrade to Pro for unlimited staff.`
           }
           break
         case 'create_booking':
@@ -70,7 +71,7 @@ export default function SubscriptionGate({
         case 'use_advanced_calendar':
           if (!limits.canUseAdvancedCalendar) {
             blocked = true
-            reason = 'Advanced calendar features require Team plan or higher.'
+            reason = 'Advanced calendar features are not available on your plan.'
           }
           break
         case 'use_automated_whatsapp':
@@ -94,7 +95,7 @@ export default function SubscriptionGate({
         case 'use_advanced_reports':
           if (!limits.canUseAdvancedReports) {
             blocked = true
-            reason = 'Advanced reports require Team plan or higher.'
+            reason = 'Advanced reports are not available on your plan.'
           }
           break
       }
@@ -179,11 +180,15 @@ function UpgradePrompt({
           <div className="row g-3 mb-3">
             <div className="col-md-6">
               <small className="text-muted">Staff Members</small>
-              <ProgressBar 
-                now={(subscription.staffCount / limits.staffLimit) * 100}
-                label={`${subscription.staffCount} / ${limits.staffLimit}`}
-                variant={subscription.staffCount >= limits.staffLimit ? 'danger' : 'primary'}
-              />
+              {limits.staffLimit >= UNLIMITED ? (
+                <div>{subscription.staffCount} (unlimited)</div>
+              ) : (
+                <ProgressBar 
+                  now={(subscription.staffCount / limits.staffLimit) * 100}
+                  label={`${subscription.staffCount} / ${limits.staffLimit}`}
+                  variant={subscription.staffCount >= limits.staffLimit ? 'danger' : 'primary'}
+                />
+              )}
             </div>
             {limits.monthlyBookingsLimit && (
               <div className="col-md-6">

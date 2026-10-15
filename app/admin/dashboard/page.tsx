@@ -26,6 +26,10 @@ interface AnalyticsData {
   failed_payments: number
   recent_signups: number
   revenue_this_month: number
+  mrr: number
+  active_starter: number
+  active_pro: number
+  past_due: number
 }
 
 interface Business {
@@ -48,6 +52,10 @@ interface User {
   full_name: string
   phone: string
   email: string
+  plan: string
+  plan_status: string
+  trial_ends_at: string | null
+  banned_at: string | null
   created_at: string
   businesses: Business[]
 }
@@ -278,7 +286,7 @@ export default function AdminDashboard() {
       })
 
       if (response.ok) {
-        setMessage({ type: 'success', content: `Business ${action}d successfully` })
+        setMessage({ type: 'success', content: `Business ${action === 'suspend' ? 'suspended' : 'activated'} successfully` })
         loadBusinesses()
       } else {
         setMessage({ type: 'error', content: `Failed to ${action} business` })
@@ -290,7 +298,13 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleUserAction = async (action: string, userId: string) => {
+  const handleUserAction = async (action: 'ban' | 'unban' | 'delete', userId: string) => {
+    const warnings: Record<string, string> = {
+      ban: 'Ban this user? They will lose access and their booking pages will go offline.',
+      delete: 'PERMANENTLY delete this user and all their businesses, services and appointments? Their subscription will be cancelled. This cannot be undone.'
+    }
+    if (warnings[action] && !window.confirm(warnings[action])) return
+    const done = { ban: 'banned', unban: 'unbanned', delete: 'deleted' }[action]
     try {
       setLoadingData(true)
       const response = await fetch('/api/admin/users', {
@@ -303,10 +317,11 @@ export default function AdminDashboard() {
       })
 
       if (response.ok) {
-        setMessage({ type: 'success', content: `User ${action}ned successfully` })
+        setMessage({ type: 'success', content: `User ${done} successfully` })
         loadUsers()
       } else {
-        setMessage({ type: 'error', content: `Failed to ${action} user` })
+        const data = await response.json().catch(() => ({}))
+        setMessage({ type: 'error', content: data.error || `Failed to ${action} user` })
       }
     } catch (error) {
       setMessage({ type: 'error', content: `Failed to ${action} user` })
@@ -495,7 +510,46 @@ export default function AdminDashboard() {
                               >
                                 <i className="fas fa-dollar-sign text-success mb-2" style={{ fontSize: '1.5rem' }}></i>
                                 <h3 className="text-success fw-bold mb-1">${analytics.revenue_this_month}</h3>
-                                <p className="text-white-50 mb-0 small">Revenue This Month</p>
+                                <p className="text-white-50 mb-0 small">Booking Deposits This Month</p>
+                              </div>
+                            </Col>
+                            <Col md={4}>
+                              <div 
+                                className="text-center p-4 rounded-3"
+                                style={{ 
+                                  background: 'rgba(16, 185, 129, 0.1)',
+                                  border: '1px solid rgba(16, 185, 129, 0.2)'
+                                }}
+                              >
+                                <i className="fas fa-sync-alt text-success mb-2" style={{ fontSize: '1.5rem' }}></i>
+                                <h3 className="text-success fw-bold mb-1">${analytics.mrr.toFixed(2)}</h3>
+                                <p className="text-white-50 mb-0 small">Monthly Recurring Revenue</p>
+                              </div>
+                            </Col>
+                            <Col md={4}>
+                              <div 
+                                className="text-center p-4 rounded-3"
+                                style={{ 
+                                  background: 'rgba(16, 185, 129, 0.1)',
+                                  border: '1px solid rgba(16, 185, 129, 0.2)'
+                                }}
+                              >
+                                <i className="fas fa-layer-group text-success mb-2" style={{ fontSize: '1.5rem' }}></i>
+                                <h3 className="text-success fw-bold mb-1">{analytics.active_starter} / {analytics.active_pro}</h3>
+                                <p className="text-white-50 mb-0 small">Paying: Starter / Pro</p>
+                              </div>
+                            </Col>
+                            <Col md={4}>
+                              <div 
+                                className="text-center p-4 rounded-3"
+                                style={{ 
+                                  background: 'rgba(16, 185, 129, 0.1)',
+                                  border: '1px solid rgba(16, 185, 129, 0.2)'
+                                }}
+                              >
+                                <i className="fas fa-exclamation-circle text-success mb-2" style={{ fontSize: '1.5rem' }}></i>
+                                <h3 className="text-success fw-bold mb-1">{analytics.past_due}</h3>
+                                <p className="text-white-50 mb-0 small">Payment Past Due</p>
                               </div>
                             </Col>
                           </Row>
@@ -663,7 +717,8 @@ export default function AdminDashboard() {
                             <tr>
                               <th className="text-white fw-medium border-0">User</th>
                               <th className="text-white fw-medium border-0">Email</th>
-                              <th className="text-white fw-medium border-0">Business</th>
+                              <th className="text-white fw-medium border-0">Plan</th>
+                              <th className="text-white fw-medium border-0">Status</th>
                               <th className="text-white fw-medium border-0">Joined</th>
                               <th className="text-white fw-medium border-0">Actions</th>
                             </tr>
@@ -678,25 +733,23 @@ export default function AdminDashboard() {
                                   </div>
                                 </td>
                                 <td className="border-0 text-white">{user.email}</td>
+                                <td className="border-0 text-white">
+                                  {user.plan === 'pro' || user.plan === 'team' ? 'Pro' : 'Starter'}
+                                </td>
                                 <td className="border-0">
-                                  {user.businesses?.length > 0 ? (
-                                    <div>
-                                      <div className="text-white">{user.businesses[0].name}</div>
-                                      <Badge 
-                                        className="fw-medium px-2 py-1"
-                                        style={{
-                                          background: 'rgba(16, 185, 129, 0.2)',
-                                          color: '#10b981',
-                                          border: '1px solid #10b981',
-                                          fontSize: '0.7rem'
-                                        }}
-                                      >
-                                        Owner
-                                      </Badge>
-                                    </div>
-                                  ) : (
-                                    <small className="text-white-50">No business</small>
-                                  )}
+                                  <Badge
+                                    bg={
+                                      user.plan_status === 'active' ? 'success'
+                                        : user.plan_status === 'trial' ? 'info'
+                                        : user.plan_status === 'past_due' ? 'warning'
+                                        : 'secondary'
+                                    }
+                                  >
+                                    {user.plan_status === 'trial' && user.trial_ends_at
+                                      ? `Trial until ${new Date(user.trial_ends_at).toLocaleDateString()}`
+                                      : user.plan_status}
+                                  </Badge>
+                                  {user.banned_at && <Badge bg="danger" className="ms-1">Banned</Badge>}
                                 </td>
                                 <td className="border-0 text-white-50">
                                   {new Date(user.created_at).toLocaleDateString()}
@@ -705,12 +758,12 @@ export default function AdminDashboard() {
                                   <div className="d-flex gap-2">
                                     <Button 
                                       size="sm" 
-                                      variant="outline-warning"
-                                      onClick={() => handleUserAction('ban', user.id)}
+                                      variant={user.banned_at ? 'outline-success' : 'outline-warning'}
+                                      onClick={() => handleUserAction(user.banned_at ? 'unban' : 'ban', user.id)}
                                       disabled={loadingData}
                                       style={{ fontSize: '0.75rem' }}
                                     >
-                                      Ban
+                                      {user.banned_at ? 'Unban' : 'Ban'}
                                     </Button>
                                     <Button 
                                       size="sm" 

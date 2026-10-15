@@ -13,61 +13,54 @@ export default function PricingPage() {
   const plans = [
     {
       name: t('pricing.plan.solo.name'),
-      price: '$19',
+      price: '$29.99',
       period: '/mo',
       description: t('pricing.plan.solo.desc'),
       gradient: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
       features: [
-        t('pricing.features.staff_one'),
-        t('pricing.features.location_one'),
+        t('pricing.features.business_one'),
+        t('pricing.features.staff_ten'),
         t('pricing.features.bookings'),
-        t('pricing.features.whatsapp_manual'),
+        t('pricing.features.whatsapp_auto'),
+        t('pricing.features.ai_assistant'),
         t('pricing.features.payments'),
         t('pricing.features.bilingual'),
-        t('pricing.features.calendar_basic'),
+        t('pricing.features.calendar_advanced'),
+        t('pricing.features.scheduling'),
+        t('pricing.features.customers'),
         t('pricing.features.support_email')
       ],
       cta: t('pricing.cta'),
       popular: false
     },
     {
-      name: t('pricing.plan.team.name'),
-      price: '$39',
+      name: t('pricing.plan.pro.name'),
+      price: '$59.99',
       period: '/mo',
-      description: t('pricing.plan.team.desc'),
+      description: t('pricing.plan.pro.desc'),
       gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
       features: [
-        t('pricing.features.staff_five'),
-        t('pricing.features.location_multiple'),
-        t('pricing.features.scheduling'),
-        t('pricing.features.calendar_advanced'),
-        t('pricing.features.customers'),
-        t('pricing.features.reports_basic'),
+        t('pricing.features.business_unlimited'),
+        t('pricing.features.staff_unlimited'),
         t('pricing.features.everything_solo'),
-        t('pricing.features.support_priority')
+        t('pricing.features.support_email')
       ],
       cta: t('pricing.cta'),
       popular: true
-    },
-    {
-      name: t('pricing.plan.pro.name'),
-      price: '$79',
-      period: '/mo',
-      description: t('pricing.plan.pro.desc'),
-      gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-      features: [
-        t('pricing.features.staff_ten'),
-        t('pricing.features.whatsapp_auto'),
-        t('pricing.features.domains'),
-        t('pricing.features.reports_advanced'),
-        t('pricing.features.api'),
-        t('pricing.features.integrations'),
-        t('pricing.features.everything_team'),
-        t('pricing.features.support_phone')
-      ],
-      cta: t('pricing.cta'),
-      popular: false
     }
+  ]
+
+  // Both plans include the same features; they differ only in how many businesses and staff are allowed
+  const comparisonRows: { label: string; solo: boolean | string; pro: boolean | string }[] = [
+    { label: 'pricing.table.locations', solo: 'pricing.table.one', pro: 'pricing.table.unlimited' },
+    { label: 'pricing.table.staff_members', solo: 'pricing.table.up_to_10', pro: 'pricing.table.unlimited' },
+    { label: 'pricing.table.whatsapp_integration', solo: 'pricing.table.automated', pro: 'pricing.table.automated' },
+    { label: 'pricing.table.ai_assistant', solo: true, pro: true },
+    { label: 'pricing.table.payment_processing', solo: true, pro: true },
+    { label: 'pricing.table.bilingual_support', solo: true, pro: true },
+    { label: 'pricing.table.calendar_sync', solo: true, pro: true },
+    { label: 'pricing.table.advanced_reports', solo: true, pro: true },
+    { label: 'pricing.table.support', solo: 'pricing.table.email', pro: 'pricing.table.email' }
   ]
 
   return (
@@ -113,7 +106,7 @@ export default function PricingPage() {
         <Container>
           <Row className="justify-content-center position-relative">
             {plans.map((plan, index) => (
-              <Col lg={4} md={6} key={index} className="mb-4">
+              <Col lg={5} md={6} key={index} className="mb-4">
                 <Card className={`h-100 border-0 position-relative overflow-hidden ${plan.popular ? 'shadow-xl' : 'shadow-lg'}`} 
                       style={{ transform: plan.popular ? 'scale(1.05)' : 'scale(1)' }}>
                   {plan.popular && (
@@ -199,130 +192,20 @@ export default function PricingPage() {
                       <tr>
                         <th className="py-4 px-4 fw-bold">{t('pricing.table.features')}</th>
                         <th className="text-center py-4 px-3 fw-bold">{t('pricing.table.solo')}</th>
-                        <th className="text-center py-4 px-3 fw-bold position-relative" style={{ paddingTop: '2rem' }}>
-                          <Badge bg="success" className="position-absolute start-50 translate-middle px-2 py-1 small" style={{ top: '0.5rem' }}>
-                            {t('pricing.table.popular')}
-                          </Badge>
-                          {t('pricing.table.team')}
-                        </th>
                         <th className="text-center py-4 px-3 fw-bold">{t('pricing.table.pro')}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="border-bottom">
-                        <td className="py-4 px-4 fw-semibold">{t('pricing.table.staff_members')}</td>
-                        <td className="text-center py-4">1</td>
-                        <td className="text-center py-4 bg-light">{t('pricing.table.up_to_5')}</td>
-                        <td className="text-center py-4">{t('pricing.table.up_to_10')}</td>
-                      </tr>
-                      <tr className="border-bottom">
-                        <td className="py-4 px-4 fw-semibold">{t('pricing.table.locations')}</td>
-                        <td className="text-center py-4">1</td>
-                        <td className="text-center py-4 bg-light">{t('pricing.table.multiple')}</td>
-                        <td className="text-center py-4">{t('pricing.table.unlimited')}</td>
-                      </tr>
-                      <tr className="border-bottom">
-                        <td className="py-4 px-4 fw-semibold">{t('pricing.table.whatsapp_integration')}</td>
-                        <td className="text-center py-4">
-                          <Badge bg="warning" text="dark">{t('pricing.table.manual')}</Badge>
-                        </td>
-                        <td className="text-center py-4 bg-light">
-                          <Badge bg="warning" text="dark">{t('pricing.table.manual')}</Badge>
-                        </td>
-                        <td className="text-center py-4">
-                          <Badge bg="success">{t('pricing.table.automated')}</Badge>
-                        </td>
-                      </tr>
-                      <tr className="border-bottom">
-                        <td className="py-4 px-4 fw-semibold">{t('pricing.table.payment_processing')}</td>
-                        <td className="text-center py-4">
-                          <i className="fas fa-check text-success fs-5"></i>
-                        </td>
-                        <td className="text-center py-4 bg-light">
-                          <i className="fas fa-check text-success fs-5"></i>
-                        </td>
-                        <td className="text-center py-4">
-                          <i className="fas fa-check text-success fs-5"></i>
-                        </td>
-                      </tr>
-                      <tr className="border-bottom">
-                        <td className="py-4 px-4 fw-semibold">{t('pricing.table.bilingual_support')}</td>
-                        <td className="text-center py-4">
-                          <i className="fas fa-check text-success fs-5"></i>
-                        </td>
-                        <td className="text-center py-4 bg-light">
-                          <i className="fas fa-check text-success fs-5"></i>
-                        </td>
-                        <td className="text-center py-4">
-                          <i className="fas fa-check text-success fs-5"></i>
-                        </td>
-                      </tr>
-                      <tr className="border-bottom">
-                        <td className="py-4 px-4 fw-semibold">{t('pricing.table.calendar_sync')}</td>
-                        <td className="text-center py-4">
-                          <Badge bg="light" text="dark">{t('pricing.table.basic')}</Badge>
-                        </td>
-                        <td className="text-center py-4 bg-light">
-                          <i className="fas fa-check text-success fs-5"></i>
-                        </td>
-                        <td className="text-center py-4">
-                          <i className="fas fa-check text-success fs-5"></i>
-                        </td>
-                      </tr>
-                      <tr className="border-bottom">
-                        <td className="py-4 px-4 fw-semibold">{t('pricing.table.advanced_reports')}</td>
-                        <td className="text-center py-4">
-                          <i className="fas fa-times text-muted"></i>
-                        </td>
-                        <td className="text-center py-4 bg-light">
-                          <Badge bg="light" text="dark">{t('pricing.table.basic')}</Badge>
-                        </td>
-                        <td className="text-center py-4">
-                          <Badge bg="primary">{t('pricing.table.advanced')}</Badge>
-                        </td>
-                      </tr>
-                      <tr className="border-bottom">
-                        <td className="py-4 px-4 fw-semibold">{t('pricing.table.custom_domain')}</td>
-                        <td className="text-center py-4">
-                          <i className="fas fa-times text-muted"></i>
-                        </td>
-                        <td className="text-center py-4 bg-light">
-                          <i className="fas fa-times text-muted"></i>
-                        </td>
-                        <td className="text-center py-4">
-                          <i className="fas fa-check text-success fs-5"></i>
-                        </td>
-                      </tr>
-                      <tr className="border-bottom">
-                        <td className="py-4 px-4 fw-semibold">{t('pricing.table.api_access')}</td>
-                        <td className="text-center py-4">
-                          <i className="fas fa-times text-muted"></i>
-                        </td>
-                        <td className="text-center py-4 bg-light">
-                          <i className="fas fa-times text-muted"></i>
-                        </td>
-                        <td className="text-center py-4">
-                          <i className="fas fa-check text-success fs-5"></i>
-                        </td>
-                      </tr>
-                      <tr className="border-bottom">
-                        <td className="py-4 px-4 fw-semibold">{t('pricing.table.ai_assistant')}</td>
-                        <td className="text-center py-4">
-                          <i className="fas fa-times text-muted"></i>
-                        </td>
-                        <td className="text-center py-4 bg-light">
-                          <i className="fas fa-times text-muted"></i>
-                        </td>
-                        <td className="text-center py-4">
-                          <i className="fas fa-check text-success fs-5"></i>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-4 px-4 fw-semibold">{t('pricing.table.support')}</td>
-                        <td className="text-center py-4">{t('pricing.table.email')}</td>
-                        <td className="text-center py-4 bg-light">{t('pricing.table.priority_email')}</td>
-                        <td className="text-center py-4">{t('pricing.table.phone_email')}</td>
-                      </tr>
+                      {comparisonRows.map((row, i) => (
+                        <tr key={row.label} className={i < comparisonRows.length - 1 ? 'border-bottom' : ''}>
+                          <td className="py-4 px-4 fw-semibold">{t(row.label)}</td>
+                          {[row.solo, row.pro].map((value, col) => (
+                            <td key={col} className="text-center py-4">
+                              {value === true ? <i className="fas fa-check text-success fs-5"></i> : t(value as string)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
                     </tbody>
                   </Table>
                 </div>

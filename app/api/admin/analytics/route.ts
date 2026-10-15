@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { PLAN_PRICE_CENTS } from '@/lib/billing'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -72,7 +73,25 @@ export async function GET(request: NextRequest) {
       revenue_this_month = 0
     }
 
+    // Subscription numbers: only paying (active) accounts count towards monthly recurring revenue
+    const planCounts = await query(
+      `SELECT CASE WHEN plan = 'pro' OR plan = 'team' THEN 'pro' ELSE 'solo' END AS plan, plan_status, COUNT(*)::int AS count
+       FROM users GROUP BY 1, 2`
+    )
+    const countFor = (plan: string, status: string) =>
+      planCounts.rows.find((r: any) => r.plan === plan && r.plan_status === status)?.count || 0
+    const active_starter = countFor('solo', 'active')
+    const active_pro = countFor('pro', 'active')
+    const past_due = countFor('solo', 'past_due') + countFor('pro', 'past_due')
+    const mrr = Math.round(
+      (active_starter * PLAN_PRICE_CENTS.solo + active_pro * PLAN_PRICE_CENTS.pro) / 100 * 100
+    ) / 100
+
     const analytics = {
+      mrr,
+      active_starter,
+      active_pro,
+      past_due,
       total_businesses: parseInt(businessesResult.rows[0].count) || 0,
       total_appointments: parseInt(appointmentsResult.rows[0].count) || 0,
       active_subscriptions: parseInt(activeUsersResult.rows[0].count) || 0,
