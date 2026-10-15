@@ -24,6 +24,9 @@ export default function SettingsPage() {
   const [businessForm, setBusinessForm] = useState({
     name: '',
     slug: '',
+    description: '',
+    phone: '',
+    email: '',
     timezone: '',
     location: '',
     messaging_mode: 'manual',
@@ -67,11 +70,19 @@ export default function SettingsPage() {
       if (response.ok && result.businesses && result.businesses.length > 0) {
         const userBusiness = result.businesses.find((b: any) => b.owner_id === user.id)
         if (userBusiness) {
+          // The list above only has the basics; load the full store settings the form needs
+          const detailResponse = await fetch(`/api/businesses/${userBusiness.id}`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+          })
+          if (detailResponse.ok) Object.assign(userBusiness, (await detailResponse.json()).business)
           setBusiness(userBusiness)
           setBusinessForm({
             name: userBusiness.name,
             slug: userBusiness.slug,
-            timezone: userBusiness.timezone,
+            description: userBusiness.description || '',
+            phone: userBusiness.phone || '',
+            email: userBusiness.email || '',
+            timezone: userBusiness.timezone || 'America/Puerto_Rico',
             location: userBusiness.location || '',
             messaging_mode: userBusiness.messaging_mode || 'manual',
             ath_movil_enabled: userBusiness.ath_movil_enabled || false,
@@ -133,7 +144,7 @@ export default function SettingsPage() {
       console.error('Error updating business:', error)
       setMessage({
         type: 'error',
-        content: locale === 'es' ? 'Error al actualizar configuración del negocio.' : 'Failed to update business settings.'
+        content: error instanceof Error && error.message ? error.message : (locale === 'es' ? 'Error al actualizar configuración del negocio.' : 'Failed to update business settings.')
       })
     } finally {
       setSubmitting(false)
@@ -394,13 +405,56 @@ export default function SettingsPage() {
                   <Form.Control
                     type="text"
                     value={businessForm.slug}
-                    onChange={(e) => setBusinessForm(prev => ({ ...prev, slug: e.target.value }))}
+                    onChange={(e) => setBusinessForm(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))}
                     required
                   />
                   <Form.Text className="text-muted">
                     {locale === 'es' ? 'Tu URL de reservas: /book/' : 'Your booking URL: /book/'}{businessForm.slug}
                   </Form.Text>
                 </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>
+                    {locale === 'es' ? 'Descripción' : 'Description'}
+                  </Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={3}
+                    maxLength={500}
+                    value={businessForm.description}
+                    onChange={(e) => setBusinessForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder={locale === 'es' ? 'Cuéntales a tus clientes qué haces' : 'Tell your clients what you do'}
+                  />
+                </Form.Group>
+
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        {locale === 'es' ? 'Teléfono del negocio' : 'Business phone'}
+                      </Form.Label>
+                      <Form.Control
+                        type="tel"
+                        value={businessForm.phone}
+                        onChange={(e) => setBusinessForm(prev => ({ ...prev, phone: e.target.value }))}
+                        placeholder="+1 787 555 0123"
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>
+                        {locale === 'es' ? 'Correo del negocio' : 'Business email'}
+                      </Form.Label>
+                      <Form.Control
+                        type="email"
+                        value={businessForm.email}
+                        onChange={(e) => setBusinessForm(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="hola@minegocio.com"
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
 
                 <Form.Group className="mb-3">
                   <Form.Label>

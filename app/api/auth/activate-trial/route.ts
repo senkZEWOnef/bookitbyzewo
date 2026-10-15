@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { getUserIdFromRequest } from '@/lib/auth'
+import { ensureDefaultBusiness } from '@/lib/business-setup'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,6 +31,8 @@ export async function POST(request: NextRequest) {
     if (result.rows.length === 0) {
       return NextResponse.json({ error: 'A free trial has already been used on this account.' }, { status: 409 })
     }
+    await ensureDefaultBusiness(userId).catch(error => console.error('Default business setup failed:', error))
+
     const user = result.rows[0]
     console.log('✅ Trial activated for user:', user.email)
 

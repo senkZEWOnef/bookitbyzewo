@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Container, Row, Col, Button, Card, Badge } from 'react-bootstrap'
 import { useLanguage } from '@/lib/language-context'
@@ -10,6 +11,37 @@ export const dynamic = 'force-dynamic'
 export default function HomePage() {
   const { t, language } = useLanguage()
   const router = useRouter()
+  const es = language === 'es'
+  const showcase = [
+    {
+      img: 'booking',
+      title: es ? 'Una página de reservas que tus clientes van a amar' : 'A booking page your clients will love',
+      text: es ? 'Comparte tu enlace o código QR. Tus clientes eligen el servicio y la hora, tú recibes la cita.' : 'Share your link or QR code. Clients pick a service and a time, and the booking lands in your calendar.',
+      points: es ? ['Tu propia página con tu marca', 'Enlace y código QR para compartir', 'Depósitos con Stripe o ATH Móvil'] : ['Your own page with your branding', 'Link and QR code to share', 'Deposits with Stripe or ATH Móvil'],
+      alt: es ? 'Página de reservas' : 'Booking page'
+    },
+    {
+      img: 'whatsapp',
+      title: es ? 'Recordatorios que se envían solos' : 'Reminders that send themselves',
+      text: es ? 'Confirmaciones y recordatorios automáticos por WhatsApp para que menos clientes falten.' : 'Automatic WhatsApp confirmations and reminders, so fewer clients no-show.',
+      points: es ? ['Confirmación al reservar', 'Recordatorio antes de la cita', 'En español e inglés'] : ['Confirmation when they book', 'Reminder before the appointment', 'In English and Spanish'],
+      alt: es ? 'Mensajes de WhatsApp' : 'WhatsApp messages'
+    },
+    {
+      img: 'agenda',
+      title: es ? 'Tu día completo de un vistazo' : 'Your whole day at a glance',
+      text: es ? 'Citas confirmadas y pendientes en una sola vista, en tu teléfono o en tu computadora.' : 'Confirmed and pending appointments in one view, on your phone or your computer.',
+      points: es ? ['Calendario por día y semana', 'Gestiona tu equipo y horarios', 'Funciona en cualquier dispositivo'] : ['Day and week calendar', 'Manage your team and schedules', 'Works on any device'],
+      alt: es ? 'Agenda del día' : 'Daily agenda'
+    },
+    {
+      img: 'assistant',
+      title: es ? 'Solo díselo a tu asistente' : 'Just tell your assistant',
+      text: es ? 'Pregúntale por tu agenda, o pídele que acepte o cancele citas. Incluido en todos los planes.' : 'Ask about your schedule, or have it accept or cancel appointments. Included in every plan.',
+      points: es ? ['Lee tus citas por ti', 'Acepta con una frase', 'Te pide confirmación antes de cancelar'] : ['Reads your appointments for you', 'Accepts with one sentence', 'Asks you to confirm before cancelling'],
+      alt: es ? 'Asistente con IA' : 'AI assistant'
+    }
+  ]
   return (
     <>
       {/* Hero Section */}
@@ -18,8 +50,8 @@ export default function HomePage() {
           background: 'radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%)'
         }}></div>
         <Container className="position-relative">
-          <Row className="min-vh-100 align-items-center justify-content-center text-center">
-            <Col lg={10} xl={8}>
+          <Row className="min-vh-100 align-items-center py-5">
+            <Col lg={6} className="text-center text-lg-start">
               <div className="animate-fadeInUp">
                 <Badge bg="light" text="dark" className="mb-4 px-4 py-2 rounded-pill">
                   <i className="fab fa-whatsapp text-success me-2"></i>
@@ -34,10 +66,10 @@ export default function HomePage() {
                     </svg>
                   </span>
                 </h1>
-                <p className="lead mb-5 opacity-90" style={{ fontSize: '1.3rem', maxWidth: '700px', margin: '0 auto 3rem' }}>
+                <p className="lead mb-5 opacity-90 mx-auto mx-lg-0" style={{ fontSize: '1.3rem', maxWidth: '700px' }}>
                   {t('hero.subtitle')}
                 </p>
-                <div className="d-flex gap-4 justify-content-center flex-wrap mb-5">
+                <div className="d-flex gap-4 justify-content-center justify-content-lg-start flex-wrap mb-5">
                   <Link href="/signup">
                     <Button size="lg" variant="light" className="px-5 py-3 fw-semibold">
                       <i className="fas fa-rocket me-2"></i>
@@ -57,7 +89,7 @@ export default function HomePage() {
                 </div>
                 
                 {/* Trust indicators */}
-                <div className="d-flex justify-content-center align-items-center gap-4 flex-wrap text-white-50">
+                <div className="d-flex justify-content-center justify-content-lg-start align-items-center gap-4 flex-wrap text-white-50">
                   <div className="d-flex align-items-center gap-2">
                     <i className="fas fa-check-circle text-success"></i>
                     <span>30-day free trial</span>
@@ -71,6 +103,24 @@ export default function HomePage() {
                     <span>Cancel anytime</span>
                   </div>
                 </div>
+              </div>
+            </Col>
+            <Col lg={6} className="mt-5 mt-lg-0">
+              <div className="position-relative mx-auto" style={{ maxWidth: '520px', height: 'clamp(430px, 62vw, 640px)' }}>
+                <Image
+                  src={`/images/phone-booking-${language === 'es' ? 'es' : 'en'}.png`}
+                  alt={language === 'es' ? 'Página de reservas de un negocio en BookIt' : 'A business booking page on BookIt'}
+                  width={864} height={1624} priority
+                  className="position-absolute"
+                  style={{ left: 0, top: 0, height: '100%', width: 'auto', filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.35))' }}
+                />
+                <Image
+                  src={`/images/phone-whatsapp-${language === 'es' ? 'es' : 'en'}.png`}
+                  alt={language === 'es' ? 'Confirmación y recordatorios por WhatsApp' : 'Confirmations and reminders on WhatsApp'}
+                  width={864} height={1624}
+                  className="position-absolute d-none d-sm-block"
+                  style={{ right: 0, top: '8%', height: '88%', width: 'auto', filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.35))' }}
+                />
               </div>
             </Col>
           </Row>
@@ -118,6 +168,48 @@ export default function HomePage() {
               </Row>
             </Col>
           </Row>
+        </Container>
+      </section>
+
+      {/* Product showcase */}
+      <section
+        className="section-padding"
+        style={{ backgroundImage: 'url(/images/backgrounds/bg-light-mint.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}
+      >
+        <Container>
+          <Row className="justify-content-center text-center mb-5">
+            <Col lg={8}>
+              <h2 className="display-5 fw-bold mb-3">{es ? 'Míralo en acción' : 'See it in action'}</h2>
+              <p className="lead text-muted">
+                {es ? 'Todo lo que necesitas para llenar tu calendario, en un solo lugar.' : 'Everything you need to keep your calendar full, in one place.'}
+              </p>
+            </Col>
+          </Row>
+          {showcase.map((item, i) => (
+            <Row key={item.img} className={`align-items-center g-5 ${i < showcase.length - 1 ? 'mb-5 pb-4' : ''} ${i % 2 ? 'flex-lg-row-reverse' : ''}`}>
+              <Col lg={6} className="text-center">
+                <Image
+                  src={`/images/phone-${item.img}-${es ? 'es' : 'en'}.png`}
+                  alt={item.alt}
+                  width={864} height={1624}
+                  loading="lazy"
+                  style={{ width: 'min(100%, 340px)', height: 'auto' }}
+                />
+              </Col>
+              <Col lg={6}>
+                <h3 className="display-6 fw-bold mb-3">{item.title}</h3>
+                <p className="lead text-muted mb-4">{item.text}</p>
+                <ul className="list-unstyled mb-0">
+                  {item.points.map(point => (
+                    <li key={point} className="d-flex align-items-start mb-3">
+                      <i className="fas fa-check-circle text-success me-3 mt-1"></i>
+                      <span className="fs-5">{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Col>
+            </Row>
+          ))}
         </Container>
       </section>
 

@@ -73,6 +73,22 @@ export default function DashboardLayout({
     return () => window.removeEventListener('profileUpdated', handleProfileUpdate)
   }, [])
 
+  // Every account owns a store: create it if it does not exist yet (new accounts, trial codes, older accounts)
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token || !localStorage.getItem('user')) return
+    fetch('/api/businesses/ensure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ locale })
+    })
+      .then(response => (response.ok ? response.json() : null))
+      .then(data => {
+        if (data?.created) window.location.reload() // pages load their store on start, so reload once
+      })
+      .catch(() => {})
+  }, [])
+
   const handleSignOut = async () => {
     localStorage.removeItem('user')
     localStorage.removeItem('token')

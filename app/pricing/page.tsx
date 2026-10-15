@@ -66,7 +66,10 @@ export default function PricingPage() {
   return (
     <>
       {/* Hero Section */}
-      <section className="bg-mesh text-white position-relative section-padding">
+      <section
+        className="bg-mesh text-white position-relative section-padding"
+        style={{ backgroundImage: 'url(/images/backgrounds/bg-dark-emerald.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}
+      >
         <Container className="position-relative">
           <Row className="justify-content-center text-center">
             <Col lg={8}>

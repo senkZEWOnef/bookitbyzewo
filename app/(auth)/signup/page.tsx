@@ -21,7 +21,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
 
   // Shared links look like /signup?code=FULL3M-ABC123
   useEffect(() => {
@@ -62,7 +62,8 @@ export default function SignupPage() {
           password: formData.password,
           full_name: formData.fullName,
           phone: formData.phone,
-          trial_code: formData.trialCode.trim() || undefined
+          trial_code: formData.trialCode.trim() || undefined,
+          locale: language
         })
       })
 

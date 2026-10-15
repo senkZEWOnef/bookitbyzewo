@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { query } from './db'
 import { PLAN_NAMES } from './plans'
+import { ensureDefaultBusiness } from './business-setup'
 
 export const BILLING_PLANS = ['solo', 'pro'] as const
 export type BillingPlan = (typeof BILLING_PLANS)[number]
@@ -88,5 +89,9 @@ export async function applySubscription(subscription: Stripe.Subscription): Prom
      WHERE id = $1`,
     [found.rows[0].id, isBillingPlan(metaPlan) ? metaPlan : null, planStatus, subscription.id, customerId, trialEnd]
   )
+  // Paying (or trialing through Stripe) customers always have a store to run
+  if (planStatus === 'active' || planStatus === 'trial') {
+    await ensureDefaultBusiness(found.rows[0].id).catch(error => console.error('Default business setup failed:', error))
+  }
   return true
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { getUserIdFromRequest } from '@/lib/auth'
+import { ensureBusinessColumns, SLUG_PATTERN } from '@/lib/business-setup'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,9 +31,10 @@ export async function GET(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
+    await ensureBusinessColumns()
     const result = await query(
       `SELECT
-        id, name, slug, location, timezone, messaging_mode,
+        id, name, slug, description, phone, email, location, timezone, messaging_mode,
         deposit_enabled, deposit_amount, deposit_policy,
         ath_movil_enabled, ath_movil_public_token,
         stripe_enabled, stripe_publishable_key,
@@ -76,6 +78,9 @@ export async function PUT(
     const {
       name,
       slug,
+      description,
+      phone,
+      email,
       location,
       timezone,
       messaging_mode,
@@ -89,6 +94,18 @@ export async function PUT(
       stripe_publishable_key,
       stripe_secret_key
     } = await request.json()
+
+    await ensureBusinessColumns()
+
+    if (name !== undefined && (typeof name !== 'string' || !name.trim() || name.length > 100)) {
+      return NextResponse.json({ error: 'Business name is required (100 characters max)' }, { status: 400 })
+    }
+    if (slug !== undefined && (typeof slug !== 'string' || !SLUG_PATTERN.test(slug))) {
+      return NextResponse.json({ error: 'Booking URL can only use lowercase letters, numbers and dashes' }, { status: 400 })
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: 'Invalid email address' }, { status: 400 })
+    }
 
     // If slug is being changed, check if the new slug is available
     if (slug) {
@@ -107,8 +124,11 @@ export async function PUT(
     let paramCount = 1
 
     const fields: Record<string, any> = {
-      name,
+      name: typeof name === 'string' ? name.trim() : name,
       slug,
+      description,
+      phone,
+      email,
       location,
       timezone,
       messaging_mode,
@@ -140,7 +160,7 @@ export async function PUT(
 
     const result = await query(
       `UPDATE businesses SET ${updates.join(', ')} WHERE id = $${paramCount}
-       RETURNING id, name, slug, location, timezone, messaging_mode,
+       RETURNING id, name, slug, description, phone, email, location, timezone, messaging_mode,
          deposit_enabled, deposit_amount, deposit_policy,
          ath_movil_enabled, stripe_enabled, updated_at`,
       values

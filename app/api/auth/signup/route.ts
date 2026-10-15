@@ -3,10 +3,11 @@ import bcrypt from 'bcryptjs'
 import { query } from '@/lib/db'
 import { addMonths } from 'date-fns'
 import { generateToken } from '@/lib/auth'
+import { ensureDefaultBusiness } from '@/lib/business-setup'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, full_name, phone, trial_code } = await request.json()
+    const { email, password, full_name, phone, trial_code, locale } = await request.json()
 
     // Validate input
     if (!email || !password || !full_name) {
@@ -81,6 +82,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (coupon) {
+      // The trial starts now, so the store is ready the moment they land on the dashboard
+      await ensureDefaultBusiness(newUser.id, locale === 'en' ? 'en' : 'es').catch(error => console.error('Default business setup failed:', error))
       await query('INSERT INTO coupon_usage (coupon_id, user_id) VALUES ($1, $2)', [coupon.id, newUser.id]).catch(() => {})
     }
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
-import { validatePlanLimit, getPlanLimits, isUnlimited } from '@/lib/plans'
+import { getPlanLimits, isUnlimited } from '@/lib/plans'
+import { getUserIdFromRequest } from '@/lib/auth'
+import { createBusiness, SLUG_PATTERN } from '@/lib/business-setup'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -37,13 +39,20 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, slug, location, timezone, businessType, userId } = await request.json()
+    // The account comes from the login token, never from the request body
+    const userId = getUserIdFromRequest(request)
+    if (!userId) {
+      return NextResponse.json({ error: 'Please log in again.' }, { status: 401 })
+    }
+    const { name, slug, location, timezone, businessType } = await request.json()
 
     console.log('🟢 Business creation request:', { name, slug, location, timezone, businessType, userId })
 
-    if (!name || !slug || !userId) {
-      console.log('🔴 Missing required fields:', { name: !!name, slug: !!slug, userId: !!userId })
+    if (!name || !slug) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+    if (!SLUG_PATTERN.test(slug)) {
+      return NextResponse.json({ error: 'Booking URL can only use lowercase letters, numbers and dashes' }, { status: 400 })
     }
 
     // Get user's plan information and check subscription status
@@ -110,69 +119,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Booking URL already taken' }, { status: 400 })
     }
 
-    // Create the business
-    console.log('🟡 Creating business with data:', { name, slug, location, timezone, userId })
-    const result = await query(
-      `INSERT INTO businesses (
-        name, slug, location, timezone, owner_id, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) 
-      RETURNING id, name, slug`,
-      [
-        name,
-        slug,
-        location || null,
-        timezone,
-        userId
-      ]
-    )
-
-    const business = result.rows[0]
-    console.log('🟢 Business created successfully:', business)
-
-    // Create default services based on business type
-    const starterServices = getStarterServices(businessType)
-    console.log('🟡 Creating', starterServices.length, 'starter services for business type:', businessType)
-    
-    for (const service of starterServices) {
-      console.log('🟡 Creating service:', service.name)
-      await query(
-        `INSERT INTO services (
-          business_id, name, duration_minutes, price_cents, deposit_cents, 
-          is_active, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())`,
-        [
-          business.id,
-          service.name,
-          service.duration_min,
-          service.price_cents,
-          service.deposit_cents
-        ]
-      )
-    }
-    
-    console.log('🟢 All services created successfully')
-
-    // Create default business hours (Sunday closed, Monday-Friday 9AM-5PM, Saturday 10AM-3PM)
-    const defaultSchedule = [
-      { day_of_week: 0, is_closed: true }, // Sunday - closed
-      { day_of_week: 1, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Monday
-      { day_of_week: 2, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Tuesday
-      { day_of_week: 3, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Wednesday
-      { day_of_week: 4, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Thursday
-      { day_of_week: 5, is_closed: false, open_time: '09:00', close_time: '17:00', slot_duration_minutes: 30 }, // Friday
-      { day_of_week: 6, is_closed: false, open_time: '10:00', close_time: '15:00', slot_duration_minutes: 30 }  // Saturday
-    ]
-    
-    console.log('🟡 Creating default business hours...')
-    for (const hours of defaultSchedule) {
-      await query(
-        `INSERT INTO business_default_hours (
-          business_id, day_of_week, is_closed, open_time, close_time, slot_duration_minutes, break_times, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
-        [business.id, hours.day_of_week, hours.is_closed, hours.open_time || null, hours.close_time || null, hours.slot_duration_minutes || 30, '[]']
-      )
-    }
-    console.log('🟢 Default business hours created successfully')
+    const business = await createBusiness({ userId, name: String(name).trim().slice(0, 100), slug, location, timezone, businessType })
 
     return NextResponse.json({ 
       success: true, 
@@ -186,38 +133,5 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Business creation error:', error)
     return NextResponse.json({ error: 'Failed to create business' }, { status: 500 })
-  }
-}
-
-function getStarterServices(businessType: string) {
-  switch (businessType) {
-    case 'barber':
-      return [
-        { name: 'Haircut', duration_min: 45, price_cents: 3500, deposit_cents: 1000 },
-        { name: 'Beard Trim', duration_min: 20, price_cents: 1500, deposit_cents: 500 },
-        { name: 'Haircut & Beard', duration_min: 60, price_cents: 4500, deposit_cents: 1500 }
-      ]
-    case 'beauty':
-      return [
-        { name: 'Manicure', duration_min: 60, price_cents: 3000, deposit_cents: 1000 },
-        { name: 'Pedicure', duration_min: 90, price_cents: 4000, deposit_cents: 1500 },
-        { name: 'Gel Nails', duration_min: 120, price_cents: 6000, deposit_cents: 2000 }
-      ]
-    case 'cleaning':
-      return [
-        { name: 'House Cleaning (Small)', duration_min: 120, price_cents: 8000, deposit_cents: 2000 },
-        { name: 'House Cleaning (Large)', duration_min: 240, price_cents: 15000, deposit_cents: 3000 },
-        { name: 'Deep Cleaning', duration_min: 300, price_cents: 20000, deposit_cents: 5000 }
-      ]
-    case 'tutor':
-      return [
-        { name: '1-on-1 Tutoring', duration_min: 60, price_cents: 5000, deposit_cents: 1000 },
-        { name: 'Group Session', duration_min: 90, price_cents: 7500, deposit_cents: 1500 }
-      ]
-    default:
-      return [
-        { name: 'Consultation', duration_min: 30, price_cents: 2500, deposit_cents: 500 },
-        { name: 'Service', duration_min: 60, price_cents: 5000, deposit_cents: 1000 }
-      ]
   }
 }

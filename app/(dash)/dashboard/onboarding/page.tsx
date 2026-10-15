@@ -44,93 +44,103 @@ export default function OnboardingPage() {
     timezone: 'America/Puerto_Rico',
     businessType: ''
   })
+  const [businessId, setBusinessId] = useState<string | null>(null)
+  const [slugTouched, setSlugTouched] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [hasExistingBusiness, setHasExistingBusiness] = useState(false)
-  const [isPro, setIsPro] = useState(false)
+  const [hasExistingBusiness] = useState(false)
+  const [isPro] = useState(false)
   const router = useRouter()
 
-  // Check if user already has a business on component mount
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+  })
+
+  // Every account already has a store (created automatically). Load it so the owner can personalize it.
   useEffect(() => {
-    console.log('🟡 ONBOARDING: Checking if user already has a business...')
-    
-    const checkExistingBusiness = async () => {
+    const loadStore = async () => {
       try {
-        const userString = localStorage.getItem('user')
-        if (!userString) return
+        const ensured = await fetch('/api/businesses/ensure', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({})
+        })
+        if (!ensured.ok) return
+        const { business } = await ensured.json()
+        setBusinessId(business.id)
 
-        const user = JSON.parse(userString)
-
-        // Check user's plan (for now, assume everyone is on free plan unless they have pro metadata)
-        const userIsPro = user.user_metadata?.plan === 'pro' || user.user_metadata?.subscription === 'pro'
-        setIsPro(userIsPro)
-        console.log('🟡 ONBOARDING: User plan check - isPro:', userIsPro)
-        
-        // TODO: Check for existing business with Neon database
-        // For now, assume no existing business
-        setHasExistingBusiness(false)
-        
-        console.log('🟡 ONBOARDING: No existing business found, staying on onboarding')
+        const detail = await fetch(`/api/businesses/${business.id}`, { headers: authHeaders() })
+        const full = detail.ok ? (await detail.json()).business : business
+        setBusinessData(prev => ({
+          ...prev,
+          name: full.name || '',
+          slug: full.slug || '',
+          location: full.location || '',
+          timezone: full.timezone || prev.timezone
+        }))
+        // Keep the booking link they already have unless they choose to change it
+        setSlugTouched(true)
       } catch (err) {
-        console.error('🟡 ONBOARDING: Error checking existing business:', err)
+        console.error('Onboarding: could not load store', err)
       }
     }
-    
-    checkExistingBusiness()
+    loadStore()
   }, [])
 
   const generateSlug = (name: string) => {
     return name
       .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9\s-]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
-      .trim()
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 50)
   }
 
   const handleNameChange = (name: string) => {
     setBusinessData(prev => ({
       ...prev,
       name,
-      slug: generateSlug(name)
+      // Follow the name until they edit the link themselves
+      slug: slugTouched ? prev.slug : generateSlug(name)
     }))
   }
 
   const handleSubmit = async () => {
+    if (!businessId) {
+      setError('We could not find your store. Please refresh the page.')
+      return
+    }
     setLoading(true)
     setError('')
 
     try {
-      const userString = localStorage.getItem('user')
-      if (!userString) throw new Error('Not authenticated')
-      
-      const user = JSON.parse(userString)
-
-      console.log('Creating business for user:', user.id)
-      console.log('Business data:', businessData)
-
-      const response = await fetch('/api/businesses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await fetch(`/api/businesses/${businessId}`, {
+        method: 'PUT',
+        headers: authHeaders(),
         body: JSON.stringify({
-          name: businessData.name,
+          name: businessData.name.trim(),
           slug: businessData.slug,
           location: businessData.location,
-          timezone: businessData.timezone,
-          businessType: businessData.businessType,
-          userId: user.id
+          timezone: businessData.timezone
         })
       })
-
       const result = await response.json()
-
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to create business')
+        throw new Error(result.error || 'Failed to save your store')
       }
-      
-      console.log('Business setup completed successfully! Redirecting to dashboard...')
+
+      if (businessData.businessType) {
+        await fetch(`/api/businesses/${businessId}/starter-services`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ businessType: businessData.businessType })
+        })
+      }
+
       router.push('/dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Setup failed')
@@ -210,7 +220,7 @@ export default function OnboardingPage() {
                       <Form.Control
                         type="text"
                         value={businessData.slug}
-                        onChange={(e) => setBusinessData(prev => ({ ...prev, slug: e.target.value }))}
+                        onChange={(e) => { setSlugTouched(true); setBusinessData(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })) }}
                         placeholder="your-business-name"
                       />
                     </div>
@@ -297,7 +307,7 @@ export default function OnboardingPage() {
               {/* Step 3: Review & Create */}
               {step === 3 && (
                 <div>
-                  <h5 className="mb-4">Review & Create</h5>
+                  <h5 className="mb-4">Review & Save</h5>
                   
                   {/* Warning for free users with existing business */}
                   {hasExistingBusiness && !isPro && (
@@ -343,8 +353,8 @@ export default function OnboardingPage() {
                   <Alert variant="info">
                     <h6>What happens next:</h6>
                     <ul className="mb-0">
-                      <li>We'll create your business and booking page</li>
-                      <li>Add starter services based on your business type</li>
+                      <li>We'll save your store details and booking page</li>
+                      <li>Replace the sample services with ones for your business type (you can edit them anytime)</li>
                       <li>Set default availability (Mon-Fri, 9 AM - 5 PM)</li>
                       <li>You can customize everything later in your dashboard</li>
                     </ul>
@@ -359,7 +369,7 @@ export default function OnboardingPage() {
                       onClick={handleSubmit}
                       disabled={loading}
                     >
-                      {loading ? 'Creating...' : 'Create My Business'}
+                      {loading ? 'Saving...' : 'Save and Continue'}
                     </Button>
                   </div>
                 </div>
