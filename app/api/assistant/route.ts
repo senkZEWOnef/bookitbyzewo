@@ -83,6 +83,16 @@ You can list and read appointments, accept pending ones, and cancel them. Use th
     return NextResponse.json({ reply, pending })
   } catch (error) {
     console.error('Assistant error:', error)
+    const status = (error as any)?.status
+    if (status === 401 || status === 403) {
+      return NextResponse.json({ error: 'The assistant key (ANTHROPIC_API_KEY) was rejected. Check it in the Netlify environment variables.' }, { status: 502 })
+    }
+    if (status === 404) {
+      return NextResponse.json({ error: `The assistant model "${MODEL}" was not found. Set ASSISTANT_MODEL to a valid model.` }, { status: 502 })
+    }
+    if (status === 400 && /credit balance/i.test(String((error as any)?.message))) {
+      return NextResponse.json({ error: 'The assistant account is out of credits. Add credits in the Anthropic console.' }, { status: 502 })
+    }
     return NextResponse.json({ error: 'The assistant ran into a problem. Please try again.' }, { status: 500 })
   }
 }
