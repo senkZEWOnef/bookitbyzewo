@@ -12,6 +12,7 @@ export interface PlanLimits {
   hasApiAccess: boolean
   hasAutomatedWhatsApp: boolean
   hasAiAssistant: boolean
+  hasShop: boolean
   supportLevel: 'email' | 'priority_email' | 'phone_email'
 }
 
@@ -21,7 +22,7 @@ export const UNLIMITED = 999999
 // Both plans include the same features (automated WhatsApp, AI assistant, scheduling, reports...).
 // They differ only in how many businesses and staff members an account may have.
 // 'solo' is the Starter plan (1 business, 10 staff). 'pro' is unlimited businesses and staff.
-const FULL_FEATURES = {
+const FULL_FEATURES: Omit<PlanLimits, 'maxStaff' | 'maxLocations' | 'hasShop'> = {
   hasAdvancedCalendar: true,
   hasStaffScheduling: true,
   hasCustomerManagement: true,
@@ -31,12 +32,12 @@ const FULL_FEATURES = {
   hasApiAccess: false, // not built yet
   hasAutomatedWhatsApp: true,
   hasAiAssistant: true,
-  supportLevel: 'email' as const
+  supportLevel: 'email'
 }
 
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
-  solo: { maxStaff: 10, maxLocations: 1, ...FULL_FEATURES },
-  pro: { maxStaff: UNLIMITED, maxLocations: UNLIMITED, ...FULL_FEATURES }
+  solo: { maxStaff: 10, maxLocations: 1, ...FULL_FEATURES, hasShop: false },
+  pro: { maxStaff: UNLIMITED, maxLocations: UNLIMITED, ...FULL_FEATURES, hasShop: true }
 }
 
 export const PLAN_PRICES = {

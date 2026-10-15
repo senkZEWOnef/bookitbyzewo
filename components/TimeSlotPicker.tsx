@@ -150,26 +150,19 @@ export default function TimeSlotPicker({
             }
           </Alert>
         ) : (
-          <Row className="g-2">
+          <div className="bk-times">
             {timeSlots.map((slot) => (
-              <Col key={slot.datetime} xs={6} sm={4} md={3} xl={2}>
-                <Button
-                  variant={selectedSlot === slot.datetime ? 'success' : 'outline-primary'}
-                  size="sm"
-                  className="w-100 text-nowrap"
-                  style={{ 
-                    minHeight: '44px',
-                    fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
-                    padding: '0.5rem 0.25rem'
-                  }}
-                  disabled={!slot.available}
-                  onClick={() => slot.available && onSelectSlot(slot.datetime)}
-                >
-                  {formatTime(slot.datetime)}
-                </Button>
-              </Col>
+              <button
+                key={slot.datetime}
+                type="button"
+                className={`bk-time ${selectedSlot === slot.datetime ? 'sel' : ''}`}
+                disabled={!slot.available}
+                onClick={() => slot.available && onSelectSlot(slot.datetime)}
+              >
+                {formatTime(slot.datetime)}
+              </button>
             ))}
-          </Row>
+          </div>
         )}
       </div>
     </div>

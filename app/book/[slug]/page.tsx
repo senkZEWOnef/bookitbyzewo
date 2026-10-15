@@ -8,6 +8,8 @@ import MonthlyCalendar from '@/components/MonthlyCalendar'
 import TimeSlotPicker from '@/components/TimeSlotPicker'
 import ATHMovilPayment from '@/components/ATHMovilPayment'
 import StripePayment from '@/components/StripePayment'
+import { format, addDays, startOfDay } from 'date-fns'
+import { es as dfEs, enUS as dfEn } from 'date-fns/locale'
 import { Service, Business } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -37,6 +39,7 @@ export default function BookingPage() {
   const [selectedStaff, setSelectedStaff] = useState<string>('')
   const [selectedDate, setSelectedDate] = useState<string>('')
   const [selectedSlot, setSelectedSlot] = useState<string>('')
+  const [showFullCalendar, setShowFullCalendar] = useState(false)
   const [customerData, setCustomerData] = useState({
     name: '',
     phone: '',
@@ -225,17 +228,16 @@ export default function BookingPage() {
   }
 
   return (
-    <Container className="py-3 py-md-4" style={{ marginTop: '80px' }}>
-      <Row className="justify-content-center">
-        <Col xs={12} lg={8}>
-          {/* Header */}
-          <div className="text-center mb-3 mb-md-4">
-            <h2 className="fw-bold fs-3 fs-md-2">{business?.name}</h2>
-            <p className="text-muted mb-0">
-              {locale === 'es' ? 'Reserva tu cita' : 'Book your appointment'}
-            </p>
-          </div>
-
+    <div className="bk-page">
+      <div className="bk-hero">
+        <div className="bk-wrap">
+          <h1>{business?.name}</h1>
+          <p>{locale === 'es' ? 'Reserva tu cita en línea' : 'Book your appointment online'}</p>
+          {business?.location && <div className="bk-loc"><i className="fas fa-map-marker-alt me-2"></i>{business.location}</div>}
+        </div>
+      </div>
+      <div className="bk-wrap bk-body">
+        <div>
           {/* Demo Banner */}
           {businessSlug === 'demo' && (
             <Alert variant="info" className="mb-3 mb-md-4 border-0 shadow-sm">
@@ -259,30 +261,12 @@ export default function BookingPage() {
             </Alert>
           )}
 
-          {/* Progress Steps */}
-          <div className="d-flex flex-wrap justify-content-center mb-3 mb-md-4 gap-2">
-            {[
-              { key: 'service', label: locale === 'es' ? 'Servicio' : 'Service' },
-              { key: 'time', label: locale === 'es' ? 'Horario' : 'Time' },
-              { key: 'details', label: locale === 'es' ? 'Detalles' : 'Details' },
-              ...(((selectedService?.deposit_cents ?? 0) > 0 && (business?.ath_movil_enabled || business?.stripe_enabled)) ? 
-                [{ key: 'payment', label: locale === 'es' ? 'Pago' : 'Payment' }] : [])
-            ].map((stepInfo, index, array) => (
-              <div key={stepInfo.key} className="d-flex align-items-center">
-                <Badge 
-                  bg={step === stepInfo.key ? 'success' : 'secondary'}
-                  className="rounded-circle p-2"
-                  style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  {index + 1}
-                </Badge>
-                <span className={`ms-2 small ${step === stepInfo.key ? 'fw-bold' : 'text-muted'}`}>
-                  {stepInfo.label}
-                </span>
-                {index < array.length - 1 && <span className="mx-2 mx-md-3 text-muted d-none d-sm-inline">→</span>}
-              </div>
-            ))}
-          </div>
+          {/* Progress */}
+          {(() => {
+            const keys = ['service', 'time', 'details', ...(((selectedService?.deposit_cents ?? 0) > 0 && (business?.ath_movil_enabled || business?.stripe_enabled)) ? ['payment'] : [])]
+            const cur = keys.indexOf(step)
+            return <div className="bk-steps">{keys.map((k, i) => <span key={k} className={i <= cur ? 'on' : ''} />)}</div>
+          })()}
 
           {error && (
             <Alert variant="danger" className="mb-4" dismissible onClose={() => setError('')}>
@@ -290,14 +274,14 @@ export default function BookingPage() {
             </Alert>
           )}
 
-          <Card className="border-0 shadow">
-            <Card.Body className="p-3 p-md-4">
+          <div className="bk-card">
+            <div>
               {/* Step 1: Service Selection */}
               {step === 'service' && (
                 <div>
-                  <h5 className="mb-4">
-                    {locale === 'es' ? 'Selecciona un servicio' : 'Choose a service'}
-                  </h5>
+                  <div className="bk-title mt-0">
+                    {locale === 'es' ? 'Nuestros servicios' : 'Our services'}
+                  </div>
                   {services.map(service => (
                     <ServiceCard
                       key={service.id}
@@ -313,63 +297,61 @@ export default function BookingPage() {
               {/* Step 2: Time Selection */}
               {step === 'time' && selectedService && (
                 <div>
-                  <div className="d-flex justify-content-between align-items-center mb-4">
-                    <h5 className="mb-0">
-                      {locale === 'es' ? 'Selecciona fecha y hora' : 'Choose date and time'}
-                    </h5>
-                    <Button 
-                      variant="link" 
-                      size="sm"
-                      onClick={() => setStep('service')}
-                    >
+                  {services.length > 1 && (
+                    <button type="button" className="bk-back" onClick={() => setStep('service')}>
                       ← {locale === 'es' ? 'Cambiar servicio' : 'Change service'}
-                    </Button>
+                    </button>
+                  )}
+                  <div className="bk-service sel" style={{ cursor: 'default' }}>
+                    <div>
+                      <div className="nm">{selectedService.name}</div>
+                      <div className="meta">{selectedService.duration_min} min</div>
+                    </div>
+                    <div className="price">{formatPrice(selectedService.price_cents)}</div>
                   </div>
 
-                  <div className="mb-3 mb-md-4 p-3 bg-light rounded">
-                    <strong className="d-block">{selectedService.name}</strong>
-                    <div className="small text-muted mt-1 d-flex flex-wrap gap-2">
-                      <span><i className="fas fa-clock me-1"></i>{selectedService.duration_min} min</span>
-                      <span><i className="fas fa-dollar-sign me-1"></i>{formatPrice(selectedService.price_cents)}</span>
-                      {(selectedService?.deposit_cents ?? 0) > 0 && (
-                        <span><i className="fas fa-credit-card me-1"></i>{locale === 'es' ? 'Depósito' : 'Deposit'} {formatPrice(selectedService?.deposit_cents ?? 0)}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Calendar for date selection */}
-                  <div className="mb-3 mb-md-4">
-                    <h6 className="mb-3 fs-6">
-                      <span className="badge bg-primary me-2">1</span>
-                      {locale === 'es' ? 'Selecciona una fecha' : 'Select a date'}
-                    </h6>
-                    <div className="calendar-container">
-                      <MonthlyCalendar
-                        businessId={business?.id || ''}
-                        staffId={selectedStaff}
-                        onDateSelect={handleDateSelect}
-                        readOnly={false}
-                        publicView={true}
-                      />
-                    </div>
+                  {/* Date selection */}
+                  <div className="mb-3">
+                    <div className="bk-title">{locale === 'es' ? 'Elige la hora' : 'Pick a time'}</div>
+                    {!showFullCalendar ? (
+                      <div className="bk-days">
+                        {Array.from({ length: 14 }, (_, i) => {
+                          const d = addDays(startOfDay(new Date()), i)
+                          const key = format(d, 'yyyy-MM-dd')
+                          const dl = locale === 'es' ? dfEs : dfEn
+                          return (
+                            <button key={key} type="button" className={`bk-day ${selectedDate === key ? 'sel' : ''}`} onClick={() => handleDateSelect(key)}>
+                              <small>{format(d, 'EEE', { locale: dl }).replace('.', '')}</small>
+                              <b>{format(d, 'd')}</b>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="calendar-container">
+                        <MonthlyCalendar
+                          businessId={business?.id || ''}
+                          staffId={selectedStaff}
+                          onDateSelect={handleDateSelect}
+                          readOnly={false}
+                          publicView={true}
+                        />
+                      </div>
+                    )}
+                    <button type="button" className="bk-link" onClick={() => setShowFullCalendar(v => !v)}>
+                      <i className="far fa-calendar-alt me-1"></i>
+                      {showFullCalendar
+                        ? (locale === 'es' ? 'Ver próximos días' : 'Show next days')
+                        : (locale === 'es' ? 'Ver calendario completo' : 'Show full calendar')}
+                    </button>
                   </div>
 
                   {/* Time slots for selected date */}
                   {selectedDate && (
-                    <div className="mb-3 mb-md-4">
-                      <h6 className="mb-3 fs-6">
-                        <span className="badge bg-primary me-2">2</span>
-                        {locale === 'es' ? 'Selecciona una hora' : 'Select a time'}
-                        <div className="text-muted mt-1 small">
-                          <i className="fas fa-calendar-day me-1"></i>
-                          {new Date(selectedDate).toLocaleDateString(locale === 'es' ? 'es-PR' : 'en-US', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                        </div>
-                      </h6>
+                    <div className="mb-3">
+                      <div className="text-muted small mb-2 text-capitalize">
+                        {new Date(selectedDate + 'T12:00:00').toLocaleDateString(locale === 'es' ? 'es-PR' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                      </div>
                       <TimeSlotPicker
                         businessSlug={businessSlug}
                         serviceId={selectedService.id}
@@ -382,12 +364,15 @@ export default function BookingPage() {
                     </div>
                   )}
 
+                  {!selectedDate && (
+                    <p className="text-muted small mb-0">{locale === 'es' ? 'Toca un día para ver los horarios disponibles.' : 'Tap a day to see available times.'}</p>
+                  )}
                   {selectedSlot && (
-                    <div className="text-end mt-4">
-                      <Button variant="success" onClick={handleContinueToDetails}>
+                    <div className="bk-cta"><div className="inner">
+                      <button type="button" className="bk-btn" onClick={handleContinueToDetails}>
                         {locale === 'es' ? 'Continuar' : 'Continue'}
-                      </Button>
-                    </div>
+                      </button>
+                    </div></div>
                   )}
                 </div>
               )}
@@ -395,18 +380,10 @@ export default function BookingPage() {
               {/* Step 3: Customer Details */}
               {step === 'details' && (
                 <div>
-                  <div className="d-flex justify-content-between align-items-center mb-4">
-                    <h5 className="mb-0">
-                      {locale === 'es' ? 'Tus datos' : 'Your information'}
-                    </h5>
-                    <Button 
-                      variant="link" 
-                      size="sm"
-                      onClick={() => setStep('time')}
-                    >
-                      ← {locale === 'es' ? 'Cambiar horario' : 'Change time'}
-                    </Button>
-                  </div>
+                  <button type="button" className="bk-back" onClick={() => setStep('time')}>
+                    ← {locale === 'es' ? 'Cambiar horario' : 'Change time'}
+                  </button>
+                  <div className="bk-title mt-1">{locale === 'es' ? 'Tus datos' : 'Your information'}</div>
 
                   <Form>
                     <Form.Group className="mb-3">
@@ -454,9 +431,10 @@ export default function BookingPage() {
                       </Form.Select>
                     </Form.Group>
 
-                    <div className="text-end">
-                      <Button 
-                        variant="success" 
+                    <div className="bk-cta"><div className="inner">
+                      <button
+                        type="button"
+                        className="bk-btn"
                         onClick={handleSubmitBooking}
                         disabled={submitting || !customerData.name || !customerData.phone}
                       >
@@ -468,10 +446,10 @@ export default function BookingPage() {
                         ) : (selectedService?.deposit_cents ?? 0) > 0 ? (
                           locale === 'es' ? 'Continuar al pago' : 'Continue to payment'
                         ) : (
-                          locale === 'es' ? 'Confirmar reserva' : 'Confirm booking'
+                          locale === 'es' ? 'Reservar cita' : 'Book appointment'
                         )}
-                      </Button>
-                    </div>
+                      </button>
+                    </div></div>
                   </Form>
                 </div>
               )}
@@ -705,10 +683,10 @@ export default function BookingPage() {
                   </div>
                 </div>
               )}
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

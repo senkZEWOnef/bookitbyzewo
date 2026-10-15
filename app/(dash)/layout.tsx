@@ -135,6 +135,13 @@ export default function DashboardLayout({
       available: true
     },
     {
+      icon: 'fas fa-store',
+      label: locale === 'es' ? 'Tienda' : 'Shop',
+      href: '/dashboard/shop',
+      active: pathname === '/dashboard/shop',
+      available: true
+    },
+    {
       icon: 'fas fa-users',
       label: locale === 'es' ? 'Personal' : 'Staff',
       href: '/dashboard/staff',

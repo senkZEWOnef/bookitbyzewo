@@ -77,7 +77,10 @@ export default function SubscriptionCheck({
       const user = JSON.parse(userString)
       
       // Fetch user's current subscription status
-      const response = await fetch(`/api/user/subscription?userId=${user.id}`)
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/user/subscription', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      })
       const result = await response.json()
 
       if (response.ok && result.subscription) {
