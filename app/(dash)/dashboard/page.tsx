@@ -470,7 +470,10 @@ export default function DashboardPage() {
               <h3 className="fw-bold mb-1" style={{ color: '#059669' }}>
                 {stats?.todayAppointments || 0}
               </h3>
-              <p className="text-muted mb-0 fw-medium">Today's Appointments</p>
+              <p className="text-muted mb-2 fw-medium">Today's Appointments</p>
+              <Link href="/dashboard/morning">
+                <Button variant="success" size="sm">☀️ Morning Run</Button>
+              </Link>
             </div>
           </div>
         </Col>

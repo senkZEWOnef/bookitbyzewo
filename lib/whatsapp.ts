@@ -59,6 +59,15 @@ ${data.paymentLink}
 
 ¡Gracias!`,
 
+    morning: (data: {
+      name: string
+      service: string
+      time: string
+      business: string
+    }) => `Buenos días ${data.name} ☀️ Te recuerdo tu ${data.service} hoy a las ${data.time} en ${data.business}.
+
+Si no puedes venir, avísame por aquí. ¡Nos vemos!`,
+
     runningLate: (data: {
       name: string
       minutes: number
@@ -117,6 +126,15 @@ ${data.paymentLink}
 
 Thank you!`,
 
+    morning: (data: {
+      name: string
+      service: string
+      time: string
+      business: string
+    }) => `Good morning ${data.name} ☀️ Reminder: your ${data.service} is today at ${data.time} at ${data.business}.
+
+If you can't make it, let me know here. See you soon!`,
+
     runningLate: (data: {
       name: string
       minutes: number
@@ -136,4 +154,24 @@ export function getTemplate(locale: string, templateKey: string, data: any): str
   }
   
   return ''
+}
+
+// The barber's own heads-up: today's lineup in one message
+export function buildBarberBriefing(
+  locale: string,
+  data: { business: string; date: string; items: { time: string; name: string; service: string }[] }
+): string {
+  const es = locale.startsWith('es')
+  const header = es
+    ? `☀️ Tu día en ${data.business} (${data.date}) — ${data.items.length} cita${data.items.length === 1 ? '' : 's'}:`
+    : `☀️ Your day at ${data.business} (${data.date}) — ${data.items.length} appointment${data.items.length === 1 ? '' : 's'}:`
+  const lines = data.items.map(i => `${i.time}  ${i.name} · ${i.service}`)
+  const empty = es ? 'Día libre. 🙌' : 'Day off. 🙌'
+  return [header, '', ...(lines.length ? lines : [empty])].join('\n')
+}
+
+export function formatClock(time24: string): string {
+  const [h, m] = time24.split(':').map(Number)
+  const suffix = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${suffix}`
 }
